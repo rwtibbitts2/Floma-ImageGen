@@ -45,6 +45,47 @@ router.post('/styles', async (req, res) => {
   }
 });
 
+// PUT /api/styles/:id - Update an existing image style
+router.put('/styles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validation = insertImageStyleSchema.partial().safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const updatedStyle = await storage.updateImageStyle(id, validation.data);
+    if (!updatedStyle) {
+      return res.status(404).json({ error: 'Style not found' });
+    }
+
+    res.json(updatedStyle);
+  } catch (error) {
+    console.error('Error updating style:', error);
+    res.status(500).json({ error: 'Failed to update style' });
+  }
+});
+
+// DELETE /api/styles/:id - Delete an image style
+router.delete('/styles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteImageStyle(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Style not found' });
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting style:', error);
+    res.status(500).json({ error: 'Failed to delete style' });
+  }
+});
+
 // POST /api/generate - Start image generation job
 router.post('/generate', async (req, res) => {
   try {

@@ -3,13 +3,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Upload, Plus } from 'lucide-react';
+import { Upload, Plus, Edit } from 'lucide-react';
 import { ImageStyle } from '@shared/schema';
 
 interface StyleSelectorProps {
   selectedStyle?: ImageStyle;
   onStyleSelect: (style: ImageStyle) => void;
   onUploadStyle?: () => void;
+  onEditStyle?: (style: ImageStyle) => void;
   styles?: ImageStyle[];
   isLoading?: boolean;
 }
@@ -39,7 +40,7 @@ const defaultStyles: ImageStyle[] = [
   }
 ];
 
-export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadStyle, styles, isLoading }: StyleSelectorProps) {
+export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadStyle, onEditStyle, styles, isLoading }: StyleSelectorProps) {
   // Use provided styles or fall back to default styles
   const availableStyles = styles && styles.length > 0 ? styles : defaultStyles;
 
@@ -84,9 +85,21 @@ export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadSt
 
         {selectedStyle && (
           <div className="space-y-3 p-4 bg-muted/50 rounded-md">
-            <div className="flex items-center gap-2">
-              <h4 className="font-medium text-sm">{selectedStyle.name}</h4>
-              <Badge variant="secondary" className="text-xs">Selected</Badge>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h4 className="font-medium text-sm">{selectedStyle.name}</h4>
+                <Badge variant="secondary" className="text-xs">Selected</Badge>
+              </div>
+              {onEditStyle && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEditStyle(selectedStyle)}
+                  data-testid="button-edit-style"
+                >
+                  <Edit className="w-3 h-3" />
+                </Button>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {selectedStyle.description}

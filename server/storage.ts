@@ -174,7 +174,12 @@ export class DatabaseStorage implements IStorage {
   async createGenerationJob(insertJob: InsertGenerationJob): Promise<GenerationJob> {
     const [job] = await db
       .insert(generationJobs)
-      .values(insertJob)
+      .values({
+        name: insertJob.name,
+        styleId: insertJob.styleId,
+        visualConcepts: insertJob.visualConcepts,
+        settings: insertJob.settings
+      })
       .returning();
     return job;
   }

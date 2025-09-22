@@ -38,6 +38,29 @@ export const createImageStyle = async (style: { name: string; stylePrompt: strin
   return response.json();
 };
 
+export const updateImageStyle = async (id: string, style: Partial<{ name: string; stylePrompt: string; description?: string }>): Promise<ImageStyle> => {
+  const response = await fetch(`${API_BASE}/styles/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(style),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update image style');
+  }
+  return response.json();
+};
+
+export const deleteImageStyle = async (id: string): Promise<void> => {
+  const response = await fetch(`${API_BASE}/styles/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete image style');
+  }
+};
+
 // Generation Job API
 export const startGeneration = async (request: GenerationRequest): Promise<GenerationResponse> => {
   const response = await fetch(`${API_BASE}/generate`, {

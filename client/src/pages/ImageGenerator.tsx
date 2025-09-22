@@ -10,6 +10,7 @@ import BatchProgressTracker from '@/components/BatchProgressTracker';
 import ResultsGallery from '@/components/ResultsGallery';
 import GenerationJobName from '@/components/GenerationJobName';
 import GenerationSummaryAction from '@/components/GenerationSummaryAction';
+import AddStyleModal from '@/components/AddStyleModal';
 import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +52,8 @@ export default function ImageGenerator() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentConcept, setCurrentConcept] = useState<string>();
+  const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
+  const [editingStyle, setEditingStyle] = useState<ImageStyle>();
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -175,34 +178,19 @@ export default function ImageGenerator() {
     // In real app, would create zip file and download
   };
 
-  const handleUploadStyle = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const styleData = JSON.parse(event.target?.result as string);
-            console.log('Uploaded style data:', styleData);
-            toast({
-              title: 'Style Upload',
-              description: 'Style upload functionality is coming soon!',
-            });
-          } catch (error) {
-            toast({
-              title: 'Invalid File',
-              description: 'Please upload a valid JSON file.',
-              variant: 'destructive'
-            });
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
+  const handleOpenStyleModal = () => {
+    setEditingStyle(undefined);
+    setIsStyleModalOpen(true);
+  };
+
+  const handleEditStyle = (style: ImageStyle) => {
+    setEditingStyle(style);
+    setIsStyleModalOpen(true);
+  };
+
+  const handleCloseStyleModal = () => {
+    setIsStyleModalOpen(false);
+    setEditingStyle(undefined);
   };
 
   const handleUploadConceptsFile = () => {
@@ -277,7 +265,8 @@ export default function ImageGenerator() {
                   <StyleSelector
                     selectedStyle={selectedStyle}
                     onStyleSelect={setSelectedStyle}
-                    onUploadStyle={handleUploadStyle}
+                    onUploadStyle={handleOpenStyleModal}
+                    onEditStyle={handleEditStyle}
                     styles={apiStyles}
                     isLoading={stylesLoading}
                   />
@@ -339,6 +328,13 @@ export default function ImageGenerator() {
             </div>
           </main>
         </div>
+        
+        {/* Add Style Modal */}
+        <AddStyleModal
+          open={isStyleModalOpen}
+          onOpenChange={handleCloseStyleModal}
+          editingStyle={editingStyle}
+        />
       </div>
     </SidebarProvider>
   );
