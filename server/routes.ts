@@ -181,8 +181,8 @@ async function generateImagesAsync(
     for (const concept of concepts) {
       for (let variation = 1; variation <= settings.variations; variation++) {
         try {
-          // Combine style prompt with visual concept
-          const fullPrompt = `${style.stylePrompt} ${concept}`;
+          // Construct structured prompt with clear subject and style separation
+          const fullPrompt = `A ${concept}, ${style.stylePrompt}`;
           
           console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}"`);
 
