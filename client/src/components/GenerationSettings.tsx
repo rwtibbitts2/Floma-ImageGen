@@ -28,6 +28,29 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Model Setting */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Model</Label>
+          <Select
+            value={settings.model || 'dall-e-3'}
+            onValueChange={(value: "dall-e-2" | "dall-e-3") => updateSetting('model', value)}
+          >
+            <SelectTrigger data-testid="select-model">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dall-e-3">
+                DALL-E 3
+                <Badge variant="secondary" className="ml-2 text-xs">Latest</Badge>
+              </SelectItem>
+              <SelectItem value="dall-e-2">DALL-E 2 (Lower Cost)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            DALL-E 3 produces higher quality images with better prompt adherence
+          </p>
+        </div>
+
         {/* Quality Setting */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">Quality</Label>
@@ -110,6 +133,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
         <div className="p-3 bg-muted/50 rounded-md space-y-2">
           <h4 className="text-sm font-medium">Configuration Summary</h4>
           <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>Model: <span className="font-medium">{(settings.model || 'dall-e-3').toUpperCase()}</span></div>
             <div>Quality: <span className="font-medium">{settings.quality}</span></div>
             <div>Size: <span className="font-medium">{settings.size}</span></div>
             <div>Transparency: <span className="font-medium">{settings.transparency ? 'Enabled' : 'Disabled'}</span></div>
