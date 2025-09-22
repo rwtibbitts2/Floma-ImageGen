@@ -84,7 +84,7 @@ export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadSt
         </Select>
 
         {selectedStyle && (
-          <div className="space-y-3 p-4 bg-muted/50 rounded-md">
+          <div className="p-4 bg-muted/50 rounded-md">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h4 className="font-medium text-sm">{selectedStyle.name}</h4>
@@ -100,12 +100,6 @@ export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadSt
                   <Edit className="w-3 h-3" />
                 </Button>
               )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {selectedStyle.description}
-            </p>
-            <div className="text-xs text-muted-foreground">
-              <strong>Style Prompt:</strong> {selectedStyle.stylePrompt}
             </div>
           </div>
         )}
