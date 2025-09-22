@@ -40,7 +40,7 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
   const createMutation = useMutation({
     mutationFn: createImageStyle,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/styles'] });
+      queryClient.invalidateQueries({ queryKey: ['imageStyles'] });
       toast({
         title: 'Style Created',
         description: 'New image style has been created successfully.',
@@ -60,7 +60,7 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
     mutationFn: (data: { id: string; style: Partial<StyleFormData> }) => 
       updateImageStyle(data.id, data.style),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/styles'] });
+      queryClient.invalidateQueries({ queryKey: ['imageStyles'] });
       toast({
         title: 'Style Updated',
         description: 'Image style has been updated successfully.',
