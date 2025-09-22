@@ -141,20 +141,21 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
-            {editingStyle ? 'Edit Style' : 'Add New Style'}
-          </DialogTitle>
-          <DialogDescription>
-            {useJsonMode 
-              ? 'Paste a JSON object with name, description, and stylePrompt fields.'
-              : 'Create a new image style with custom prompts and settings.'
-            }
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85dvh] p-0 overflow-hidden">
+        <div className="flex h-full flex-col">
+          <DialogHeader className="shrink-0 p-6">
+            <DialogTitle>
+              {editingStyle ? 'Edit Style' : 'Add New Style'}
+            </DialogTitle>
+            <DialogDescription>
+              {useJsonMode 
+                ? 'Paste a JSON object with name, description, and stylePrompt fields.'
+                : 'Create a new image style with custom prompts and settings.'
+              }
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 space-y-4">
           <div className="flex items-center gap-2">
             <Button
               variant={useJsonMode ? "outline" : "secondary"}
@@ -186,7 +187,7 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
   "description": "Clean professional style",
   "stylePrompt": "modern corporate design, professional, clean lines"
 }`}
-                className="min-h-32 font-mono text-sm"
+                className="min-h-24 md:min-h-32 max-h-60 resize-y font-mono text-sm"
                 data-testid="textarea-style-json"
               />
               
@@ -233,7 +234,7 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
                   value={formData.stylePrompt}
                   onChange={(e) => setFormData(prev => ({ ...prev, stylePrompt: e.target.value }))}
                   placeholder="professional corporate style, clean modern design, business presentation quality"
-                  className="min-h-24"
+                  className="min-h-24 md:min-h-32 max-h-60 resize-y"
                   data-testid="textarea-style-prompt"
                 />
               </div>
@@ -250,25 +251,26 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
               </div>
             </div>
           )}
-        </div>
+          </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={isLoading}
-            data-testid="button-cancel"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!isValid || isLoading}
-            data-testid="button-save-style"
-          >
-            {isLoading ? 'Saving...' : editingStyle ? 'Update Style' : 'Create Style'}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="shrink-0 p-6">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              disabled={isLoading}
+              data-testid="button-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!isValid || isLoading}
+              data-testid="button-save-style"
+            >
+              {isLoading ? 'Saving...' : editingStyle ? 'Update Style' : 'Create Style'}
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
