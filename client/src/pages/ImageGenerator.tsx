@@ -138,20 +138,9 @@ export default function ImageGenerator() {
 
           {/* Main Layout */}
           <main className="flex-1 overflow-hidden p-6">
-            <div className="grid grid-cols-12 gap-6 h-full">
-              {/* Left Column - Configuration */}
-              <div className="col-span-4 space-y-6 overflow-y-auto">
-                <StyleSelector
-                  selectedStyle={selectedStyle}
-                  onStyleSelect={setSelectedStyle}
-                  onUploadStyle={() => console.log('Upload style clicked')}
-                />
-                
-                <GenerationSettings
-                  settings={settings}
-                  onSettingsChange={setSettings}
-                />
-                
+            <div className="flex flex-col h-full space-y-6">
+              {/* First Row - Generation Control (full width) */}
+              <div className="w-full">
                 <GenerationControl
                   selectedStyle={selectedStyle}
                   concepts={concepts}
@@ -161,43 +150,57 @@ export default function ImageGenerator() {
                   onSaveProject={(jobName) => console.log('Save project:', jobName)}
                 />
               </div>
-
-              {/* Middle Column - Visual Concepts */}
-              <div className="col-span-4 space-y-6 overflow-y-auto">
-                <VisualConceptsInput
-                  concepts={concepts}
-                  onConceptsChange={setConcepts}
-                  onUploadFile={() => console.log('Upload concepts file clicked')}
-                />
-                
-                {/* Progress when generating */}
-                {(isGenerating || currentProgress > 0) && (
-                  <BatchProgressTracker
-                    totalConcepts={concepts.length}
-                    totalVariations={settings.variations}
-                    completedImages={currentProgress}
-                    failedImages={0}
-                    currentConcept={currentConcept}
-                    isRunning={isGenerating}
-                    onPause={handlePauseGeneration}
-                    onResume={handleResumeGeneration}
-                    onStop={handleStopGeneration}
-                    recentImages={generatedImages.slice(-4)}
+              
+              {/* Second Row - Two columns */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 min-h-0">
+                {/* Left Column (33%) - Style + Settings */}
+                <div className="md:col-span-4 space-y-6 min-h-0 overflow-y-auto">
+                  <StyleSelector
+                    selectedStyle={selectedStyle}
+                    onStyleSelect={setSelectedStyle}
+                    onUploadStyle={() => console.log('Upload style clicked')}
                   />
-                )}
-              </div>
+                  
+                  <GenerationSettings
+                    settings={settings}
+                    onSettingsChange={setSettings}
+                  />
+                </div>
 
-              {/* Right Column - Results */}
-              <div className="col-span-4 overflow-y-auto">
-                <ResultsGallery
-                  images={generatedImages}
-                  onDownload={handleDownloadImage}
-                  onDownloadAll={handleDownloadAll}
-                  onDelete={(imageId) => {
-                    setGeneratedImages(prev => prev.filter(img => img.id !== imageId));
-                    console.log('Deleted image:', imageId);
-                  }}
-                />
+                {/* Right Column (66%) - Visual Concepts + Results */}
+                <div className="md:col-span-8 space-y-6 min-h-0 overflow-y-auto">
+                  <VisualConceptsInput
+                    concepts={concepts}
+                    onConceptsChange={setConcepts}
+                    onUploadFile={() => console.log('Upload concepts file clicked')}
+                  />
+                  
+                  {/* Progress when generating */}
+                  {(isGenerating || currentProgress > 0) && (
+                    <BatchProgressTracker
+                      totalConcepts={concepts.length}
+                      totalVariations={settings.variations}
+                      completedImages={currentProgress}
+                      failedImages={0}
+                      currentConcept={currentConcept}
+                      isRunning={isGenerating}
+                      onPause={handlePauseGeneration}
+                      onResume={handleResumeGeneration}
+                      onStop={handleStopGeneration}
+                      recentImages={generatedImages.slice(-4)}
+                    />
+                  )}
+                  
+                  <ResultsGallery
+                    images={generatedImages}
+                    onDownload={handleDownloadImage}
+                    onDownloadAll={handleDownloadAll}
+                    onDelete={(imageId) => {
+                      setGeneratedImages(prev => prev.filter(img => img.id !== imageId));
+                      console.log('Deleted image:', imageId);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </main>
