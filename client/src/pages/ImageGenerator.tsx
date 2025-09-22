@@ -7,7 +7,8 @@ import VisualConceptsInput from '@/components/VisualConceptsInput';
 import GenerationSettings from '@/components/GenerationSettings';
 import BatchProgressTracker from '@/components/BatchProgressTracker';
 import ResultsGallery from '@/components/ResultsGallery';
-import GenerationControl from '@/components/GenerationControl';
+import GenerationJobName from '@/components/GenerationJobName';
+import GenerationSummaryAction from '@/components/GenerationSummaryAction';
 import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage } from '@shared/schema';
 
 // ThemeToggle component
@@ -42,12 +43,13 @@ export default function ImageGenerator() {
     transparency: false,
     variations: 1,
   });
+  const [jobName, setJobName] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentConcept, setCurrentConcept] = useState<string>();
 
-  // Mock functions for demonstration - todo: remove mock functionality
+  // Mock functions for demonstration - todo: remove mock functionality  
   const handleStartGeneration = (jobName: string) => {
     console.log('Starting generation:', { jobName, selectedStyle, concepts, settings });
     setIsGenerating(true);
@@ -125,7 +127,7 @@ export default function ImageGenerator() {
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full">
+      <div className="flex min-h-screen w-full">
         {/* Main Content */}
         <div className="flex flex-col flex-1">
           {/* Header */}
@@ -137,24 +139,21 @@ export default function ImageGenerator() {
           </header>
 
           {/* Main Layout */}
-          <main className="flex-1 overflow-hidden p-6">
+          <main className="flex-1 overflow-y-auto p-6">
             <div className="flex flex-col h-full space-y-6">
-              {/* First Row - Generation Control (full width) */}
+              {/* First Row - Job Name (full width) */}
               <div className="w-full">
-                <GenerationControl
-                  selectedStyle={selectedStyle}
-                  concepts={concepts}
-                  settings={settings}
-                  isRunning={isGenerating}
-                  onStartGeneration={handleStartGeneration}
-                  onSaveProject={(jobName) => console.log('Save project:', jobName)}
+                <GenerationJobName
+                  jobName={jobName}
+                  onJobNameChange={setJobName}
+                  disabled={isGenerating}
                 />
               </div>
               
               {/* Second Row - Two columns */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left Column (33%) - Style + Settings */}
-                <div className="md:col-span-4 space-y-6 min-h-0 overflow-y-auto">
+                <div className="md:col-span-4 space-y-6">
                   <StyleSelector
                     selectedStyle={selectedStyle}
                     onStyleSelect={setSelectedStyle}
@@ -168,7 +167,7 @@ export default function ImageGenerator() {
                 </div>
 
                 {/* Right Column (66%) - Visual Concepts + Results */}
-                <div className="md:col-span-8 space-y-6 min-h-0 overflow-y-auto">
+                <div className="md:col-span-8 space-y-6">
                   <VisualConceptsInput
                     concepts={concepts}
                     onConceptsChange={setConcepts}
@@ -201,6 +200,19 @@ export default function ImageGenerator() {
                     }}
                   />
                 </div>
+              </div>
+              
+              {/* Bottom Row - Generation Summary and Action (full width) */}
+              <div className="w-full">
+                <GenerationSummaryAction
+                  selectedStyle={selectedStyle}
+                  concepts={concepts}
+                  settings={settings}
+                  jobName={jobName}
+                  isRunning={isGenerating}
+                  onStartGeneration={handleStartGeneration}
+                  onSaveProject={(name) => console.log('Save project:', name)}
+                />
               </div>
             </div>
           </main>
