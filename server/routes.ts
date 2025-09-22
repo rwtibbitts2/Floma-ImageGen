@@ -188,7 +188,7 @@ async function generateImagesAsync(
 
           // Generate image using OpenAI
           const response = await openai.images.generate({
-            model: settings.model || "dall-e-3",
+            model: settings.model || "gpt-image-1",
             prompt: fullPrompt,
             n: 1,
             size: settings.size,
