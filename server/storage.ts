@@ -1,5 +1,7 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type GenerationSettings } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type GenerationSettings, imageStyles, generationJobs, generatedImages } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -9,6 +11,8 @@ export interface IStorage {
   getImageStyleById(id: string): Promise<ImageStyle | undefined>;
   getAllImageStyles(): Promise<ImageStyle[]>;
   createImageStyle(style: InsertImageStyle): Promise<ImageStyle>;
+  updateImageStyle(id: string, updates: Partial<InsertImageStyle>): Promise<ImageStyle | undefined>;
+  deleteImageStyle(id: string): Promise<boolean>;
   
   // Generation Job management
   getGenerationJobById(id: string): Promise<GenerationJob | undefined>;
@@ -115,9 +119,103 @@ export class MemStorage implements IStorage {
     this.generatedImages.set(id, updatedImage);
     return updatedImage;
   }
+
+  async updateImageStyle(id: string, updates: Partial<InsertImageStyle>): Promise<ImageStyle | undefined> {
+    const style = this.imageStyles.get(id);
+    if (!style) return undefined;
+    
+    const updatedStyle = { ...style, ...updates };
+    this.imageStyles.set(id, updatedStyle);
+    return updatedStyle;
+  }
+
+  async deleteImageStyle(id: string): Promise<boolean> {
+    return this.imageStyles.delete(id);
+  }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getImageStyleById(id: string): Promise<ImageStyle | undefined> {
+    const [style] = await db.select().from(imageStyles).where(eq(imageStyles.id, id));
+    return style || undefined;
+  }
+
+  async getAllImageStyles(): Promise<ImageStyle[]> {
+    return await db.select().from(imageStyles);
+  }
+
+  async createImageStyle(insertStyle: InsertImageStyle): Promise<ImageStyle> {
+    const [style] = await db
+      .insert(imageStyles)
+      .values(insertStyle)
+      .returning();
+    return style;
+  }
+
+  async updateImageStyle(id: string, updates: Partial<InsertImageStyle>): Promise<ImageStyle | undefined> {
+    const [updated] = await db
+      .update(imageStyles)
+      .set(updates)
+      .where(eq(imageStyles.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteImageStyle(id: string): Promise<boolean> {
+    const result = await db.delete(imageStyles).where(eq(imageStyles.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getGenerationJobById(id: string): Promise<GenerationJob | undefined> {
+    const [job] = await db.select().from(generationJobs).where(eq(generationJobs.id, id));
+    return job || undefined;
+  }
+
+  async createGenerationJob(insertJob: InsertGenerationJob): Promise<GenerationJob> {
+    const [job] = await db
+      .insert(generationJobs)
+      .values(insertJob)
+      .returning();
+    return job;
+  }
+
+  async updateGenerationJob(id: string, updates: Partial<GenerationJob>): Promise<GenerationJob | undefined> {
+    const [updated] = await db
+      .update(generationJobs)
+      .set(updates)
+      .where(eq(generationJobs.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getGeneratedImageById(id: string): Promise<GeneratedImage | undefined> {
+    const [image] = await db.select().from(generatedImages).where(eq(generatedImages.id, id));
+    return image || undefined;
+  }
+
+  async getGeneratedImagesByJobId(jobId: string): Promise<GeneratedImage[]> {
+    return await db.select().from(generatedImages).where(eq(generatedImages.jobId, jobId));
+  }
+
+  async createGeneratedImage(insertImage: InsertGeneratedImage): Promise<GeneratedImage> {
+    const [image] = await db
+      .insert(generatedImages)
+      .values(insertImage)
+      .returning();
+    return image;
+  }
+
+  async updateGeneratedImage(id: string, updates: Partial<GeneratedImage>): Promise<GeneratedImage | undefined> {
+    const [updated] = await db
+      .update(generatedImages)
+      .set(updates)
+      .where(eq(generatedImages.id, id))
+      .returning();
+    return updated || undefined;
+  }
+}
+
+export const storage = new DatabaseStorage();
 
 // Initialize with some default styles for demo purposes
 (async () => {

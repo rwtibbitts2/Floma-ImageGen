@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import { pgTable, text, varchar, jsonb, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -48,6 +49,26 @@ export const visualConceptsSchema = z.array(z.string().min(1));
 export const insertImageStyleSchema = createInsertSchema(imageStyles).omit({ id: true, createdAt: true });
 export const insertGenerationJobSchema = createInsertSchema(generationJobs).omit({ id: true, createdAt: true, status: true, progress: true });
 export const insertGeneratedImageSchema = createInsertSchema(generatedImages).omit({ id: true, createdAt: true, status: true });
+
+// Relations
+export const imageStylesRelations = relations(imageStyles, ({ many }) => ({
+  generationJobs: many(generationJobs),
+}));
+
+export const generationJobsRelations = relations(generationJobs, ({ one, many }) => ({
+  style: one(imageStyles, {
+    fields: [generationJobs.styleId],
+    references: [imageStyles.id],
+  }),
+  generatedImages: many(generatedImages),
+}));
+
+export const generatedImagesRelations = relations(generatedImages, ({ one }) => ({
+  job: one(generationJobs, {
+    fields: [generatedImages.jobId],
+    references: [generationJobs.id],
+  }),
+}));
 
 // Types
 export type GenerationSettings = z.infer<typeof generationSettingsSchema>;
