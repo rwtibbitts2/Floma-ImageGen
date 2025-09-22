@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from '@/components/ui/button';
 import { Moon, Sun } from 'lucide-react';
@@ -9,7 +10,9 @@ import BatchProgressTracker from '@/components/BatchProgressTracker';
 import ResultsGallery from '@/components/ResultsGallery';
 import GenerationJobName from '@/components/GenerationJobName';
 import GenerationSummaryAction from '@/components/GenerationSummaryAction';
-import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage } from '@shared/schema';
+import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob } from '@shared/schema';
+import * as api from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 // ThemeToggle component
 function ThemeToggle() {
@@ -49,51 +52,100 @@ export default function ImageGenerator() {
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentConcept, setCurrentConcept] = useState<string>();
 
-  // Mock functions for demonstration - todo: remove mock functionality  
-  const handleStartGeneration = (jobName: string) => {
-    console.log('Starting generation:', { jobName, selectedStyle, concepts, settings });
-    setIsGenerating(true);
-    setCurrentProgress(0);
+  const { toast } = useToast();
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [currentJob, setCurrentJob] = useState<GenerationJob | null>(null);
+  
+  // Fetch image styles from API
+  const { data: apiStyles = [], isLoading: stylesLoading } = useQuery({
+    queryKey: ['imageStyles'],
+    queryFn: api.getImageStyles
+  });
+  
+  // Real image generation function
+  const handleStartGeneration = async (jobName: string) => {
+    if (!selectedStyle || concepts.length === 0) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a style and add visual concepts',
+        variant: 'destructive'
+      });
+      return;
+    }
     
-    // Simulate generation progress
-    const totalImages = concepts.length * settings.variations;
-    let completed = 0;
-    
-    const generateImage = () => {
-      if (completed < totalImages) {
-        const conceptIndex = Math.floor(completed / settings.variations);
-        const currentConceptText = concepts[conceptIndex];
-        setCurrentConcept(currentConceptText);
-        
-        // Simulate image generation delay
-        setTimeout(() => {
-          completed++;
-          setCurrentProgress(completed);
+    try {
+      setIsGenerating(true);
+      setCurrentProgress(0);
+      setGeneratedImages([]);
+      
+      console.log('Starting generation:', { jobName, selectedStyle, concepts, settings });
+      
+      const response = await api.startGeneration({
+        jobName,
+        styleId: selectedStyle.id,
+        concepts,
+        settings
+      });
+      
+      setCurrentJobId(response.jobId);
+      
+      toast({
+        title: 'Generation Started',
+        description: `Your batch generation "${jobName}" has started. You'll see progress updates below.`
+      });
+      
+      // Start polling for progress
+      api.pollGenerationProgress(
+        response.jobId,
+        (job, images) => {
+          setCurrentJob(job);
+          setCurrentProgress(images.filter(img => img.status === 'completed').length);
+          setGeneratedImages(images.filter(img => img.status === 'completed'));
           
-          // Add mock generated image
-          const newImage: GeneratedImage = {
-            id: `img-${completed}`,
-            jobId: 'job-1',
-            visualConcept: currentConceptText,
-            imageUrl: `https://picsum.photos/400/400?random=${completed}`,
-            prompt: `${currentConceptText}, ${selectedStyle?.stylePrompt}`,
-            status: 'completed',
-            createdAt: new Date(),
-          };
-          
-          setGeneratedImages(prev => [...prev, newImage]);
-          
-          if (completed < totalImages) {
-            generateImage();
-          } else {
-            setIsGenerating(false);
-            setCurrentConcept(undefined);
+          // Update current concept being processed
+          const processingImages = images.filter(img => img.status === 'generating');
+          if (processingImages.length > 0) {
+            setCurrentConcept(processingImages[0].visualConcept);
           }
-        }, 2000);
-      }
-    };
-    
-    generateImage();
+        },
+        (job, images) => {
+          setCurrentJob(job);
+          setIsGenerating(false);
+          setCurrentConcept(undefined);
+          setGeneratedImages(images.filter(img => img.status === 'completed'));
+          
+          const completedCount = images.filter(img => img.status === 'completed').length;
+          const failedCount = images.filter(img => img.status === 'failed').length;
+          
+          toast({
+            title: job.status === 'completed' ? 'Generation Complete' : 'Generation Failed',
+            description: `Generated ${completedCount} images successfully${failedCount > 0 ? `, ${failedCount} failed` : ''}.`,
+            variant: job.status === 'completed' ? 'default' : 'destructive'
+          });
+        },
+        (error) => {
+          console.error('Generation polling error:', error);
+          setIsGenerating(false);
+          setCurrentConcept(undefined);
+          
+          toast({
+            title: 'Generation Error', 
+            description: 'Failed to track generation progress. Please refresh the page.',
+            variant: 'destructive'
+          });
+        }
+      );
+      
+    } catch (error) {
+      console.error('Failed to start generation:', error);
+      setIsGenerating(false);
+      
+      toast({
+        title: 'Generation Failed',
+        description: 'Failed to start image generation. Please try again.',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handlePauseGeneration = () => {
@@ -158,6 +210,8 @@ export default function ImageGenerator() {
                     selectedStyle={selectedStyle}
                     onStyleSelect={setSelectedStyle}
                     onUploadStyle={() => console.log('Upload style clicked')}
+                    styles={apiStyles}
+                    isLoading={stylesLoading}
                   />
                   
                   <GenerationSettings

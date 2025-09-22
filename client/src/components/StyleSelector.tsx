@@ -10,26 +10,28 @@ interface StyleSelectorProps {
   selectedStyle?: ImageStyle;
   onStyleSelect: (style: ImageStyle) => void;
   onUploadStyle?: () => void;
+  styles?: ImageStyle[];
+  isLoading?: boolean;
 }
 
-// Mock styles for demo - todo: remove mock functionality
-const mockStyles: ImageStyle[] = [
+// Default styles to show when no API styles are available
+const defaultStyles: ImageStyle[] = [
   {
-    id: '1',
+    id: 'default-1',
     name: 'Professional Corporate',
     description: 'Clean, modern corporate style for business presentations',
     stylePrompt: 'professional corporate style, clean modern design, business presentation quality, high-end commercial photography',
     createdAt: new Date(),
   },
   {
-    id: '2', 
+    id: 'default-2', 
     name: 'Creative Artistic',
     description: 'Bold artistic style with vibrant colors and creative elements',
     stylePrompt: 'creative artistic style, vibrant colors, bold design elements, contemporary art inspiration, dynamic composition',
     createdAt: new Date(),
   },
   {
-    id: '3',
+    id: 'default-3',
     name: 'Minimalist Clean',
     description: 'Simple, clean minimalist aesthetic with plenty of white space',
     stylePrompt: 'minimalist clean style, simple design, plenty of white space, elegant simplicity, modern minimal aesthetic',
@@ -37,8 +39,9 @@ const mockStyles: ImageStyle[] = [
   }
 ];
 
-export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadStyle }: StyleSelectorProps) {
-  const [styles] = useState<ImageStyle[]>(mockStyles);
+export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadStyle, styles, isLoading }: StyleSelectorProps) {
+  // Use provided styles or fall back to default styles
+  const availableStyles = styles && styles.length > 0 ? styles : defaultStyles;
 
   return (
     <Card className="w-full">
@@ -63,7 +66,7 @@ export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadSt
         <Select
           value={selectedStyle?.id}
           onValueChange={(styleId) => {
-            const style = styles.find(s => s.id === styleId);
+            const style = availableStyles.find(s => s.id === styleId);
             if (style) onStyleSelect(style);
           }}
         >
@@ -71,7 +74,7 @@ export default function StyleSelector({ selectedStyle, onStyleSelect, onUploadSt
             <SelectValue placeholder="Choose a style..." />
           </SelectTrigger>
           <SelectContent>
-            {styles.map((style) => (
+            {availableStyles.map((style) => (
               <SelectItem key={style.id} value={style.id}>
                 {style.name}
               </SelectItem>

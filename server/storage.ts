@@ -1,4 +1,4 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type GenerationSettings } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 // modify the interface with any CRUD methods
@@ -6,18 +6,18 @@ import { randomUUID } from "crypto";
 
 export interface IStorage {
   // Image Style management
-  getImageStyle(id: string): Promise<ImageStyle | undefined>;
+  getImageStyleById(id: string): Promise<ImageStyle | undefined>;
   getAllImageStyles(): Promise<ImageStyle[]>;
   createImageStyle(style: InsertImageStyle): Promise<ImageStyle>;
   
   // Generation Job management
-  getGenerationJob(id: string): Promise<GenerationJob | undefined>;
+  getGenerationJobById(id: string): Promise<GenerationJob | undefined>;
   createGenerationJob(job: InsertGenerationJob): Promise<GenerationJob>;
   updateGenerationJob(id: string, updates: Partial<GenerationJob>): Promise<GenerationJob | undefined>;
   
   // Generated Image management
-  getGeneratedImage(id: string): Promise<GeneratedImage | undefined>;
-  getGeneratedImagesByJob(jobId: string): Promise<GeneratedImage[]>;
+  getGeneratedImageById(id: string): Promise<GeneratedImage | undefined>;
+  getGeneratedImagesByJobId(jobId: string): Promise<GeneratedImage[]>;
   createGeneratedImage(image: InsertGeneratedImage): Promise<GeneratedImage>;
   updateGeneratedImage(id: string, updates: Partial<GeneratedImage>): Promise<GeneratedImage | undefined>;
 }
@@ -33,7 +33,7 @@ export class MemStorage implements IStorage {
     this.generatedImages = new Map();
   }
 
-  async getImageStyle(id: string): Promise<ImageStyle | undefined> {
+  async getImageStyleById(id: string): Promise<ImageStyle | undefined> {
     return this.imageStyles.get(id);
   }
 
@@ -44,28 +44,29 @@ export class MemStorage implements IStorage {
   async createImageStyle(insertStyle: InsertImageStyle): Promise<ImageStyle> {
     const id = randomUUID();
     const style: ImageStyle = { 
-      ...insertStyle, 
-      id, 
+      ...insertStyle,
       description: insertStyle.description || null,
+      id, 
       createdAt: new Date() 
     };
     this.imageStyles.set(id, style);
     return style;
   }
 
-  async getGenerationJob(id: string): Promise<GenerationJob | undefined> {
+  async getGenerationJobById(id: string): Promise<GenerationJob | undefined> {
     return this.generationJobs.get(id);
   }
 
   async createGenerationJob(insertJob: InsertGenerationJob): Promise<GenerationJob> {
     const id = randomUUID();
     const job: GenerationJob = {
-      ...insertJob,
       id,
+      name: insertJob.name,
+      status: 'pending',
+      progress: 0,
       styleId: insertJob.styleId || null,
       visualConcepts: Array.isArray(insertJob.visualConcepts) ? insertJob.visualConcepts as string[] : [],
-      status: "pending",
-      progress: 0,
+      settings: insertJob.settings as GenerationSettings,
       createdAt: new Date()
     };
     this.generationJobs.set(id, job);
@@ -81,11 +82,11 @@ export class MemStorage implements IStorage {
     return updatedJob;
   }
 
-  async getGeneratedImage(id: string): Promise<GeneratedImage | undefined> {
+  async getGeneratedImageById(id: string): Promise<GeneratedImage | undefined> {
     return this.generatedImages.get(id);
   }
 
-  async getGeneratedImagesByJob(jobId: string): Promise<GeneratedImage[]> {
+  async getGeneratedImagesByJobId(jobId: string): Promise<GeneratedImage[]> {
     return Array.from(this.generatedImages.values()).filter(
       (image) => image.jobId === jobId
     );
@@ -94,10 +95,12 @@ export class MemStorage implements IStorage {
   async createGeneratedImage(insertImage: InsertGeneratedImage): Promise<GeneratedImage> {
     const id = randomUUID();
     const image: GeneratedImage = {
-      ...insertImage,
       id,
       jobId: insertImage.jobId || null,
-      status: "generating",
+      visualConcept: insertImage.visualConcept,
+      imageUrl: insertImage.imageUrl,
+      prompt: insertImage.prompt,
+      status: 'generating',
       createdAt: new Date()
     };
     this.generatedImages.set(id, image);
@@ -115,3 +118,38 @@ export class MemStorage implements IStorage {
 }
 
 export const storage = new MemStorage();
+
+// Initialize with some default styles for demo purposes
+(async () => {
+  const defaultStyles = [
+    {
+      name: 'Professional Corporate',
+      description: 'Clean, modern corporate style for business presentations',
+      stylePrompt: 'professional corporate style, clean modern design, business presentation quality, high-end commercial photography'
+    },
+    {
+      name: 'Creative Artistic',
+      description: 'Bold artistic style with vibrant colors and creative elements',
+      stylePrompt: 'creative artistic style, vibrant colors, bold design elements, contemporary art inspiration, dynamic composition'
+    },
+    {
+      name: 'Minimalist Clean',
+      description: 'Simple, clean minimalist aesthetic with plenty of white space',
+      stylePrompt: 'minimalist clean style, simple design, plenty of white space, elegant simplicity, modern minimal aesthetic'
+    },
+    {
+      name: 'Vintage Retro',
+      description: 'Nostalgic vintage style with retro color palettes and classic design elements',
+      stylePrompt: 'vintage retro style, nostalgic aesthetic, classic design elements, retro color palette, timeless appeal'
+    }
+  ];
+
+  // Add default styles if storage is empty
+  const existingStyles = await storage.getAllImageStyles();
+  if (existingStyles.length === 0) {
+    for (const style of defaultStyles) {
+      await storage.createImageStyle(style);
+    }
+    console.log('Initialized storage with default image styles');
+  }
+})();
