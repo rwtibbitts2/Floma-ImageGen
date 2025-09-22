@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { GenerationSettings } from '@shared/schema';
 
 interface GenerationSettingsProps {
@@ -68,23 +69,18 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
           </Select>
         </div>
 
-        {/* Style Setting */}
+        {/* Transparency Setting */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Style Mode</Label>
-          <Select
-            value={settings.style}
-            onValueChange={(value: "vivid" | "natural") => updateSetting('style', value)}
-          >
-            <SelectTrigger data-testid="select-style-mode">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="vivid">Vivid (Dramatic, Bold)</SelectItem>
-              <SelectItem value="natural">Natural (Realistic)</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Transparency Support</Label>
+            <Switch
+              checked={settings.transparency}
+              onCheckedChange={(checked) => updateSetting('transparency', checked)}
+              data-testid="switch-transparency"
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
-            Vivid creates more dramatic images, Natural produces more realistic results
+            Enable transparency support for PNG format images
           </p>
         </div>
 
@@ -116,7 +112,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>Quality: <span className="font-medium">{settings.quality}</span></div>
             <div>Size: <span className="font-medium">{settings.size}</span></div>
-            <div>Style: <span className="font-medium">{settings.style}</span></div>
+            <div>Transparency: <span className="font-medium">{settings.transparency ? 'Enabled' : 'Disabled'}</span></div>
             <div>Variations: <span className="font-medium">{settings.variations}</span></div>
           </div>
         </div>

@@ -39,7 +39,7 @@ export default function ImageGenerator() {
   const [settings, setSettings] = useState<GenerationSettingsType>({
     quality: 'standard',
     size: '1024x1024',
-    style: 'vivid',
+    transparency: false,
     variations: 1,
   });
   const [isGenerating, setIsGenerating] = useState(false);

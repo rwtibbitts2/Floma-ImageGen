@@ -23,7 +23,7 @@ export default function GenerationControlExample() {
   const mockSettings: GenerationSettings = {
     quality: 'standard',
     size: '1024x1024',
-    style: 'vivid',
+    transparency: false,
     variations: 2,
   };
 

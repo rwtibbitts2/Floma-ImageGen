@@ -6,7 +6,7 @@ export default function GenerationSettingsExample() {
   const [settings, setSettings] = useState<GenerationSettings>({
     quality: 'standard',
     size: '1024x1024',
-    style: 'vivid',
+    transparency: false,
     variations: 1,
   });
 

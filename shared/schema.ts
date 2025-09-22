@@ -39,7 +39,7 @@ export const generatedImages = pgTable("generated_images", {
 export const generationSettingsSchema = z.object({
   quality: z.enum(["standard", "hd"]).default("standard"),
   size: z.enum(["1024x1024", "1792x1024", "1024x1792"]).default("1024x1024"),
-  style: z.enum(["vivid", "natural"]).default("vivid"),
+  transparency: z.boolean().default(false),
   variations: z.number().min(1).max(4).default(1),
 });
 
