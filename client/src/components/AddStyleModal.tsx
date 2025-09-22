@@ -141,9 +141,8 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85dvh] p-0 overflow-hidden">
-        <div className="flex h-full flex-col">
-          <DialogHeader className="shrink-0 p-6">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85dvh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0 p-6 border-b">
             <DialogTitle>
               {editingStyle ? 'Edit Style' : 'Add New Style'}
             </DialogTitle>
@@ -155,7 +154,7 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           <div className="flex items-center gap-2">
             <Button
               variant={useJsonMode ? "outline" : "secondary"}
@@ -253,7 +252,7 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
           )}
           </div>
 
-          <DialogFooter className="shrink-0 p-6">
+          <DialogFooter className="shrink-0 p-6 border-t bg-background">
             <Button
               variant="outline"
               onClick={handleClose}
@@ -270,7 +269,6 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
               {isLoading ? 'Saving...' : editingStyle ? 'Update Style' : 'Create Style'}
             </Button>
           </DialogFooter>
-        </div>
       </DialogContent>
     </Dialog>
   );
