@@ -175,6 +175,74 @@ export default function ImageGenerator() {
     // In real app, would create zip file and download
   };
 
+  const handleUploadStyle = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const styleData = JSON.parse(event.target?.result as string);
+            console.log('Uploaded style data:', styleData);
+            toast({
+              title: 'Style Upload',
+              description: 'Style upload functionality is coming soon!',
+            });
+          } catch (error) {
+            toast({
+              title: 'Invalid File',
+              description: 'Please upload a valid JSON file.',
+              variant: 'destructive'
+            });
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleUploadConceptsFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const conceptsData = JSON.parse(event.target?.result as string);
+            if (Array.isArray(conceptsData) && conceptsData.every(item => typeof item === 'string')) {
+              setConcepts(conceptsData);
+              toast({
+                title: 'Concepts Uploaded',
+                description: `Successfully loaded ${conceptsData.length} visual concepts.`,
+              });
+            } else {
+              toast({
+                title: 'Invalid Format',
+                description: 'File must contain an array of strings.',
+                variant: 'destructive'
+              });
+            }
+          } catch (error) {
+            toast({
+              title: 'Invalid File',
+              description: 'Please upload a valid JSON file.',
+              variant: 'destructive'
+            });
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
+
   const totalImages = concepts.length * settings.variations;
 
   return (
@@ -209,7 +277,7 @@ export default function ImageGenerator() {
                   <StyleSelector
                     selectedStyle={selectedStyle}
                     onStyleSelect={setSelectedStyle}
-                    onUploadStyle={() => console.log('Upload style clicked')}
+                    onUploadStyle={handleUploadStyle}
                     styles={apiStyles}
                     isLoading={stylesLoading}
                   />
@@ -225,7 +293,7 @@ export default function ImageGenerator() {
                   <VisualConceptsInput
                     concepts={concepts}
                     onConceptsChange={setConcepts}
-                    onUploadFile={() => console.log('Upload concepts file clicked')}
+                    onUploadFile={handleUploadConceptsFile}
                   />
                   
                   {/* Progress when generating */}
