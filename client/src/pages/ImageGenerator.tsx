@@ -342,6 +342,17 @@ export default function ImageGenerator() {
     }
   }, [currentJob?.status, concepts, selectedStyle, settings]);
 
+  // Navigation guard for back to home
+  const handleBackToHome = () => {
+    if (hasUnsavedChanges && concepts.length > 0) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Are you sure you want to leave? Your work will be lost unless you save first.'
+      );
+      if (!confirmed) return;
+    }
+    setLocation('/');
+  };
+
   // Warning for unsaved changes before leaving page
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -407,7 +418,7 @@ export default function ImageGenerator() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setLocation('/')}
+                onClick={handleBackToHome}
                 data-testid="button-back-home"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
