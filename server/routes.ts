@@ -196,7 +196,7 @@ Subject: ${concept}`;
           
           // Generate image using OpenAI
           const response = await openai.images.generate({
-            model: settings.model || "gpt-image-1",
+            model: settings.model || "dall-e-3",
             prompt: fullPrompt,
             n: 1,
             size: settings.size,

@@ -38,7 +38,7 @@ export const generatedImages = pgTable("generated_images", {
 
 // Zod Schemas
 export const generationSettingsSchema = z.object({
-  model: z.enum(["dall-e-2", "dall-e-3", "gpt-image-1"]).default("gpt-image-1"),
+  model: z.enum(["dall-e-2", "dall-e-3", "gpt-image-1"]).default("dall-e-3"),
   quality: z.enum(["standard", "hd"]).default("standard"),
   size: z.enum(["1024x1024", "1792x1024", "1024x1792"]).default("1024x1024"),
   transparency: z.boolean().default(false),
