@@ -665,9 +665,19 @@ export const storage = new MemStorage();
   // Create test user for login
   const existingUsers = await storage.getAllUsers();
   if (existingUsers.length === 0) {
+    // Import crypto for password hashing
+    const { scrypt, randomBytes } = await import("crypto");
+    const { promisify } = await import("util");
+    const scryptAsync = promisify(scrypt);
+    
+    // Hash the password properly
+    const salt = randomBytes(16).toString("hex");
+    const buf = (await scryptAsync('password123', salt, 64)) as Buffer;
+    const hashedPassword = `${buf.toString("hex")}.${salt}`;
+    
     await storage.createUser({
       email: 'test@example.com',
-      password: 'password123', // This will be hashed by the auth system
+      password: hashedPassword,
       role: 'user'
     });
     console.log('Created test user: test@example.com / password123');
