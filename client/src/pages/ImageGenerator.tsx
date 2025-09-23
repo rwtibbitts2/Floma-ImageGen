@@ -81,6 +81,7 @@ export default function ImageGenerator() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<GeneratedImage | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -103,22 +104,19 @@ export default function ImageGenerator() {
       return;
     }
     
-    // Update session when generation starts and get the sessionId to use
-    const sessionIdForGeneration = await updateSessionOnStart();
-    
     try {
       setIsGenerating(true);
       setCurrentProgress(0);
       setGeneratedImages([]);
       
-      console.log('Starting generation:', { selectedStyle, concepts, settings, sessionId: sessionIdForGeneration });
+      console.log('Starting generation:', { selectedStyle, concepts, settings, sessionId: currentSessionId });
       
       const response = await api.startGeneration({
         jobName: `Generation ${new Date().toLocaleTimeString()}`,
         styleId: selectedStyle.id,
         concepts,
         settings,
-        sessionId: sessionIdForGeneration // Link generation to current session for image persistence
+        sessionId: currentSessionId // Link generation to current session for image persistence only if one exists
       });
       
       setCurrentJobId(response.jobId);
@@ -275,27 +273,6 @@ export default function ImageGenerator() {
     setShowSaveModal(false);
   };
 
-  // Autosave functionality - trigger after generation completion
-  const performAutosave = async () => {
-    if (!concepts.length) return;
-
-    try {
-      const timestamp = new Date().toLocaleString();
-      const sessionData = {
-        displayName: `Autosave - ${timestamp}`,
-        styleId: selectedStyle?.id,
-        visualConcepts: concepts,
-        settings,
-        isTemporary: true,
-        hasUnsavedChanges: false
-      };
-
-      await api.createProjectSession(sessionData);
-      console.log('Autosave completed:', timestamp);
-    } catch (error) {
-      console.error('Autosave failed:', error);
-    }
-  };
 
   // Load session from URL parameter
   useEffect(() => {
@@ -306,6 +283,7 @@ export default function ImageGenerator() {
       console.log('Loading session:', sessionId);
       
       const loadSession = async () => {
+        setIsLoadingSession(true);
         try {
           // Load session, styles, and images in parallel
           const [session, styles, sessionImages] = await Promise.all([
@@ -348,6 +326,8 @@ export default function ImageGenerator() {
             description: 'Failed to load the selected session.',
             variant: 'destructive'
           });
+        } finally {
+          setIsLoadingSession(false);
         }
       };
       
@@ -357,68 +337,11 @@ export default function ImageGenerator() {
 
   // Track unsaved changes
   useEffect(() => {
+    // Track unsaved changes for any content changes to protect user data
+    // Don't trigger during session loading to avoid false unsaved state
+    if (isLoadingSession) return;
     setHasUnsavedChanges(true);
   }, [selectedStyle, concepts, settings]);
-
-  // Create temporary session on first changes
-  const createTemporarySession = async () => {
-    if (currentSessionId) return; // Already have a session
-    
-    try {
-      const session = await api.createProjectSession({
-        displayName: `Autosave ${new Date().toLocaleString()}`,
-        styleId: selectedStyle?.id,
-        visualConcepts: concepts,
-        settings,
-        isTemporary: true,
-        hasUnsavedChanges: true
-      });
-      
-      setCurrentSessionId(session.id);
-      console.log('Created temporary session:', session.id);
-    } catch (error) {
-      console.error('Failed to create temporary session:', error);
-    }
-  };
-
-  // Update session when generation starts - returns the sessionId to use
-  const updateSessionOnStart = async (): Promise<string | undefined> => {
-    if (!currentSessionId) {
-      const session = await api.createProjectSession({
-        displayName: `Autosave ${new Date().toLocaleString()}`,
-        styleId: selectedStyle?.id,
-        visualConcepts: concepts,
-        settings,
-        isTemporary: true,
-        hasUnsavedChanges: true
-      });
-      
-      setCurrentSessionId(session.id);
-      console.log('Created temporary session:', session.id);
-      return session.id;
-    } else {
-      try {
-        await api.updateProjectSession(currentSessionId, {
-          styleId: selectedStyle?.id,
-          visualConcepts: concepts,
-          settings,
-          hasUnsavedChanges: true
-        });
-        console.log('Updated session on generation start');
-        return currentSessionId;
-      } catch (error) {
-        console.error('Failed to update session:', error);
-        return currentSessionId;
-      }
-    }
-  };
-
-  // Autosave after each generation job completes
-  useEffect(() => {
-    if (currentJob?.status === 'completed' && concepts.length > 0) {
-      performAutosave();
-    }
-  }, [currentJob?.status, concepts, selectedStyle, settings]);
 
   // Navigation guard for back to home
   const handleBackToHome = () => {
@@ -528,7 +451,7 @@ export default function ImageGenerator() {
               <h1 className="text-xl font-semibold">Image Generator</h1>
             </div>
             <div className="flex items-center gap-2">
-              {hasUnsavedChanges && (
+              {(hasUnsavedChanges || (selectedStyle && concepts.length > 0)) && (
                 <Button
                   variant="outline"
                   size="sm"
