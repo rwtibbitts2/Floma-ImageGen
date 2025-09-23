@@ -266,7 +266,7 @@ export default function ImageGenerator() {
 
           {/* Main Layout */}
           <main className="flex-1 overflow-y-auto p-6">
-            <div className="flex flex-col h-full space-y-6">
+            <div className="flex flex-col h-full space-y-3">
               {/* Two columns */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left Column (33%) - Style + Settings */}
