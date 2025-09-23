@@ -88,6 +88,7 @@ export interface GenerationRequest {
   styleId: string;
   concepts: string[];
   settings: GenerationSettings;
+  sessionId?: string; // Optional sessionId for image persistence
 }
 
 export interface GenerationResponse {

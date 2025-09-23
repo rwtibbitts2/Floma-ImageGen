@@ -117,7 +117,8 @@ export default function ImageGenerator() {
         jobName: `Generation ${new Date().toLocaleTimeString()}`,
         styleId: selectedStyle.id,
         concepts,
-        settings
+        settings,
+        sessionId: currentSessionId // Link generation to current session for image persistence
       });
       
       setCurrentJobId(response.jobId);
