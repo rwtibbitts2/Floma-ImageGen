@@ -132,7 +132,8 @@ router.post('/generate', requireAuth, async (req, res) => {
         size: z.enum(['1024x1024', '1792x1024', '1024x1792']),
         variations: z.number().min(1).max(10),
         transparency: z.boolean().optional()
-      })
+      }),
+      sessionId: z.string().optional() // Optional sessionId for image persistence
     });
 
     const validation = schema.safeParse(req.body);
@@ -143,7 +144,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       });
     }
 
-    const { jobName, styleId, concepts, settings } = validation.data;
+    const { jobName, styleId, concepts, settings, sessionId } = validation.data;
 
     // Get the selected style
     const style = await storage.getImageStyleById(styleId);
@@ -155,6 +156,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     const job = await storage.createGenerationJob({
       name: jobName,
       userId: (req as any).user.id, // Scope to authenticated user
+      sessionId: sessionId, // Link job to session for image persistence
       styleId: styleId,
       visualConcepts: concepts,
       settings: settings as GenerationSettings
