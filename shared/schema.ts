@@ -31,6 +31,7 @@ export const generationJobs = pgTable("generation_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   userId: varchar("user_id").references(() => users.id), // Associate job with user (nullable for migration)
+  sessionId: varchar("session_id").references(() => projectSessions.id), // Link job to session for image persistence
   styleId: varchar("style_id").references(() => imageStyles.id),
   visualConcepts: jsonb("visual_concepts").$type<string[]>().notNull(),
   settings: jsonb("settings").$type<GenerationSettings>().notNull(),
