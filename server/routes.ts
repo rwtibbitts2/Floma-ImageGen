@@ -181,8 +181,10 @@ async function generateImagesAsync(
     for (const concept of concepts) {
       for (let variation = 1; variation <= settings.variations; variation++) {
         try {
-          // Construct structured prompt with clear subject and style separation
-          const fullPrompt = `A ${concept}, ${style.stylePrompt}`;
+          // Construct professional structured prompt with clear labeling
+          const fullPrompt = `Generate a clean, professional digital asset:
+Style: ${style.stylePrompt}
+Subject: ${concept}`;
           
           console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}"`);
 
@@ -192,8 +194,7 @@ async function generateImagesAsync(
             prompt: fullPrompt,
             n: 1,
             size: settings.size,
-            quality: settings.quality,
-            response_format: settings.transparency ? "url" : "url" // Note: DALL-E doesn't support transparency yet
+            quality: settings.quality
           });
 
           const imageUrl = response.data?.[0]?.url;
