@@ -626,7 +626,7 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
 
 // Initialize with some default styles and test user for demo purposes
 (async () => {
