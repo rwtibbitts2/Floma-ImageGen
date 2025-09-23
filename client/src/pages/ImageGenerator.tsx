@@ -58,9 +58,9 @@ export default function ImageGenerator() {
   const [currentConcept, setCurrentConcept] = useState<string>();
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ImageStyle>();
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string>();
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -372,7 +372,19 @@ export default function ImageGenerator() {
               </Button>
               <h1 className="text-xl font-semibold">Image Generator</h1>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              {hasUnsavedChanges && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSaveModal(true)}
+                  data-testid="button-save-session"
+                >
+                  Save Session
+                </Button>
+              )}
+              <ThemeToggle />
+            </div>
           </header>
 
           {/* Main Layout */}
@@ -463,8 +475,8 @@ export default function ImageGenerator() {
 
         {/* Save Session Modal */}
         <SaveSessionModal
-          open={isSaveModalOpen}
-          onOpenChange={setIsSaveModalOpen}
+          open={showSaveModal}
+          onOpenChange={setShowSaveModal}
           onSaveComplete={handleSaveComplete}
           selectedStyle={selectedStyle}
           concepts={concepts}
