@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,14 +28,31 @@ export default function AddStyleModal({ open, onOpenChange, editingStyle }: AddS
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState<StyleFormData>({
-    name: editingStyle?.name || '',
-    description: editingStyle?.description || '',
-    stylePrompt: editingStyle?.stylePrompt || ''
+    name: '',
+    description: '',
+    stylePrompt: ''
   });
   
   const [jsonInput, setJsonInput] = useState('');
   const [useJsonMode, setUseJsonMode] = useState(false);
   const [validationError, setValidationError] = useState<string>();
+
+  // Update form data when editingStyle changes
+  useEffect(() => {
+    if (editingStyle) {
+      setFormData({
+        name: editingStyle.name || '',
+        description: editingStyle.description || '',
+        stylePrompt: editingStyle.stylePrompt || ''
+      });
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        stylePrompt: ''
+      });
+    }
+  }, [editingStyle]);
 
   const createMutation = useMutation({
     mutationFn: createImageStyle,
