@@ -1,7 +1,7 @@
 import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, imageStyles, generationJobs, generatedImages, projectSessions, users } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import createMemoryStore from "memorystore";
@@ -40,6 +40,7 @@ export interface IStorage {
   // Generated Image management
   getGeneratedImageById(id: string): Promise<GeneratedImage | undefined>;
   getGeneratedImagesByJobId(jobId: string): Promise<GeneratedImage[]>;
+  getGeneratedImagesBySessionId(sessionId: string): Promise<GeneratedImage[]>;
   createGeneratedImage(image: InsertGeneratedImage): Promise<GeneratedImage>;
   updateGeneratedImage(id: string, updates: Partial<GeneratedImage>): Promise<GeneratedImage | undefined>;
   
@@ -133,6 +134,21 @@ export class MemStorage implements IStorage {
   async getGeneratedImagesByJobId(jobId: string): Promise<GeneratedImage[]> {
     return Array.from(this.generatedImages.values()).filter(
       (image) => image.jobId === jobId
+    );
+  }
+
+  async getGeneratedImagesBySessionId(sessionId: string): Promise<GeneratedImage[]> {
+    // Find all jobs for this session
+    const sessionJobs = Array.from(this.generationJobs.values()).filter(
+      (job) => job.sessionId === sessionId
+    );
+    
+    // Get all jobIds for this session
+    const jobIds = new Set(sessionJobs.map(job => job.id));
+    
+    // Return all images that belong to any of these jobs
+    return Array.from(this.generatedImages.values()).filter(
+      (image) => jobIds.has(image.jobId)
     );
   }
 
@@ -421,6 +437,24 @@ export class DatabaseStorage implements IStorage {
 
   async getGeneratedImagesByJobId(jobId: string): Promise<GeneratedImage[]> {
     return await db.select().from(generatedImages).where(eq(generatedImages.jobId, jobId));
+  }
+
+  async getGeneratedImagesBySessionId(sessionId: string): Promise<GeneratedImage[]> {
+    // First get all jobs for this session
+    const sessionJobIds = await db
+      .select({ id: generationJobs.id })
+      .from(generationJobs)
+      .where(eq(generationJobs.sessionId, sessionId));
+    
+    if (sessionJobIds.length === 0) {
+      return [];
+    }
+    
+    // Then get all images for these jobs
+    const jobIds = sessionJobIds.map(job => job.id);
+    return await db.select().from(generatedImages).where(
+      inArray(generatedImages.jobId, jobIds)
+    );
   }
 
   async createGeneratedImage(insertImage: InsertGeneratedImage): Promise<GeneratedImage> {
