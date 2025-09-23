@@ -10,6 +10,7 @@ import BatchProgressTracker from '@/components/BatchProgressTracker';
 import GenerationSummaryAction from '@/components/GenerationSummaryAction';
 import PersistentImageGallery from '@/components/PersistentImageGallery';
 import AddStyleModal from '@/components/AddStyleModal';
+import SaveSessionModal from '@/components/SaveSessionModal';
 import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -54,6 +55,9 @@ export default function ImageGenerator() {
   const [currentConcept, setCurrentConcept] = useState<string>();
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ImageStyle>();
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string>();
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -211,6 +215,65 @@ export default function ImageGenerator() {
     setEditingStyle(undefined);
   };
 
+  // Save functionality
+  const handleSaveProject = () => {
+    setIsSaveModalOpen(true);
+  };
+
+  const handleSaveComplete = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    setHasUnsavedChanges(false);
+    setIsSaveModalOpen(false);
+  };
+
+  // Autosave functionality - trigger after generation completion
+  const performAutosave = async () => {
+    if (!concepts.length) return;
+
+    try {
+      const timestamp = new Date().toLocaleString();
+      const sessionData = {
+        displayName: `Autosave - ${timestamp}`,
+        styleId: selectedStyle?.id,
+        visualConcepts: concepts,
+        settings,
+        isTemporary: true,
+        hasUnsavedChanges: false
+      };
+
+      await api.createProjectSession(sessionData);
+      console.log('Autosave completed:', timestamp);
+    } catch (error) {
+      console.error('Autosave failed:', error);
+    }
+  };
+
+  // Track unsaved changes
+  useEffect(() => {
+    setHasUnsavedChanges(true);
+  }, [selectedStyle, concepts, settings]);
+
+  // Autosave after each generation job completes
+  useEffect(() => {
+    if (currentJob?.status === 'completed' && concepts.length > 0) {
+      performAutosave();
+    }
+  }, [currentJob?.status, concepts, selectedStyle, settings]);
+
+  // Warning for unsaved changes before leaving page
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && concepts.length > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, concepts.length]);
+
   const handleUploadConceptsFile = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -320,7 +383,7 @@ export default function ImageGenerator() {
                   settings={settings}
                   isRunning={isGenerating}
                   onStartGeneration={handleStartGeneration}
-                  onSaveProject={() => console.log('Save project')}
+                  onSaveProject={handleSaveProject}
                 />
               </div>
             </div>
@@ -348,6 +411,16 @@ export default function ImageGenerator() {
           open={isStyleModalOpen}
           onOpenChange={handleCloseStyleModal}
           editingStyle={editingStyle}
+        />
+
+        {/* Save Session Modal */}
+        <SaveSessionModal
+          open={isSaveModalOpen}
+          onOpenChange={setIsSaveModalOpen}
+          onSaveComplete={handleSaveComplete}
+          selectedStyle={selectedStyle}
+          concepts={concepts}
+          settings={settings}
         />
       </div>
     </SidebarProvider>

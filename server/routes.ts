@@ -257,6 +257,143 @@ Subject: ${concept}`;
   }
 }
 
+// PROJECT SESSION ROUTES
+
+// GET /api/sessions - Get all project sessions
+router.get('/sessions', async (req, res) => {
+  try {
+    const sessions = await storage.getAllProjectSessions();
+    res.json(sessions);
+  } catch (error) {
+    console.error('Error fetching sessions:', error);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
+// GET /api/sessions/:id - Get specific project session
+router.get('/sessions/:id', async (req, res) => {
+  try {
+    const session = await storage.getProjectSessionById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json(session);
+  } catch (error) {
+    console.error('Error fetching session:', error);
+    res.status(500).json({ error: 'Failed to fetch session' });
+  }
+});
+
+// POST /api/sessions - Create new project session
+router.post('/sessions', async (req, res) => {
+  try {
+    const schema = z.object({
+      name: z.string().optional(),
+      displayName: z.string().min(1),
+      styleId: z.string().optional(),
+      visualConcepts: z.array(z.string()),
+      settings: z.object({
+        model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']),
+        quality: z.enum(['standard', 'hd']),
+        size: z.enum(['1024x1024', '1792x1024', '1024x1792']),
+        transparency: z.boolean(),
+        variations: z.number().min(1).max(4)
+      }),
+      isTemporary: z.boolean().optional(),
+      hasUnsavedChanges: z.boolean().optional()
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const session = await storage.createProjectSession(validation.data);
+    res.status(201).json(session);
+  } catch (error) {
+    console.error('Error creating session:', error);
+    res.status(500).json({ error: 'Failed to create session' });
+  }
+});
+
+// PUT /api/sessions/:id - Update project session
+router.put('/sessions/:id', async (req, res) => {
+  try {
+    const schema = z.object({
+      name: z.string().optional(),
+      displayName: z.string().optional(),
+      styleId: z.string().optional(),
+      visualConcepts: z.array(z.string()).optional(),
+      settings: z.object({
+        model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']),
+        quality: z.enum(['standard', 'hd']),
+        size: z.enum(['1024x1024', '1792x1024', '1024x1792']),
+        transparency: z.boolean(),
+        variations: z.number().min(1).max(4)
+      }).optional(),
+      isTemporary: z.boolean().optional(),
+      hasUnsavedChanges: z.boolean().optional()
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const session = await storage.updateProjectSession(req.params.id, validation.data);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    res.json(session);
+  } catch (error) {
+    console.error('Error updating session:', error);
+    res.status(500).json({ error: 'Failed to update session' });
+  }
+});
+
+// DELETE /api/sessions/:id - Delete project session
+router.delete('/sessions/:id', async (req, res) => {
+  try {
+    const deleted = await storage.deleteProjectSession(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting session:', error);
+    res.status(500).json({ error: 'Failed to delete session' });
+  }
+});
+
+// GET /api/sessions/temporary - Get current temporary session
+router.get('/sessions/temporary', async (req, res) => {
+  try {
+    const session = await storage.getTemporarySession();
+    res.json(session || null);
+  } catch (error) {
+    console.error('Error fetching temporary session:', error);
+    res.status(500).json({ error: 'Failed to fetch temporary session' });
+  }
+});
+
+// DELETE /api/sessions/temporary - Clear all temporary sessions
+router.delete('/sessions/temporary', async (req, res) => {
+  try {
+    await storage.clearTemporarySessions();
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error clearing temporary sessions:', error);
+    res.status(500).json({ error: 'Failed to clear temporary sessions' });
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register API routes
   app.use('/api', router);

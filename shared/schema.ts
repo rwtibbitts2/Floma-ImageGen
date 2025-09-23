@@ -36,6 +36,20 @@ export const generatedImages = pgTable("generated_images", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Project Sessions - for saving and loading generation sessions
+export const projectSessions = pgTable("project_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name"),
+  displayName: text("display_name").notNull(), // Auto-generated from date/time or custom name
+  styleId: varchar("style_id").references(() => imageStyles.id),
+  visualConcepts: jsonb("visual_concepts").$type<string[]>().notNull(),
+  settings: jsonb("settings").$type<GenerationSettings>().notNull(),
+  isTemporary: jsonb("is_temporary").$type<boolean>().default(false), // For autosave functionality
+  hasUnsavedChanges: jsonb("has_unsaved_changes").$type<boolean>().default(false), // Track unsaved changes
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zod Schemas
 export const generationSettingsSchema = z.object({
   model: z.enum(["dall-e-2", "dall-e-3", "gpt-image-1"]).default("dall-e-3"),
@@ -50,6 +64,7 @@ export const visualConceptsSchema = z.array(z.string().min(1));
 export const insertImageStyleSchema = createInsertSchema(imageStyles).omit({ id: true, createdAt: true });
 export const insertGenerationJobSchema = createInsertSchema(generationJobs).omit({ id: true, createdAt: true, status: true, progress: true });
 export const insertGeneratedImageSchema = createInsertSchema(generatedImages).omit({ id: true, createdAt: true, status: true });
+export const insertProjectSessionSchema = createInsertSchema(projectSessions).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Relations
 export const imageStylesRelations = relations(imageStyles, ({ many }) => ({
@@ -71,6 +86,13 @@ export const generatedImagesRelations = relations(generatedImages, ({ one }) => 
   }),
 }));
 
+export const projectSessionsRelations = relations(projectSessions, ({ one }) => ({
+  style: one(imageStyles, {
+    fields: [projectSessions.styleId],
+    references: [imageStyles.id],
+  }),
+}));
+
 // Types
 export type GenerationSettings = z.infer<typeof generationSettingsSchema>;
 export type ImageStyle = typeof imageStyles.$inferSelect;
@@ -79,3 +101,5 @@ export type GenerationJob = typeof generationJobs.$inferSelect;
 export type InsertGenerationJob = z.infer<typeof insertGenerationJobSchema>;
 export type GeneratedImage = typeof generatedImages.$inferSelect;
 export type InsertGeneratedImage = z.infer<typeof insertGeneratedImageSchema>;
+export type ProjectSession = typeof projectSessions.$inferSelect;
+export type InsertProjectSession = z.infer<typeof insertProjectSessionSchema>;

@@ -1,4 +1,4 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type GenerationSettings, imageStyles, generationJobs, generatedImages } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, imageStyles, generationJobs, generatedImages, projectSessions } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -24,17 +24,28 @@ export interface IStorage {
   getGeneratedImagesByJobId(jobId: string): Promise<GeneratedImage[]>;
   createGeneratedImage(image: InsertGeneratedImage): Promise<GeneratedImage>;
   updateGeneratedImage(id: string, updates: Partial<GeneratedImage>): Promise<GeneratedImage | undefined>;
+  
+  // Project Session management
+  getProjectSessionById(id: string): Promise<ProjectSession | undefined>;
+  getAllProjectSessions(): Promise<ProjectSession[]>;
+  createProjectSession(session: InsertProjectSession): Promise<ProjectSession>;
+  updateProjectSession(id: string, updates: Partial<InsertProjectSession>): Promise<ProjectSession | undefined>;
+  deleteProjectSession(id: string): Promise<boolean>;
+  getTemporarySession(): Promise<ProjectSession | undefined>;
+  clearTemporarySessions(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
   private imageStyles: Map<string, ImageStyle>;
   private generationJobs: Map<string, GenerationJob>;
   private generatedImages: Map<string, GeneratedImage>;
+  private projectSessions: Map<string, ProjectSession>;
 
   constructor() {
     this.imageStyles = new Map();
     this.generationJobs = new Map();
     this.generatedImages = new Map();
+    this.projectSessions = new Map();
   }
 
   async getImageStyleById(id: string): Promise<ImageStyle | undefined> {
@@ -132,6 +143,62 @@ export class MemStorage implements IStorage {
   async deleteImageStyle(id: string): Promise<boolean> {
     return this.imageStyles.delete(id);
   }
+
+  // Project Session methods for MemStorage
+  async getProjectSessionById(id: string): Promise<ProjectSession | undefined> {
+    return this.projectSessions.get(id);
+  }
+
+  async getAllProjectSessions(): Promise<ProjectSession[]> {
+    return Array.from(this.projectSessions.values());
+  }
+
+  async createProjectSession(insertSession: InsertProjectSession): Promise<ProjectSession> {
+    const id = randomUUID();
+    const session: ProjectSession = {
+      id,
+      name: insertSession.name || null,
+      displayName: insertSession.displayName,
+      styleId: insertSession.styleId || null,
+      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts as string[] : [],
+      settings: insertSession.settings as GenerationSettings,
+      isTemporary: Boolean(insertSession.isTemporary) || false,
+      hasUnsavedChanges: Boolean(insertSession.hasUnsavedChanges) || false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.projectSessions.set(id, session);
+    return session;
+  }
+
+  async updateProjectSession(id: string, updates: Partial<InsertProjectSession>): Promise<ProjectSession | undefined> {
+    const session = this.projectSessions.get(id);
+    if (!session) return undefined;
+    
+    const updatedSession = { 
+      ...session, 
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.projectSessions.set(id, updatedSession);
+    return updatedSession;
+  }
+
+  async deleteProjectSession(id: string): Promise<boolean> {
+    return this.projectSessions.delete(id);
+  }
+
+  async getTemporarySession(): Promise<ProjectSession | undefined> {
+    return Array.from(this.projectSessions.values()).find(session => session.isTemporary);
+  }
+
+  async clearTemporarySessions(): Promise<void> {
+    Array.from(this.projectSessions.entries()).forEach(([id, session]) => {
+      if (session.isTemporary) {
+        this.projectSessions.delete(id);
+      }
+    });
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -174,12 +241,7 @@ export class DatabaseStorage implements IStorage {
   async createGenerationJob(insertJob: InsertGenerationJob): Promise<GenerationJob> {
     const [job] = await db
       .insert(generationJobs)
-      .values({
-        name: insertJob.name,
-        styleId: insertJob.styleId,
-        visualConcepts: insertJob.visualConcepts,
-        settings: insertJob.settings
-      })
+      .values(insertJob)
       .returning();
     return job;
   }
@@ -217,6 +279,50 @@ export class DatabaseStorage implements IStorage {
       .where(eq(generatedImages.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Project Session methods for DatabaseStorage
+  async getProjectSessionById(id: string): Promise<ProjectSession | undefined> {
+    const [session] = await db.select().from(projectSessions).where(eq(projectSessions.id, id));
+    return session || undefined;
+  }
+
+  async getAllProjectSessions(): Promise<ProjectSession[]> {
+    return await db.select().from(projectSessions).orderBy(projectSessions.updatedAt);
+  }
+
+  async createProjectSession(insertSession: InsertProjectSession): Promise<ProjectSession> {
+    const [session] = await db
+      .insert(projectSessions)
+      .values(insertSession)
+      .returning();
+    return session;
+  }
+
+  async updateProjectSession(id: string, updates: Partial<InsertProjectSession>): Promise<ProjectSession | undefined> {
+    const [updated] = await db
+      .update(projectSessions)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(projectSessions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProjectSession(id: string): Promise<boolean> {
+    const result = await db.delete(projectSessions).where(eq(projectSessions.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getTemporarySession(): Promise<ProjectSession | undefined> {
+    const [session] = await db.select().from(projectSessions).where(eq(projectSessions.isTemporary, true));
+    return session || undefined;
+  }
+
+  async clearTemporarySessions(): Promise<void> {
+    await db.delete(projectSessions).where(eq(projectSessions.isTemporary, true));
   }
 }
 

@@ -126,3 +126,89 @@ export const pollGenerationProgress = (
   // Start polling immediately
   poll();
 };
+
+// PROJECT SESSION API FUNCTIONS
+
+export const getAllProjectSessions = async () => {
+  const response = await fetch('/api/sessions');
+  if (!response.ok) {
+    throw new Error('Failed to fetch sessions');
+  }
+  return response.json();
+};
+
+export const getProjectSessionById = async (id: string) => {
+  const response = await fetch(`/api/sessions/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch session');
+  }
+  return response.json();
+};
+
+export const createProjectSession = async (sessionData: {
+  name?: string;
+  displayName: string;
+  styleId?: string;
+  visualConcepts: string[];
+  settings: any;
+  isTemporary?: boolean;
+  hasUnsavedChanges?: boolean;
+}) => {
+  const response = await fetch('/api/sessions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(sessionData),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create session');
+  }
+
+  return response.json();
+};
+
+export const updateProjectSession = async (id: string, updates: any) => {
+  const response = await fetch(`/api/sessions/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update session');
+  }
+
+  return response.json();
+};
+
+export const deleteProjectSession = async (id: string) => {
+  const response = await fetch(`/api/sessions/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete session');
+  }
+};
+
+export const getTemporarySession = async () => {
+  const response = await fetch('/api/sessions/temporary');
+  if (!response.ok) {
+    throw new Error('Failed to fetch temporary session');
+  }
+  return response.json();
+};
+
+export const clearTemporarySessions = async () => {
+  const response = await fetch('/api/sessions/temporary', {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to clear temporary sessions');
+  }
+};
