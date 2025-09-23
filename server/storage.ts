@@ -1,7 +1,7 @@
 import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, imageStyles, generationJobs, generatedImages, projectSessions } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -160,7 +160,7 @@ export class MemStorage implements IStorage {
       name: insertSession.name || null,
       displayName: insertSession.displayName,
       styleId: insertSession.styleId || null,
-      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts as string[] : [],
+      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts : [],
       settings: insertSession.settings as GenerationSettings,
       isTemporary: Boolean(insertSession.isTemporary) || false,
       hasUnsavedChanges: Boolean(insertSession.hasUnsavedChanges) || false,
@@ -175,11 +175,17 @@ export class MemStorage implements IStorage {
     const session = this.projectSessions.get(id);
     if (!session) return undefined;
     
-    const updatedSession = { 
-      ...session, 
+    // Ensure proper types for updates
+    const safeUpdates: Partial<ProjectSession> = {
       ...updates,
+      visualConcepts: updates.visualConcepts ? Array.isArray(updates.visualConcepts) ? updates.visualConcepts : [] : session.visualConcepts,
+      settings: updates.settings ? updates.settings as GenerationSettings : session.settings,
+      isTemporary: updates.isTemporary !== undefined ? Boolean(updates.isTemporary) : session.isTemporary,
+      hasUnsavedChanges: updates.hasUnsavedChanges !== undefined ? Boolean(updates.hasUnsavedChanges) : session.hasUnsavedChanges,
       updatedAt: new Date()
     };
+    
+    const updatedSession = { ...session, ...safeUpdates };
     this.projectSessions.set(id, updatedSession);
     return updatedSession;
   }
@@ -288,24 +294,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllProjectSessions(): Promise<ProjectSession[]> {
-    return await db.select().from(projectSessions).orderBy(projectSessions.updatedAt);
+    return await db.select().from(projectSessions).orderBy(desc(projectSessions.updatedAt));
   }
 
   async createProjectSession(insertSession: InsertProjectSession): Promise<ProjectSession> {
+    // Ensure proper types before database insert
+    const safeSession = {
+      name: insertSession.name || null,
+      displayName: insertSession.displayName,
+      styleId: insertSession.styleId || null,
+      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts : [],
+      settings: insertSession.settings as GenerationSettings,
+      isTemporary: Boolean(insertSession.isTemporary) || false,
+      hasUnsavedChanges: Boolean(insertSession.hasUnsavedChanges) || false
+    };
+
     const [session] = await db
       .insert(projectSessions)
-      .values(insertSession)
+      .values(safeSession)
       .returning();
     return session;
   }
 
   async updateProjectSession(id: string, updates: Partial<InsertProjectSession>): Promise<ProjectSession | undefined> {
+    // Ensure proper types before database update
+    const safeUpdates: Partial<typeof projectSessions.$inferInsert> = {};
+    
+    if (updates.name !== undefined) safeUpdates.name = updates.name;
+    if (updates.displayName !== undefined) safeUpdates.displayName = updates.displayName;
+    if (updates.styleId !== undefined) safeUpdates.styleId = updates.styleId;
+    if (updates.visualConcepts !== undefined) {
+      safeUpdates.visualConcepts = Array.isArray(updates.visualConcepts) ? updates.visualConcepts : [];
+    }
+    if (updates.settings !== undefined) {
+      safeUpdates.settings = updates.settings as GenerationSettings;
+    }
+    if (updates.isTemporary !== undefined) {
+      safeUpdates.isTemporary = Boolean(updates.isTemporary);
+    }
+    if (updates.hasUnsavedChanges !== undefined) {
+      safeUpdates.hasUnsavedChanges = Boolean(updates.hasUnsavedChanges);
+    }
+    
+    safeUpdates.updatedAt = new Date();
+
     const [updated] = await db
       .update(projectSessions)
-      .set({
-        ...updates,
-        updatedAt: new Date()
-      })
+      .set(safeUpdates)
       .where(eq(projectSessions.id, id))
       .returning();
     return updated || undefined;
@@ -317,12 +352,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTemporarySession(): Promise<ProjectSession | undefined> {
-    const [session] = await db.select().from(projectSessions).where(eq(projectSessions.isTemporary, true));
-    return session || undefined;
+    try {
+      const [session] = await db.select().from(projectSessions).where(eq(projectSessions.isTemporary, true)).limit(1);
+      return session || undefined;
+    } catch (error) {
+      console.error('Error fetching temporary session:', error);
+      return undefined;
+    }
   }
 
   async clearTemporarySessions(): Promise<void> {
-    await db.delete(projectSessions).where(eq(projectSessions.isTemporary, true));
+    try {
+      await db.delete(projectSessions).where(eq(projectSessions.isTemporary, true));
+    } catch (error) {
+      console.error('Error clearing temporary sessions:', error);
+    }
   }
 }
 

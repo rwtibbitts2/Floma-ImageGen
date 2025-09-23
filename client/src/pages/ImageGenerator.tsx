@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from '@/components/ui/button';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, ArrowLeft } from 'lucide-react';
 import StyleSelector from '@/components/StyleSelector';
 import VisualConceptsInput from '@/components/VisualConceptsInput';
 import GenerationSettings from '@/components/GenerationSettings';
@@ -38,6 +39,8 @@ function ThemeToggle() {
 }
 
 export default function ImageGenerator() {
+  const [location, setLocation] = useLocation();
+  
   // State management
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>();
   const [concepts, setConcepts] = useState<string[]>([]);
@@ -248,6 +251,42 @@ export default function ImageGenerator() {
     }
   };
 
+  // Load session from URL parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.split('?')[1]);
+    const sessionId = urlParams.get('session');
+    
+    if (sessionId) {
+      // Load the session data
+      api.getProjectSessionById(sessionId)
+        .then((session) => {
+          if (session.styleId) {
+            api.getImageStyles().then((styles) => {
+              const style = styles.find(s => s.id === session.styleId);
+              setSelectedStyle(style);
+            });
+          }
+          setConcepts(session.visualConcepts || []);
+          setSettings(session.settings || settings);
+          setCurrentSessionId(sessionId);
+          setHasUnsavedChanges(false); // This is a loaded session
+          
+          toast({
+            title: 'Session Loaded',
+            description: `Loaded "${session.displayName}"`,
+          });
+        })
+        .catch((error) => {
+          console.error('Failed to load session:', error);
+          toast({
+            title: 'Load Failed',
+            description: 'Failed to load the selected session.',
+            variant: 'destructive'
+          });
+        });
+    }
+  }, [location]);
+
   // Track unsaved changes
   useEffect(() => {
     setHasUnsavedChanges(true);
@@ -322,6 +361,15 @@ export default function ImageGenerator() {
           {/* Header */}
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation('/')}
+                data-testid="button-back-home"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Home
+              </Button>
               <h1 className="text-xl font-semibold">Image Generator</h1>
             </div>
             <ThemeToggle />
