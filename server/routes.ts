@@ -24,7 +24,10 @@ router.get('/styles', requireAuth, async (req, res) => {
     const userId = (req as any).user.id;
     const isAdmin = (req as any).user.role === 'admin';
     const filteredStyles = styles.filter(style => 
-      isAdmin || style.createdBy === userId
+      isAdmin || 
+      style.createdBy === userId || 
+      !style.createdBy || 
+      style.createdBy === ''
     );
     res.json(filteredStyles);
   } catch (error) {
