@@ -7,7 +7,6 @@ import StyleSelector from '@/components/StyleSelector';
 import VisualConceptsInput from '@/components/VisualConceptsInput';
 import GenerationSettings from '@/components/GenerationSettings';
 import BatchProgressTracker from '@/components/BatchProgressTracker';
-import ResultsGallery from '@/components/ResultsGallery';
 import GenerationSummaryAction from '@/components/GenerationSummaryAction';
 import PersistentImageGallery from '@/components/PersistentImageGallery';
 import AddStyleModal from '@/components/AddStyleModal';
@@ -287,16 +286,10 @@ export default function ImageGenerator() {
                   />
                 </div>
 
-                {/* Right Column (66%) - Visual Concepts + Results */}
+                {/* Right Column (66%) - Visual Concepts or Progress */}
                 <div className="md:col-span-8 space-y-6">
-                  <VisualConceptsInput
-                    concepts={concepts}
-                    onConceptsChange={setConcepts}
-                    onUploadFile={handleUploadConceptsFile}
-                  />
-                  
-                  {/* Progress when generating */}
-                  {(isGenerating || currentProgress > 0) && (
+                  {/* Show progress tracker during active generation states, otherwise show visual concepts input */}
+                  {(currentJob?.status === 'running' || currentJob?.status === 'pending' || isGenerating) ? (
                     <BatchProgressTracker
                       totalConcepts={concepts.length}
                       totalVariations={settings.variations}
@@ -309,17 +302,13 @@ export default function ImageGenerator() {
                       onStop={handleStopGeneration}
                       recentImages={generatedImages.slice(-4)}
                     />
+                  ) : (
+                    <VisualConceptsInput
+                      concepts={concepts}
+                      onConceptsChange={setConcepts}
+                      onUploadFile={handleUploadConceptsFile}
+                    />
                   )}
-                  
-                  <ResultsGallery
-                    images={generatedImages}
-                    onDownload={handleDownloadImage}
-                    onDownloadAll={handleDownloadAll}
-                    onDelete={(imageId) => {
-                      setGeneratedImages(prev => prev.filter(img => img.id !== imageId));
-                      console.log('Deleted image:', imageId);
-                    }}
-                  />
                 </div>
               </div>
               
