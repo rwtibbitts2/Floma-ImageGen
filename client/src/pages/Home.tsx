@@ -14,9 +14,11 @@ import {
   Settings,
   Trash2,
   FolderOpen,
-  AlertTriangle
+  AlertTriangle,
+  LogOut
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { getAllProjectSessions, deleteProjectSession } from '@/lib/api';
 import { ProjectSession } from '@shared/schema';
 import {
@@ -56,6 +58,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logout, user } = useAuth();
 
   // Fetch all saved sessions
   const { data: sessions = [], isLoading, error } = useQuery({
@@ -96,6 +99,22 @@ export default function Home() {
     setLocation('/generate');
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: 'Logged out',
+        description: 'You have been successfully logged out.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Logout failed',
+        description: 'There was an error logging you out.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const formatDate = (dateString: string | Date | null) => {
     if (!dateString) return 'Unknown date';
     const date = new Date(dateString);
@@ -125,6 +144,14 @@ export default function Home() {
             >
               <Plus className="w-4 h-4 mr-2" />
               Generate Images
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handleLogout}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
             </Button>
             <ThemeToggle />
           </div>

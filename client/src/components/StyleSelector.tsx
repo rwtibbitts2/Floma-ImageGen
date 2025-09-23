@@ -23,6 +23,7 @@ const defaultStyles: ImageStyle[] = [
     description: 'Clean, modern corporate style for business presentations',
     stylePrompt: 'professional corporate style, clean modern design, business presentation quality, high-end commercial photography',
     createdAt: new Date(),
+    createdBy: null,
   },
   {
     id: 'default-2', 
@@ -30,6 +31,7 @@ const defaultStyles: ImageStyle[] = [
     description: 'Bold artistic style with vibrant colors and creative elements',
     stylePrompt: 'creative artistic style, vibrant colors, bold design elements, contemporary art inspiration, dynamic composition',
     createdAt: new Date(),
+    createdBy: null,
   },
   {
     id: 'default-3',
@@ -37,6 +39,7 @@ const defaultStyles: ImageStyle[] = [
     description: 'Simple, clean minimalist aesthetic with plenty of white space',
     stylePrompt: 'minimalist clean style, simple design, plenty of white space, elegant simplicity, modern minimal aesthetic',
     createdAt: new Date(),
+    createdBy: null,
   }
 ];
 

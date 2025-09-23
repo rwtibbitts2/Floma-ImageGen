@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { Moon, Sun, ArrowLeft, Download, ExternalLink, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +57,7 @@ function ThemeToggle() {
 
 export default function ImageGenerator() {
   const [location, setLocation] = useLocation();
+  const { logout } = useAuth();
   
   // State management
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>();
@@ -417,6 +419,22 @@ export default function ImageGenerator() {
     setShowLeaveDialog(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: 'Logged out',
+        description: 'You have been successfully logged out.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Logout failed',
+        description: 'There was an error logging you out.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   // Warning for unsaved changes before leaving page
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -501,6 +519,15 @@ export default function ImageGenerator() {
                   Save Session
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
               <ThemeToggle />
             </div>
           </header>
