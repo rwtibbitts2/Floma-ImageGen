@@ -118,30 +118,21 @@ export default function Home() {
               <p className="text-sm text-muted-foreground">Enterprise batch image generation</p>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            <Button 
+              onClick={handleNewSession}
+              data-testid="button-new-generation"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Generate Images
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold mb-4">Welcome to Image Generator</h2>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Create professional AI-powered images at scale with style consistency and batch processing capabilities.
-          </p>
-          
-          <Button 
-            size="lg" 
-            onClick={handleNewSession}
-            className="h-12 px-8 text-lg"
-            data-testid="button-new-generation"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Generate Images
-          </Button>
-        </div>
-
         {/* Temporary Session Alert */}
         {temporarySession && (
           <Alert className="mb-8">
@@ -149,8 +140,8 @@ export default function Home() {
             <AlertDescription>
               You have an unsaved autosave session from {formatDate(temporarySession.updatedAt)}.{' '}
               <Button 
-                variant="link" 
-                className="p-0 h-auto"
+                variant="ghost" 
+                className="p-0 h-auto underline"
                 onClick={() => handleOpenSession(temporarySession)}
                 data-testid="button-restore-autosave"
               >
