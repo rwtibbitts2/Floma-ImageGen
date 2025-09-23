@@ -298,7 +298,7 @@ export default function ImageGenerator() {
 
   // Load session from URL parameter
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.split('?')[1] || '');
+    const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
     
     if (sessionId && sessionId !== currentSessionId) {
