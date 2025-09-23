@@ -83,6 +83,9 @@ export default function ImageGenerator() {
       return;
     }
     
+    // Update session when generation starts
+    await updateSessionOnStart();
+    
     try {
       setIsGenerating(true);
       setCurrentProgress(0);
@@ -291,6 +294,46 @@ export default function ImageGenerator() {
   useEffect(() => {
     setHasUnsavedChanges(true);
   }, [selectedStyle, concepts, settings]);
+
+  // Create temporary session on first changes
+  const createTemporarySession = async () => {
+    if (currentSessionId) return; // Already have a session
+    
+    try {
+      const session = await api.createProjectSession({
+        displayName: `Autosave ${new Date().toLocaleString()}`,
+        styleId: selectedStyle?.id,
+        visualConcepts: concepts,
+        settings,
+        isTemporary: true,
+        hasUnsavedChanges: true
+      });
+      
+      setCurrentSessionId(session.id);
+      console.log('Created temporary session:', session.id);
+    } catch (error) {
+      console.error('Failed to create temporary session:', error);
+    }
+  };
+
+  // Update session when generation starts
+  const updateSessionOnStart = async () => {
+    if (!currentSessionId) {
+      await createTemporarySession();
+    } else {
+      try {
+        await api.updateProjectSession(currentSessionId, {
+          styleId: selectedStyle?.id,
+          visualConcepts: concepts,
+          settings,
+          hasUnsavedChanges: true
+        });
+        console.log('Updated session on generation start');
+      } catch (error) {
+        console.error('Failed to update session:', error);
+      }
+    }
+  };
 
   // Autosave after each generation job completes
   useEffect(() => {
