@@ -3,6 +3,86 @@ import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings } from '@
 
 const API_BASE = '/api';
 
+// Authentication types
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'user';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin: string | null;
+}
+
+// Authentication API
+export const login = async (credentials: LoginRequest): Promise<User> => {
+  const response = await fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(credentials),
+    credentials: 'include', // Include cookies for session
+  });
+  if (!response.ok) {
+    throw new Error('Invalid email or password');
+  }
+  return response.json();
+};
+
+export const register = async (userData: RegisterRequest): Promise<User> => {
+  const response = await fetch(`${API_BASE}/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(userData),
+    credentials: 'include', // Include cookies for session
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Registration failed');
+  }
+  return response.json();
+};
+
+export const logout = async (): Promise<void> => {
+  const response = await fetch(`${API_BASE}/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Logout failed');
+  }
+};
+
+export const getCurrentUser = async (): Promise<User | null> => {
+  try {
+    const response = await fetch(`${API_BASE}/user`, {
+      credentials: 'include',
+    });
+    if (response.status === 401) {
+      return null; // User not authenticated
+    }
+    if (!response.ok) {
+      throw new Error('Failed to get user');
+    }
+    return response.json();
+  } catch (error) {
+    return null;
+  }
+};
+
 export interface GenerationRequest {
   jobName: string;
   styleId: string;
