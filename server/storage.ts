@@ -628,7 +628,7 @@ export class DatabaseStorage implements IStorage {
 
 export const storage = new MemStorage();
 
-// Initialize with some default styles for demo purposes
+// Initialize with some default styles and test user for demo purposes
 (async () => {
   const defaultStyles = [
     {
@@ -660,5 +660,16 @@ export const storage = new MemStorage();
       await storage.createImageStyle(style);
     }
     console.log('Initialized storage with default image styles');
+  }
+
+  // Create test user for login
+  const existingUsers = await storage.getAllUsers();
+  if (existingUsers.length === 0) {
+    await storage.createUser({
+      email: 'test@example.com',
+      password: 'password123', // This will be hashed by the auth system
+      role: 'user'
+    });
+    console.log('Created test user: test@example.com / password123');
   }
 })();
