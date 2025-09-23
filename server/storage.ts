@@ -1,7 +1,7 @@
 import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, imageStyles, generationJobs, generatedImages, projectSessions, users } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import createMemoryStore from "memorystore";
@@ -626,7 +626,7 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new MemStorage();
 
 // Initialize with some default styles for demo purposes
 (async () => {
