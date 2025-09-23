@@ -105,6 +105,10 @@ export const generationJobsRelations = relations(generationJobs, ({ one, many })
     fields: [generationJobs.userId],
     references: [users.id],
   }),
+  session: one(projectSessions, {
+    fields: [generationJobs.sessionId],
+    references: [projectSessions.id],
+  }),
   style: one(imageStyles, {
     fields: [generationJobs.styleId],
     references: [imageStyles.id],
@@ -123,7 +127,7 @@ export const generatedImagesRelations = relations(generatedImages, ({ one }) => 
   }),
 }));
 
-export const projectSessionsRelations = relations(projectSessions, ({ one }) => ({
+export const projectSessionsRelations = relations(projectSessions, ({ one, many }) => ({
   user: one(users, {
     fields: [projectSessions.userId],
     references: [users.id],
@@ -132,6 +136,7 @@ export const projectSessionsRelations = relations(projectSessions, ({ one }) => 
     fields: [projectSessions.styleId],
     references: [imageStyles.id],
   }),
+  generationJobs: many(generationJobs),
 }));
 
 // Types - From blueprint:javascript_auth_all_persistance
