@@ -52,6 +52,9 @@ export interface IStorage {
   deleteProjectSession(id: string): Promise<boolean>;
   getTemporarySession(): Promise<ProjectSession | undefined>;
   clearTemporarySessions(): Promise<void>;
+  getTemporarySessionsForUser(userId: string): Promise<ProjectSession[]>;
+  clearTemporarySessionsForUser(userId: string): Promise<number>;
+  migrateGenerationJobsToSession(sourceSessionId: string, targetSessionId: string): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -107,6 +110,7 @@ export class MemStorage implements IStorage {
       id,
       name: insertJob.name,
       userId: insertJob.userId || null, // Actually use the provided userId value
+      sessionId: insertJob.sessionId || null, // Store sessionId for image persistence linking
       status: 'pending',
       progress: 0,
       styleId: insertJob.styleId || null,
@@ -315,6 +319,34 @@ export class MemStorage implements IStorage {
         this.projectSessions.delete(id);
       }
     });
+  }
+
+  async getTemporarySessionsForUser(userId: string): Promise<ProjectSession[]> {
+    return Array.from(this.projectSessions.values()).filter(session => 
+      session.userId === userId && session.isTemporary
+    );
+  }
+
+  async clearTemporarySessionsForUser(userId: string): Promise<number> {
+    let deletedCount = 0;
+    for (const [sessionId, session] of this.projectSessions) {
+      if (session.userId === userId && session.isTemporary) {
+        this.projectSessions.delete(sessionId);
+        deletedCount++;
+      }
+    }
+    return deletedCount;
+  }
+
+  async migrateGenerationJobsToSession(sourceSessionId: string, targetSessionId: string): Promise<number> {
+    let migratedCount = 0;
+    for (const [jobId, job] of this.generationJobs) {
+      if (job.sessionId === sourceSessionId) {
+        job.sessionId = targetSessionId;
+        migratedCount++;
+      }
+    }
+    return migratedCount;
   }
 }
 
@@ -554,6 +586,42 @@ export class DatabaseStorage implements IStorage {
       await db.delete(projectSessions).where(eq(projectSessions.isTemporary, true));
     } catch (error) {
       console.error('Error clearing temporary sessions:', error);
+    }
+  }
+
+  async getTemporarySessionsForUser(userId: string): Promise<ProjectSession[]> {
+    try {
+      return await db.select().from(projectSessions).where(
+        and(eq(projectSessions.userId, userId), eq(projectSessions.isTemporary, true))
+      );
+    } catch (error) {
+      console.error('Error fetching temporary sessions for user:', error);
+      return [];
+    }
+  }
+
+  async clearTemporarySessionsForUser(userId: string): Promise<number> {
+    try {
+      const result = await db.delete(projectSessions).where(
+        and(eq(projectSessions.userId, userId), eq(projectSessions.isTemporary, true))
+      );
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error('Error clearing temporary sessions for user:', error);
+      return 0;
+    }
+  }
+
+  async migrateGenerationJobsToSession(sourceSessionId: string, targetSessionId: string): Promise<number> {
+    try {
+      const result = await db
+        .update(generationJobs)
+        .set({ sessionId: targetSessionId })
+        .where(eq(generationJobs.sessionId, sourceSessionId));
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error('Error migrating generation jobs to session:', error);
+      return 0;
     }
   }
 }

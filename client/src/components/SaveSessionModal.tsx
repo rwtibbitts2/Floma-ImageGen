@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { createProjectSession, clearTemporarySessions } from '@/lib/api';
+import { createProjectSession, clearTemporarySessions, getTemporarySessionsForUser, migrateGenerationJobsToSession } from '@/lib/api';
 import { ImageStyle, GenerationSettings } from '@shared/schema';
 
 interface SaveSessionModalProps {
@@ -53,12 +53,33 @@ export default function SaveSessionModal({
         const session = await createProjectSession(sessionData);
         console.log('Session created successfully:', session);
         
-        // Clear any temporary sessions after successful save
+        // Get temporary sessions and migrate their generation jobs to the new session
         try {
-          await clearTemporarySessions();
-          console.log('Temporary sessions cleared');
-        } catch (clearError) {
-          console.warn('Failed to clear temporary sessions (non-critical):', clearError);
+          const tempSessions = await getTemporarySessionsForUser();
+          console.log('Found temporary sessions:', tempSessions);
+          
+          if (tempSessions.length > 0) {
+            // Migrate jobs from each temporary session to the new saved session
+            let totalMigrated = 0;
+            for (const tempSession of tempSessions) {
+              const migrationResult = await migrateGenerationJobsToSession(session.id, tempSession.id);
+              totalMigrated += migrationResult.migratedCount;
+              console.log(`Migrated ${migrationResult.migratedCount} jobs from temp session ${tempSession.id} to ${session.id}`);
+            }
+            
+            // Clear temporary sessions after successful migration
+            await clearTemporarySessions();
+            console.log(`Migration complete: ${totalMigrated} jobs migrated, temporary sessions cleared`);
+            
+            if (totalMigrated > 0) {
+              // Show success feedback to user
+              console.log(`Successfully migrated ${totalMigrated} generated images to saved session`);
+            }
+          } else {
+            console.log('No temporary sessions found to migrate');
+          }
+        } catch (migrationError) {
+          console.warn('Failed to migrate jobs or clear temporary sessions (non-critical):', migrationError);
         }
         
         return session;

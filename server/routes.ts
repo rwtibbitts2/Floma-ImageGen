@@ -382,6 +382,44 @@ router.get('/sessions/:id/images', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/sessions/:id/migrate-jobs - Migrate generation jobs from another session (Protected)
+router.post('/sessions/:id/migrate-jobs', requireAuth, async (req, res) => {
+  try {
+    const targetSessionId = req.params.id;
+    const { sourceSessionId } = req.body;
+    
+    if (!sourceSessionId) {
+      return res.status(400).json({ error: 'sourceSessionId is required' });
+    }
+    
+    // Verify both sessions exist and belong to the user
+    const targetSession = await storage.getProjectSessionById(targetSessionId);
+    const sourceSession = await storage.getProjectSessionById(sourceSessionId);
+    
+    if (!targetSession || !sourceSession) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    
+    if (!isAdmin && (targetSession.userId !== userId || sourceSession.userId !== userId)) {
+      return res.status(403).json({ error: 'Access denied: not your session' });
+    }
+    
+    // Migrate all generation jobs from source to target session
+    const migratedCount = await storage.migrateGenerationJobsToSession(sourceSessionId, targetSessionId);
+    
+    res.json({ 
+      message: 'Generation jobs migrated successfully',
+      migratedCount 
+    });
+  } catch (error) {
+    console.error('Error migrating generation jobs:', error);
+    res.status(500).json({ error: 'Failed to migrate generation jobs' });
+  }
+});
+
 // POST /api/sessions - Create new project session (Protected)
 router.post('/sessions', requireAuth, async (req, res) => {
   try {
@@ -473,30 +511,24 @@ router.delete('/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/sessions/temporary - Get current temporary session for authenticated user (Protected)
+// GET /api/sessions/temporary - Get temporary sessions for authenticated user (Protected)
 router.get('/sessions/temporary', requireAuth, async (req, res) => {
   try {
-    const session = await storage.getTemporarySession();
-    // Verify ownership if session exists
-    if (session) {
-      const userId = (req as any).user.id;
-      const isAdmin = (req as any).user.role === 'admin';
-      if (!isAdmin && session.userId !== userId) {
-        return res.status(403).json({ error: 'Access denied: not your session' });
-      }
-    }
-    res.json(session || null);
+    const userId = (req as any).user.id;
+    const sessions = await storage.getTemporarySessionsForUser(userId);
+    res.json(sessions);
   } catch (error) {
-    console.error('Error fetching temporary session:', error);
-    res.status(500).json({ error: 'Failed to fetch temporary session' });
+    console.error('Error fetching temporary sessions:', error);
+    res.status(500).json({ error: 'Failed to fetch temporary sessions' });
   }
 });
 
-// DELETE /api/sessions/temporary - Clear all temporary sessions (Protected)
+// DELETE /api/sessions/temporary - Clear temporary sessions for authenticated user (Protected)
 router.delete('/sessions/temporary', requireAuth, async (req, res) => {
   try {
-    await storage.clearTemporarySessions();
-    res.status(204).send();
+    const userId = (req as any).user.id;
+    const deletedCount = await storage.clearTemporarySessionsForUser(userId);
+    res.json({ message: 'Temporary sessions cleared', deletedCount });
   } catch (error) {
     console.error('Error clearing temporary sessions:', error);
     res.status(500).json({ error: 'Failed to clear temporary sessions' });

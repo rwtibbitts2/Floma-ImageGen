@@ -103,22 +103,22 @@ export default function ImageGenerator() {
       return;
     }
     
-    // Update session when generation starts
-    await updateSessionOnStart();
+    // Update session when generation starts and get the sessionId to use
+    const sessionIdForGeneration = await updateSessionOnStart();
     
     try {
       setIsGenerating(true);
       setCurrentProgress(0);
       setGeneratedImages([]);
       
-      console.log('Starting generation:', { selectedStyle, concepts, settings });
+      console.log('Starting generation:', { selectedStyle, concepts, settings, sessionId: sessionIdForGeneration });
       
       const response = await api.startGeneration({
         jobName: `Generation ${new Date().toLocaleTimeString()}`,
         styleId: selectedStyle.id,
         concepts,
         settings,
-        sessionId: currentSessionId // Link generation to current session for image persistence
+        sessionId: sessionIdForGeneration // Link generation to current session for image persistence
       });
       
       setCurrentJobId(response.jobId);
@@ -307,14 +307,16 @@ export default function ImageGenerator() {
       
       const loadSession = async () => {
         try {
-          // Load session and styles in parallel
-          const [session, styles] = await Promise.all([
+          // Load session, styles, and images in parallel
+          const [session, styles, sessionImages] = await Promise.all([
             api.getProjectSessionById(sessionId),
-            api.getImageStyles()
+            api.getImageStyles(),
+            api.getGeneratedImagesBySessionId(sessionId)
           ]);
           
           console.log('Session loaded:', session);
           console.log('Available styles:', styles);
+          console.log('Session images loaded:', sessionImages);
           
           // Set session ID first to avoid re-triggering
           setCurrentSessionId(sessionId);
@@ -331,9 +333,12 @@ export default function ImageGenerator() {
           setSettings(session.settings || settings);
           setHasUnsavedChanges(false); // This is a loaded session
           
+          // Load associated images into session gallery
+          setSessionImages(sessionImages);
+          
           toast({
             title: 'Session Loaded',
-            description: `Loaded "${session.displayName}"`,
+            description: `Loaded "${session.displayName}" with ${sessionImages.length} saved images`,
           });
           
         } catch (error) {
@@ -376,10 +381,21 @@ export default function ImageGenerator() {
     }
   };
 
-  // Update session when generation starts
-  const updateSessionOnStart = async () => {
+  // Update session when generation starts - returns the sessionId to use
+  const updateSessionOnStart = async (): Promise<string | undefined> => {
     if (!currentSessionId) {
-      await createTemporarySession();
+      const session = await api.createProjectSession({
+        displayName: `Autosave ${new Date().toLocaleString()}`,
+        styleId: selectedStyle?.id,
+        visualConcepts: concepts,
+        settings,
+        isTemporary: true,
+        hasUnsavedChanges: true
+      });
+      
+      setCurrentSessionId(session.id);
+      console.log('Created temporary session:', session.id);
+      return session.id;
     } else {
       try {
         await api.updateProjectSession(currentSessionId, {
@@ -389,8 +405,10 @@ export default function ImageGenerator() {
           hasUnsavedChanges: true
         });
         console.log('Updated session on generation start');
+        return currentSessionId;
       } catch (error) {
         console.error('Failed to update session:', error);
+        return currentSessionId;
       }
     }
   };

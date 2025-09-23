@@ -276,13 +276,6 @@ export const deleteProjectSession = async (id: string) => {
   }
 };
 
-export const getTemporarySession = async () => {
-  const response = await fetch('/api/sessions/temporary');
-  if (!response.ok) {
-    throw new Error('Failed to fetch temporary session');
-  }
-  return response.json();
-};
 
 export const clearTemporarySessions = async () => {
   const response = await fetch('/api/sessions/temporary', {
@@ -292,4 +285,36 @@ export const clearTemporarySessions = async () => {
   if (!response.ok) {
     throw new Error('Failed to clear temporary sessions');
   }
+};
+
+export const getGeneratedImagesBySessionId = async (sessionId: string): Promise<GeneratedImage[]> => {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/images`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch session images');
+  }
+  return response.json();
+};
+
+export const migrateGenerationJobsToSession = async (targetSessionId: string, sourceSessionId: string) => {
+  const response = await fetch(`${API_BASE}/sessions/${targetSessionId}/migrate-jobs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ sourceSessionId }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to migrate generation jobs to session');
+  }
+
+  return response.json();
+};
+
+export const getTemporarySessionsForUser = async (): Promise<ProjectSession[]> => {
+  const response = await fetch(`${API_BASE}/sessions/temporary`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch temporary sessions');
+  }
+  return response.json();
 };
