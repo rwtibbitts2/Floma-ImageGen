@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,12 @@ interface VisualConceptsInputProps {
 export default function VisualConceptsInput({ concepts, onConceptsChange, onUploadFile }: VisualConceptsInputProps) {
   const [jsonInput, setJsonInput] = useState(JSON.stringify(concepts, null, 2));
   const [validationError, setValidationError] = useState<string>();
+
+  // Sync jsonInput with concepts prop when it changes (e.g., when loading a saved session)
+  useEffect(() => {
+    setJsonInput(JSON.stringify(concepts, null, 2));
+    setValidationError(undefined);
+  }, [concepts]);
 
   const validateAndUpdate = (value: string) => {
     setJsonInput(value);
