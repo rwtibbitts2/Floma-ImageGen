@@ -8,8 +8,8 @@ import VisualConceptsInput from '@/components/VisualConceptsInput';
 import GenerationSettings from '@/components/GenerationSettings';
 import BatchProgressTracker from '@/components/BatchProgressTracker';
 import ResultsGallery from '@/components/ResultsGallery';
-import GenerationJobName from '@/components/GenerationJobName';
 import GenerationSummaryAction from '@/components/GenerationSummaryAction';
+import PersistentImageGallery from '@/components/PersistentImageGallery';
 import AddStyleModal from '@/components/AddStyleModal';
 import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob } from '@shared/schema';
 import * as api from '@/lib/api';
@@ -42,14 +42,15 @@ export default function ImageGenerator() {
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>();
   const [concepts, setConcepts] = useState<string[]>([]);
   const [settings, setSettings] = useState<GenerationSettingsType>({
+    model: 'dall-e-3',
     quality: 'standard',
     size: '1024x1024',
     transparency: false,
     variations: 1,
   });
-  const [jobName, setJobName] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [sessionImages, setSessionImages] = useState<GeneratedImage[]>([]);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentConcept, setCurrentConcept] = useState<string>();
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
@@ -66,7 +67,7 @@ export default function ImageGenerator() {
   });
   
   // Real image generation function
-  const handleStartGeneration = async (jobName: string) => {
+  const handleStartGeneration = async () => {
     if (!selectedStyle || concepts.length === 0) {
       toast({
         title: 'Validation Error',
@@ -81,10 +82,10 @@ export default function ImageGenerator() {
       setCurrentProgress(0);
       setGeneratedImages([]);
       
-      console.log('Starting generation:', { jobName, selectedStyle, concepts, settings });
+      console.log('Starting generation:', { selectedStyle, concepts, settings });
       
       const response = await api.startGeneration({
-        jobName,
+        jobName: `Generation ${new Date().toLocaleTimeString()}`,
         styleId: selectedStyle.id,
         concepts,
         settings
@@ -94,7 +95,7 @@ export default function ImageGenerator() {
       
       toast({
         title: 'Generation Started',
-        description: `Your batch generation "${jobName}" has started. You'll see progress updates below.`
+        description: 'Your batch generation has started. You\'ll see progress updates below.'
       });
       
       // Start polling for progress
@@ -102,8 +103,17 @@ export default function ImageGenerator() {
         response.jobId,
         (job, images) => {
           setCurrentJob(job);
-          setCurrentProgress(images.filter(img => img.status === 'completed').length);
-          setGeneratedImages(images.filter(img => img.status === 'completed'));
+          const completedImages = images.filter(img => img.status === 'completed');
+          setCurrentProgress(completedImages.length);
+          setGeneratedImages(completedImages);
+          
+          // Add new completed images to session gallery
+          setSessionImages(prev => {
+            const newImages = completedImages.filter(img => 
+              !prev.some(existing => existing.id === img.id)
+            );
+            return [...prev, ...newImages];
+          });
           
           // Update current concept being processed
           const processingImages = images.filter(img => img.status === 'generating');
@@ -115,9 +125,18 @@ export default function ImageGenerator() {
           setCurrentJob(job);
           setIsGenerating(false);
           setCurrentConcept(undefined);
-          setGeneratedImages(images.filter(img => img.status === 'completed'));
+          const completedImages = images.filter(img => img.status === 'completed');
+          setGeneratedImages(completedImages);
           
-          const completedCount = images.filter(img => img.status === 'completed').length;
+          // Add final completed images to session gallery
+          setSessionImages(prev => {
+            const newImages = completedImages.filter(img => 
+              !prev.some(existing => existing.id === img.id)
+            );
+            return [...prev, ...newImages];
+          });
+          
+          const completedCount = completedImages.length;
           const failedCount = images.filter(img => img.status === 'failed').length;
           
           toast({
@@ -249,16 +268,7 @@ export default function ImageGenerator() {
           {/* Main Layout */}
           <main className="flex-1 overflow-y-auto p-6">
             <div className="flex flex-col h-full space-y-6">
-              {/* First Row - Job Name (full width) */}
-              <div className="w-full">
-                <GenerationJobName
-                  jobName={jobName}
-                  onJobNameChange={setJobName}
-                  disabled={isGenerating}
-                />
-              </div>
-              
-              {/* Second Row - Two columns */}
+              {/* Two columns */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left Column (33%) - Style + Settings */}
                 <div className="md:col-span-4 space-y-6">
@@ -319,12 +329,27 @@ export default function ImageGenerator() {
                   selectedStyle={selectedStyle}
                   concepts={concepts}
                   settings={settings}
-                  jobName={jobName}
                   isRunning={isGenerating}
                   onStartGeneration={handleStartGeneration}
-                  onSaveProject={(name) => console.log('Save project:', name)}
+                  onSaveProject={() => console.log('Save project')}
                 />
               </div>
+            </div>
+            
+            {/* Persistent Session Gallery - Always at bottom, full width */}
+            <div className="w-full mt-6">
+              <PersistentImageGallery
+                images={sessionImages}
+                onDownload={handleDownloadImage}
+                onDelete={(imageId) => {
+                  setSessionImages(prev => prev.filter(img => img.id !== imageId));
+                  console.log('Deleted session image:', imageId);
+                }}
+                onImageClick={(image) => {
+                  console.log('Image clicked:', image.visualConcept);
+                  // Could open full-size view in future
+                }}
+              />
             </div>
           </main>
         </div>

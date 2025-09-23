@@ -9,23 +9,21 @@ interface GenerationSummaryActionProps {
   selectedStyle?: ImageStyle;
   concepts: string[];
   settings: GenerationSettings;
-  jobName: string;
   isRunning: boolean;
-  onStartGeneration: (jobName: string) => void;
-  onSaveProject?: (jobName: string) => void;
+  onStartGeneration: () => void;
+  onSaveProject?: () => void;
 }
 
 export default function GenerationSummaryAction({
   selectedStyle,
   concepts,
   settings,
-  jobName,
   isRunning,
   onStartGeneration,
   onSaveProject
 }: GenerationSummaryActionProps) {
   const totalImages = concepts.length * settings.variations;
-  const canGenerate = selectedStyle && concepts.length > 0 && jobName.trim().length > 0;
+  const canGenerate = selectedStyle && concepts.length > 0;
 
   const estimatedCost = totalImages * (settings.quality === 'hd' ? 0.08 : 0.04); // Example costs
   const estimatedTime = totalImages * 15; // 15 seconds per image
@@ -81,8 +79,7 @@ export default function GenerationSummaryAction({
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {!selectedStyle && 'Please select an image style. '}
-              {concepts.length === 0 && 'Please add visual concepts. '}
-              {jobName.trim().length === 0 && 'Please enter a generation name.'}
+              {concepts.length === 0 && 'Please add visual concepts.'}
             </AlertDescription>
           </Alert>
         )}
@@ -90,7 +87,7 @@ export default function GenerationSummaryAction({
         {/* Action Buttons */}
         <div className="flex gap-2">
           <Button
-            onClick={() => onStartGeneration(jobName)}
+            onClick={onStartGeneration}
             disabled={!canGenerate || isRunning}
             className="flex-1"
             data-testid="button-start-generation"
@@ -111,7 +108,7 @@ export default function GenerationSummaryAction({
           {onSaveProject && (
             <Button
               variant="outline"
-              onClick={() => onSaveProject(jobName)}
+              onClick={onSaveProject}
               disabled={!canGenerate || isRunning}
               data-testid="button-save-project"
             >
