@@ -188,13 +188,19 @@ Subject: ${concept}`;
           
           console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}"`);
 
+          // Map quality values to OpenAI-supported values
+          const qualityMapping = {
+            'standard': 'standard',
+            'hd': 'high'
+          } as const;
+          
           // Generate image using OpenAI
           const response = await openai.images.generate({
             model: settings.model || "gpt-image-1",
             prompt: fullPrompt,
             n: 1,
             size: settings.size,
-            quality: settings.quality
+            quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
           });
 
           const imageUrl = response.data?.[0]?.url;
