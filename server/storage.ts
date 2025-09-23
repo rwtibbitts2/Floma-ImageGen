@@ -453,6 +453,7 @@ export class DatabaseStorage implements IStorage {
   async createProjectSession(insertSession: InsertProjectSession): Promise<ProjectSession> {
     // Ensure proper types before database insert
     const safeSession = {
+      userId: insertSession.userId || null, // Include userId for proper user scoping
       name: insertSession.name || null,
       displayName: insertSession.displayName,
       styleId: insertSession.styleId || null,
