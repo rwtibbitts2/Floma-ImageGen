@@ -114,7 +114,7 @@ export class MemStorage implements IStorage {
       status: 'pending',
       progress: 0,
       styleId: insertJob.styleId || null,
-      visualConcepts: Array.isArray(insertJob.visualConcepts) ? (insertJob.visualConcepts as string[]) : [],
+      visualConcepts: Array.isArray(insertJob.visualConcepts) ? insertJob.visualConcepts : [],
       settings: insertJob.settings as GenerationSettings,
       createdAt: new Date()
     };
@@ -152,7 +152,7 @@ export class MemStorage implements IStorage {
     
     // Return all images that belong to any of these jobs
     return Array.from(this.generatedImages.values()).filter(
-      (image) => image.jobId && jobIds.has(image.jobId)
+      (image) => jobIds.has(image.jobId)
     );
   }
 
@@ -227,17 +227,7 @@ export class MemStorage implements IStorage {
     const user = this.users.get(id);
     if (!user) return undefined;
     
-    // Ensure role is properly typed
-    const safeUpdates = { ...updates };
-    if (safeUpdates.role && typeof safeUpdates.role === 'string') {
-      safeUpdates.role = safeUpdates.role as 'admin' | 'user';
-    }
-    const updatedUser: User = { 
-      ...user, 
-      ...safeUpdates,
-      role: safeUpdates.role ? (safeUpdates.role as 'admin' | 'user') : user.role,
-      updatedAt: new Date() 
-    };
+    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
     this.users.set(id, updatedUser);
     return updatedUser;
   }
@@ -282,7 +272,7 @@ export class MemStorage implements IStorage {
       name: insertSession.name || null,
       displayName: insertSession.displayName,
       styleId: insertSession.styleId || null,
-      visualConcepts: Array.isArray(insertSession.visualConcepts) ? (insertSession.visualConcepts as string[]) : [],
+      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts as string[] : [],
       settings: insertSession.settings as GenerationSettings,
       isTemporary: Boolean(insertSession.isTemporary) || false,
       hasUnsavedChanges: Boolean(insertSession.hasUnsavedChanges) || false,
@@ -303,7 +293,7 @@ export class MemStorage implements IStorage {
     // Ensure proper types for updates
     const safeUpdates: Partial<ProjectSession> = {
       ...cleanUpdates,
-      visualConcepts: cleanUpdates.visualConcepts ? (Array.isArray(cleanUpdates.visualConcepts) ? (cleanUpdates.visualConcepts as string[]) : []) : session.visualConcepts,
+      visualConcepts: cleanUpdates.visualConcepts ? Array.isArray(cleanUpdates.visualConcepts) ? cleanUpdates.visualConcepts : [] : session.visualConcepts,
       settings: cleanUpdates.settings ? cleanUpdates.settings as GenerationSettings : session.settings,
       isTemporary: cleanUpdates.isTemporary !== undefined ? Boolean(cleanUpdates.isTemporary) : session.isTemporary,
       hasUnsavedChanges: cleanUpdates.hasUnsavedChanges !== undefined ? Boolean(cleanUpdates.hasUnsavedChanges) : session.hasUnsavedChanges,
@@ -339,7 +329,7 @@ export class MemStorage implements IStorage {
 
   async clearTemporarySessionsForUser(userId: string): Promise<number> {
     let deletedCount = 0;
-    for (const [sessionId, session] of Array.from(this.projectSessions)) {
+    for (const [sessionId, session] of this.projectSessions) {
       if (session.userId === userId && session.isTemporary) {
         this.projectSessions.delete(sessionId);
         deletedCount++;
@@ -350,7 +340,7 @@ export class MemStorage implements IStorage {
 
   async migrateGenerationJobsToSession(sourceSessionId: string, targetSessionId: string): Promise<number> {
     let migratedCount = 0;
-    for (const [jobId, job] of Array.from(this.generationJobs)) {
+    for (const [jobId, job] of this.generationJobs) {
       if (job.sessionId === sourceSessionId) {
         job.sessionId = targetSessionId;
         migratedCount++;
@@ -361,7 +351,7 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: SessionStore;
+  sessionStore: session.SessionStore;
   
   constructor() {
     // Initialize PostgreSQL session store - From blueprint:javascript_auth_all_persistance
@@ -384,30 +374,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const safeUser: typeof users.$inferInsert = {
-      email: insertUser.email,
-      password: insertUser.password,
-      role: (insertUser.role as 'admin' | 'user') ?? 'user',
-      isActive: insertUser.isActive ?? true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      lastLogin: null
-    };
     const [user] = await db
       .insert(users)
-      .values(safeUser)
+      .values({
+        ...insertUser,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
       .returning();
     return user;
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
-    const safeUpdates: any = { ...updates, updatedAt: new Date() };
-    if (safeUpdates.role && typeof safeUpdates.role === 'string') {
-      safeUpdates.role = safeUpdates.role as 'admin' | 'user';
-    }
     const [updated] = await db
       .update(users)
-      .set(safeUpdates)
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return updated || undefined;
@@ -465,19 +446,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createGenerationJob(insertJob: InsertGenerationJob): Promise<GenerationJob> {
-    const safeJob = {
-      name: insertJob.name,
-      userId: insertJob.userId || null,
-      sessionId: insertJob.sessionId || null,
-      status: 'pending' as const,
-      progress: 0,
-      styleId: insertJob.styleId || null,
-      visualConcepts: Array.isArray(insertJob.visualConcepts) ? (insertJob.visualConcepts as string[]) : [],
-      settings: insertJob.settings as GenerationSettings
-    };
     const [job] = await db
       .insert(generationJobs)
-      .values(safeJob)
+      .values(insertJob)
       .returning();
     return job;
   }
@@ -552,7 +523,7 @@ export class DatabaseStorage implements IStorage {
       name: insertSession.name || null,
       displayName: insertSession.displayName,
       styleId: insertSession.styleId || null,
-      visualConcepts: Array.isArray(insertSession.visualConcepts) ? (insertSession.visualConcepts as string[]) : [],
+      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts : [],
       settings: insertSession.settings as GenerationSettings,
       isTemporary: Boolean(insertSession.isTemporary) || false,
       hasUnsavedChanges: Boolean(insertSession.hasUnsavedChanges) || false
@@ -573,7 +544,7 @@ export class DatabaseStorage implements IStorage {
     if (updates.displayName !== undefined) safeUpdates.displayName = updates.displayName;
     if (updates.styleId !== undefined) safeUpdates.styleId = updates.styleId;
     if (updates.visualConcepts !== undefined) {
-      safeUpdates.visualConcepts = Array.isArray(updates.visualConcepts) ? (updates.visualConcepts as string[]) : [];
+      safeUpdates.visualConcepts = Array.isArray(updates.visualConcepts) ? updates.visualConcepts : [];
     }
     if (updates.settings !== undefined) {
       safeUpdates.settings = updates.settings as GenerationSettings;
