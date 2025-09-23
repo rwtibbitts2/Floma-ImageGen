@@ -4,6 +4,16 @@ import { useLocation } from 'wouter';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from '@/components/ui/button';
 import { Moon, Sun, ArrowLeft } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import StyleSelector from '@/components/StyleSelector';
 import VisualConceptsInput from '@/components/VisualConceptsInput';
 import GenerationSettings from '@/components/GenerationSettings';
@@ -61,6 +71,7 @@ export default function ImageGenerator() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string>();
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -229,7 +240,7 @@ export default function ImageGenerator() {
   const handleSaveComplete = (sessionId: string) => {
     setCurrentSessionId(sessionId);
     setHasUnsavedChanges(false);
-    setIsSaveModalOpen(false);
+    setShowSaveModal(false);
   };
 
   // Autosave functionality - trigger after generation completion
@@ -256,39 +267,56 @@ export default function ImageGenerator() {
 
   // Load session from URL parameter
   useEffect(() => {
-    const urlParams = new URLSearchParams(location.split('?')[1]);
+    const urlParams = new URLSearchParams(location.split('?')[1] || '');
     const sessionId = urlParams.get('session');
     
-    if (sessionId) {
-      // Load the session data
-      api.getProjectSessionById(sessionId)
-        .then((session) => {
+    if (sessionId && sessionId !== currentSessionId) {
+      console.log('Loading session:', sessionId);
+      
+      const loadSession = async () => {
+        try {
+          // Load session and styles in parallel
+          const [session, styles] = await Promise.all([
+            api.getProjectSessionById(sessionId),
+            api.getImageStyles()
+          ]);
+          
+          console.log('Session loaded:', session);
+          console.log('Available styles:', styles);
+          
+          // Set session ID first to avoid re-triggering
+          setCurrentSessionId(sessionId);
+          
+          // Find and set the style if it exists
           if (session.styleId) {
-            api.getImageStyles().then((styles) => {
-              const style = styles.find(s => s.id === session.styleId);
-              setSelectedStyle(style);
-            });
+            const style = styles.find(s => s.id === session.styleId);
+            console.log('Found style:', style);
+            setSelectedStyle(style);
           }
+          
+          // Set concepts and settings
           setConcepts(session.visualConcepts || []);
           setSettings(session.settings || settings);
-          setCurrentSessionId(sessionId);
           setHasUnsavedChanges(false); // This is a loaded session
           
           toast({
             title: 'Session Loaded',
             description: `Loaded "${session.displayName}"`,
           });
-        })
-        .catch((error) => {
+          
+        } catch (error) {
           console.error('Failed to load session:', error);
           toast({
             title: 'Load Failed',
             description: 'Failed to load the selected session.',
             variant: 'destructive'
           });
-        });
+        }
+      };
+      
+      loadSession();
     }
-  }, [location]);
+  }, [location, currentSessionId]);
 
   // Track unsaved changes
   useEffect(() => {
@@ -345,12 +373,19 @@ export default function ImageGenerator() {
   // Navigation guard for back to home
   const handleBackToHome = () => {
     if (hasUnsavedChanges && concepts.length > 0) {
-      const confirmed = window.confirm(
-        'You have unsaved changes. Are you sure you want to leave? Your work will be lost unless you save first.'
-      );
-      if (!confirmed) return;
+      setShowLeaveDialog(true);
+      return;
     }
     setLocation('/');
+  };
+
+  const confirmLeave = () => {
+    setShowLeaveDialog(false);
+    setLocation('/');
+  };
+
+  const cancelLeave = () => {
+    setShowLeaveDialog(false);
   };
 
   // Warning for unsaved changes before leaving page
@@ -536,6 +571,26 @@ export default function ImageGenerator() {
           concepts={concepts}
           settings={settings}
         />
+
+        {/* Leave confirmation dialog */}
+        <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved changes. Are you sure you want to leave? Your work will be lost unless you save first.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={cancelLeave} data-testid="button-cancel-leave">
+                Stay
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={confirmLeave} data-testid="button-confirm-leave">
+                Leave Anyway
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </SidebarProvider>
   );

@@ -44,12 +44,33 @@ export default function SaveSessionModal({
         hasUnsavedChanges: false
       };
 
-      const session = await createProjectSession(sessionData);
-      
-      // Clear any temporary sessions after successful save
-      await clearTemporarySessions();
-      
-      return session;
+      console.log('Attempting to save session:', sessionData);
+      console.log('Selected style:', selectedStyle);
+      console.log('Concepts:', concepts);
+      console.log('Settings:', settings);
+
+      try {
+        const session = await createProjectSession(sessionData);
+        console.log('Session created successfully:', session);
+        
+        // Clear any temporary sessions after successful save
+        try {
+          await clearTemporarySessions();
+          console.log('Temporary sessions cleared');
+        } catch (clearError) {
+          console.warn('Failed to clear temporary sessions (non-critical):', clearError);
+        }
+        
+        return session;
+      } catch (error) {
+        console.error('Detailed save error:', error);
+        console.error('Error name:', error?.name);
+        console.error('Error message:', error?.message);
+        console.error('Error stack:', error?.stack);
+        
+        // Re-throw to trigger the onError handler
+        throw error;
+      }
     },
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: ['projectSessions'] });
