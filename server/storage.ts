@@ -1,12 +1,30 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, imageStyles, generationJobs, generatedImages, projectSessions } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, imageStyles, generationJobs, generatedImages, projectSessions, users } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import createMemoryStore from "memorystore";
+
+// Fix session store type imports - Use session.Store not session.SessionStore
+type SessionStore = session.Store;
 
 // modify the interface with any CRUD methods
 // you might need
 
 export interface IStorage {
+  // Session store for authentication - From blueprint:javascript_auth_all_persistance
+  sessionStore: SessionStore;
+  
+  // User authentication management
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
+  updateUserLastLogin(id: string): Promise<void>;
+  getAllUsers(): Promise<User[]>;
+  deactivateUser(id: string): Promise<User | undefined>;
+  
   // Image Style management
   getImageStyleById(id: string): Promise<ImageStyle | undefined>;
   getAllImageStyles(): Promise<ImageStyle[]>;
@@ -40,12 +58,21 @@ export class MemStorage implements IStorage {
   private generationJobs: Map<string, GenerationJob>;
   private generatedImages: Map<string, GeneratedImage>;
   private projectSessions: Map<string, ProjectSession>;
+  private users: Map<string, User>;
+  sessionStore: SessionStore;
 
   constructor() {
     this.imageStyles = new Map();
     this.generationJobs = new Map();
     this.generatedImages = new Map();
     this.projectSessions = new Map();
+    this.users = new Map();
+    
+    // Initialize memory session store - From blueprint:javascript_auth_all_persistance
+    const MemoryStore = createMemoryStore(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    });
   }
 
   async getImageStyleById(id: string): Promise<ImageStyle | undefined> {
@@ -62,7 +89,8 @@ export class MemStorage implements IStorage {
       ...insertStyle,
       description: insertStyle.description || null,
       id, 
-      createdAt: new Date() 
+      createdAt: new Date(),
+      createdBy: insertStyle.createdBy || null // Actually use the provided createdBy value
     };
     this.imageStyles.set(id, style);
     return style;
@@ -77,10 +105,11 @@ export class MemStorage implements IStorage {
     const job: GenerationJob = {
       id,
       name: insertJob.name,
+      userId: insertJob.userId || null, // Actually use the provided userId value
       status: 'pending',
       progress: 0,
       styleId: insertJob.styleId || null,
-      visualConcepts: Array.isArray(insertJob.visualConcepts) ? insertJob.visualConcepts as string[] : [],
+      visualConcepts: Array.isArray(insertJob.visualConcepts) ? insertJob.visualConcepts : [],
       settings: insertJob.settings as GenerationSettings,
       createdAt: new Date()
     };
@@ -111,6 +140,7 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const image: GeneratedImage = {
       id,
+      userId: insertImage.userId || null, // Actually use the provided userId value
       jobId: insertImage.jobId || null,
       visualConcept: insertImage.visualConcept,
       imageUrl: insertImage.imageUrl,
@@ -143,6 +173,56 @@ export class MemStorage implements IStorage {
   async deleteImageStyle(id: string): Promise<boolean> {
     return this.imageStyles.delete(id);
   }
+  
+  // User authentication methods - From blueprint:javascript_auth_all_persistance
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = randomUUID();
+    const user: User = {
+      id,
+      email: insertUser.email,
+      password: insertUser.password,
+      role: (insertUser.role || 'user') as 'admin' | 'user',
+      isActive: insertUser.isActive ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastLogin: null
+    };
+    this.users.set(id, user);
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    const user = this.users.get(id);
+    if (user) {
+      user.lastLogin = new Date();
+      this.users.set(id, user);
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async deactivateUser(id: string): Promise<User | undefined> {
+    return this.updateUser(id, { isActive: false });
+  }
 
   // Project Session methods for MemStorage
   async getProjectSessionById(id: string): Promise<ProjectSession | undefined> {
@@ -157,10 +237,11 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const session: ProjectSession = {
       id,
+      userId: insertSession.userId || null, // Actually use the provided userId value
       name: insertSession.name || null,
       displayName: insertSession.displayName,
       styleId: insertSession.styleId || null,
-      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts : [],
+      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts as string[] : [],
       settings: insertSession.settings as GenerationSettings,
       isTemporary: Boolean(insertSession.isTemporary) || false,
       hasUnsavedChanges: Boolean(insertSession.hasUnsavedChanges) || false,
@@ -208,6 +289,64 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  sessionStore: session.SessionStore;
+  
+  constructor() {
+    // Initialize PostgreSQL session store - From blueprint:javascript_auth_all_persistance
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({ 
+      pool: (db as any).pool, // Access the underlying pool
+      createTableIfMissing: true 
+    }) as SessionStore;
+  }
+  
+  // User authentication methods - From blueprint:javascript_auth_all_persistance
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async updateUserLastLogin(id: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ lastLogin: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async deactivateUser(id: string): Promise<User | undefined> {
+    return this.updateUser(id, { isActive: false });
+  }
+  
   async getImageStyleById(id: string): Promise<ImageStyle | undefined> {
     const [style] = await db.select().from(imageStyles).where(eq(imageStyles.id, id));
     return style || undefined;

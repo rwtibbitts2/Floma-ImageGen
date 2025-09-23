@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI from 'openai';
 import { nanoid } from 'nanoid';
+import { setupAuth, requireAuth } from './auth'; // From blueprint:javascript_auth_all_persistance
 
 const router = express.Router();
 
@@ -15,19 +16,25 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// GET /api/styles - Get all image styles
-router.get('/styles', async (req, res) => {
+// GET /api/styles - Get image styles for authenticated user (Protected)
+router.get('/styles', requireAuth, async (req, res) => {
   try {
     const styles = await storage.getAllImageStyles();
-    res.json(styles);
+    // Filter styles to only include user's own styles (or all if admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    const filteredStyles = styles.filter(style => 
+      isAdmin || style.createdBy === userId
+    );
+    res.json(filteredStyles);
   } catch (error) {
     console.error('Error fetching styles:', error);
     res.status(500).json({ error: 'Failed to fetch styles' });
   }
 });
 
-// POST /api/styles - Create a new image style
-router.post('/styles', async (req, res) => {
+// POST /api/styles - Create a new image style (Protected)
+router.post('/styles', requireAuth, async (req, res) => {
   try {
     const validation = insertImageStyleSchema.safeParse(req.body);
     if (!validation.success) {
@@ -37,7 +44,10 @@ router.post('/styles', async (req, res) => {
       });
     }
 
-    const style = await storage.createImageStyle(validation.data);
+    const style = await storage.createImageStyle({
+      ...validation.data,
+      createdBy: (req as any).user.id // Scope to authenticated user
+    });
     res.status(201).json(style);
   } catch (error) {
     console.error('Error creating style:', error);
@@ -45,8 +55,8 @@ router.post('/styles', async (req, res) => {
   }
 });
 
-// PUT /api/styles/:id - Update an existing image style
-router.put('/styles/:id', async (req, res) => {
+// PUT /api/styles/:id - Update an existing image style (Protected)
+router.put('/styles/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const validation = insertImageStyleSchema.partial().safeParse(req.body);
@@ -57,11 +67,23 @@ router.put('/styles/:id', async (req, res) => {
       });
     }
 
-    const updatedStyle = await storage.updateImageStyle(id, validation.data);
-    if (!updatedStyle) {
+    // First check if style exists and verify ownership
+    const existingStyle = await storage.getImageStyleById(id);
+    if (!existingStyle) {
       return res.status(404).json({ error: 'Style not found' });
     }
+    
+    // Verify ownership (user owns style or is admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    if (!isAdmin && existingStyle.createdBy !== userId) {
+      return res.status(403).json({ error: 'Access denied: not your style' });
+    }
 
+    // Strip createdBy from update to prevent ownership tampering
+    const { createdBy, ...safeUpdates } = validation.data;
+    const updatedStyle = await storage.updateImageStyle(id, safeUpdates);
+    
     res.json(updatedStyle);
   } catch (error) {
     console.error('Error updating style:', error);
@@ -69,16 +91,25 @@ router.put('/styles/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/styles/:id - Delete an image style
-router.delete('/styles/:id', async (req, res) => {
+// DELETE /api/styles/:id - Delete an image style (Protected)
+router.delete('/styles/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await storage.deleteImageStyle(id);
     
-    if (!deleted) {
+    // First check if style exists and verify ownership
+    const existingStyle = await storage.getImageStyleById(id);
+    if (!existingStyle) {
       return res.status(404).json({ error: 'Style not found' });
     }
-
+    
+    // Verify ownership (user owns style or is admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    if (!isAdmin && existingStyle.createdBy !== userId) {
+      return res.status(403).json({ error: 'Access denied: not your style' });
+    }
+    
+    const deleted = await storage.deleteImageStyle(id);
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting style:', error);
@@ -86,8 +117,8 @@ router.delete('/styles/:id', async (req, res) => {
   }
 });
 
-// POST /api/generate - Start image generation job
-router.post('/generate', async (req, res) => {
+// POST /api/generate - Start image generation job (Protected)
+router.post('/generate', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       jobName: z.string().min(1),
@@ -117,9 +148,10 @@ router.post('/generate', async (req, res) => {
       return res.status(404).json({ error: 'Style not found' });
     }
 
-    // Create generation job
+    // Create generation job scoped to authenticated user
     const job = await storage.createGenerationJob({
       name: jobName,
+      userId: (req as any).user.id, // Scope to authenticated user
       styleId: styleId,
       visualConcepts: concepts,
       settings: settings as GenerationSettings
@@ -141,13 +173,21 @@ router.post('/generate', async (req, res) => {
   }
 });
 
-// GET /api/jobs/:id - Get generation job status
-router.get('/jobs/:id', async (req, res) => {
+// GET /api/jobs/:id - Get generation job status for authenticated user (Protected)
+router.get('/jobs/:id', requireAuth, async (req, res) => {
   try {
     const job = await storage.getGenerationJobById(req.params.id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
+    
+    // Verify ownership (user owns job or is admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    if (!isAdmin && job.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied: not your job' });
+    }
+    
     res.json(job);
   } catch (error) {
     console.error('Error fetching job:', error);
@@ -155,9 +195,22 @@ router.get('/jobs/:id', async (req, res) => {
   }
 });
 
-// GET /api/jobs/:id/images - Get generated images for a job
-router.get('/jobs/:id/images', async (req, res) => {
+// GET /api/jobs/:id/images - Get generated images for job (authenticated user only) (Protected)
+router.get('/jobs/:id/images', requireAuth, async (req, res) => {
   try {
+    // First verify user owns the job
+    const job = await storage.getGenerationJobById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Verify ownership (user owns job or is admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    if (!isAdmin && job.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied: not your job' });
+    }
+    
     const images = await storage.getGeneratedImagesByJobId(req.params.id);
     res.json(images);
   } catch (error) {
@@ -208,9 +261,11 @@ Subject: ${concept}`;
             throw new Error('No image URL returned from OpenAI');
           }
 
-          // Store generated image (it starts as 'generating' and we update to 'completed')
+          // Store generated image with userId (it starts as 'generating' and we update to 'completed')
+          const job = await storage.getGenerationJobById(jobId);
           const createdImage = await storage.createGeneratedImage({
             jobId: jobId,
+            userId: job?.userId || null, // Use the job's userId for ownership
             visualConcept: concept,
             imageUrl: imageUrl,
             prompt: fullPrompt
@@ -259,24 +314,38 @@ Subject: ${concept}`;
 
 // PROJECT SESSION ROUTES
 
-// GET /api/sessions - Get all project sessions
-router.get('/sessions', async (req, res) => {
+// GET /api/sessions - Get all project sessions for authenticated user (Protected)
+router.get('/sessions', requireAuth, async (req, res) => {
   try {
     const sessions = await storage.getAllProjectSessions();
-    res.json(sessions);
+    // Filter sessions to only include user's own sessions (or all if admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    const filteredSessions = sessions.filter(session => 
+      isAdmin || session.userId === userId
+    );
+    res.json(filteredSessions);
   } catch (error) {
     console.error('Error fetching sessions:', error);
     res.status(500).json({ error: 'Failed to fetch sessions' });
   }
 });
 
-// GET /api/sessions/:id - Get specific project session
-router.get('/sessions/:id', async (req, res) => {
+// GET /api/sessions/:id - Get specific project session for authenticated user (Protected)
+router.get('/sessions/:id', requireAuth, async (req, res) => {
   try {
     const session = await storage.getProjectSessionById(req.params.id);
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
+    
+    // Verify ownership (user owns session or is admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    if (!isAdmin && session.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied: not your session' });
+    }
+    
     res.json(session);
   } catch (error) {
     console.error('Error fetching session:', error);
@@ -284,8 +353,8 @@ router.get('/sessions/:id', async (req, res) => {
   }
 });
 
-// POST /api/sessions - Create new project session
-router.post('/sessions', async (req, res) => {
+// POST /api/sessions - Create new project session (Protected)
+router.post('/sessions', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       name: z.string().optional(),
@@ -311,7 +380,10 @@ router.post('/sessions', async (req, res) => {
       });
     }
 
-    const session = await storage.createProjectSession(validation.data);
+    const session = await storage.createProjectSession({
+      ...validation.data,
+      userId: (req as any).user.id // Scope to authenticated user
+    });
     res.status(201).json(session);
   } catch (error) {
     console.error('Error creating session:', error);
@@ -319,8 +391,8 @@ router.post('/sessions', async (req, res) => {
   }
 });
 
-// PUT /api/sessions/:id - Update project session
-router.put('/sessions/:id', async (req, res) => {
+// PUT /api/sessions/:id - Update project session (Protected)
+router.put('/sessions/:id', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       name: z.string().optional(),
@@ -358,8 +430,8 @@ router.put('/sessions/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/sessions/:id - Delete project session
-router.delete('/sessions/:id', async (req, res) => {
+// DELETE /api/sessions/:id - Delete project session (Protected)
+router.delete('/sessions/:id', requireAuth, async (req, res) => {
   try {
     const deleted = await storage.deleteProjectSession(req.params.id);
     if (!deleted) {
@@ -372,10 +444,18 @@ router.delete('/sessions/:id', async (req, res) => {
   }
 });
 
-// GET /api/sessions/temporary - Get current temporary session
-router.get('/sessions/temporary', async (req, res) => {
+// GET /api/sessions/temporary - Get current temporary session for authenticated user (Protected)
+router.get('/sessions/temporary', requireAuth, async (req, res) => {
   try {
     const session = await storage.getTemporarySession();
+    // Verify ownership if session exists
+    if (session) {
+      const userId = (req as any).user.id;
+      const isAdmin = (req as any).user.role === 'admin';
+      if (!isAdmin && session.userId !== userId) {
+        return res.status(403).json({ error: 'Access denied: not your session' });
+      }
+    }
     res.json(session || null);
   } catch (error) {
     console.error('Error fetching temporary session:', error);
@@ -383,8 +463,8 @@ router.get('/sessions/temporary', async (req, res) => {
   }
 });
 
-// DELETE /api/sessions/temporary - Clear all temporary sessions
-router.delete('/sessions/temporary', async (req, res) => {
+// DELETE /api/sessions/temporary - Clear all temporary sessions (Protected)
+router.delete('/sessions/temporary', requireAuth, async (req, res) => {
   try {
     await storage.clearTemporarySessions();
     res.status(204).send();
@@ -395,6 +475,9 @@ router.delete('/sessions/temporary', async (req, res) => {
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication system - From blueprint:javascript_auth_all_persistance
+  setupAuth(app);
+  
   // Register API routes
   app.use('/api', router);
 
