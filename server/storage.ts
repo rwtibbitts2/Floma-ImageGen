@@ -156,7 +156,9 @@ export class MemStorage implements IStorage {
     const image = this.generatedImages.get(id);
     if (!image) return undefined;
     
-    const updatedImage = { ...image, ...updates };
+    // Protect ownership fields from tampering
+    const { userId, ...safeUpdates } = updates;
+    const updatedImage = { ...image, ...safeUpdates };
     this.generatedImages.set(id, updatedImage);
     return updatedImage;
   }
@@ -165,7 +167,9 @@ export class MemStorage implements IStorage {
     const style = this.imageStyles.get(id);
     if (!style) return undefined;
     
-    const updatedStyle = { ...style, ...updates };
+    // Protect ownership fields from tampering
+    const { createdBy, ...safeUpdates } = updates;
+    const updatedStyle = { ...style, ...safeUpdates };
     this.imageStyles.set(id, updatedStyle);
     return updatedStyle;
   }
@@ -233,6 +237,13 @@ export class MemStorage implements IStorage {
     return Array.from(this.projectSessions.values());
   }
 
+  // User-scoped session methods for security
+  async getProjectSessionsForUser(userId: string): Promise<ProjectSession[]> {
+    return Array.from(this.projectSessions.values()).filter(session => 
+      session.userId === userId
+    );
+  }
+
   async createProjectSession(insertSession: InsertProjectSession): Promise<ProjectSession> {
     const id = randomUUID();
     const session: ProjectSession = {
@@ -256,13 +267,16 @@ export class MemStorage implements IStorage {
     const session = this.projectSessions.get(id);
     if (!session) return undefined;
     
+    // Protect ownership fields from tampering
+    const { userId, ...cleanUpdates } = updates;
+    
     // Ensure proper types for updates
     const safeUpdates: Partial<ProjectSession> = {
-      ...updates,
-      visualConcepts: updates.visualConcepts ? Array.isArray(updates.visualConcepts) ? updates.visualConcepts : [] : session.visualConcepts,
-      settings: updates.settings ? updates.settings as GenerationSettings : session.settings,
-      isTemporary: updates.isTemporary !== undefined ? Boolean(updates.isTemporary) : session.isTemporary,
-      hasUnsavedChanges: updates.hasUnsavedChanges !== undefined ? Boolean(updates.hasUnsavedChanges) : session.hasUnsavedChanges,
+      ...cleanUpdates,
+      visualConcepts: cleanUpdates.visualConcepts ? Array.isArray(cleanUpdates.visualConcepts) ? cleanUpdates.visualConcepts : [] : session.visualConcepts,
+      settings: cleanUpdates.settings ? cleanUpdates.settings as GenerationSettings : session.settings,
+      isTemporary: cleanUpdates.isTemporary !== undefined ? Boolean(cleanUpdates.isTemporary) : session.isTemporary,
+      hasUnsavedChanges: cleanUpdates.hasUnsavedChanges !== undefined ? Boolean(cleanUpdates.hasUnsavedChanges) : session.hasUnsavedChanges,
       updatedAt: new Date()
     };
     
