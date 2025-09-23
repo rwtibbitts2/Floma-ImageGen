@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, ArrowLeft } from 'lucide-react';
+import { Moon, Sun, ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +14,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import StyleSelector from '@/components/StyleSelector';
 import VisualConceptsInput from '@/components/VisualConceptsInput';
 import GenerationSettings from '@/components/GenerationSettings';
@@ -72,6 +78,7 @@ export default function ImageGenerator() {
   const [currentSessionId, setCurrentSessionId] = useState<string>();
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<GeneratedImage | null>(null);
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -207,9 +214,31 @@ export default function ImageGenerator() {
     setCurrentConcept(undefined);
   };
 
-  const handleDownloadImage = (image: GeneratedImage) => {
-    console.log('Downloading image:', image.visualConcept);
-    // In real app, would trigger download
+  const handleDownloadImage = async (image: GeneratedImage) => {
+    try {
+      const response = await fetch(image.imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${image.visualConcept.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Download Started',
+        description: `Downloading "${image.visualConcept}"`
+      });
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast({
+        title: 'Download Failed',
+        description: 'Could not download the image. Please try again.',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleDownloadAll = () => {
@@ -234,7 +263,7 @@ export default function ImageGenerator() {
 
   // Save functionality
   const handleSaveProject = () => {
-    setIsSaveModalOpen(true);
+    setShowSaveModal(true);
   };
 
   const handleSaveComplete = (sessionId: string) => {
@@ -547,8 +576,7 @@ export default function ImageGenerator() {
                   console.log('Deleted session image:', imageId);
                 }}
                 onImageClick={(image) => {
-                  console.log('Image clicked:', image.visualConcept);
-                  // Could open full-size view in future
+                  setZoomedImage(image);
                 }}
               />
             </div>
@@ -591,6 +619,47 @@ export default function ImageGenerator() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Image Zoom Modal */}
+        <Dialog open={!!zoomedImage} onOpenChange={() => setZoomedImage(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{zoomedImage?.visualConcept}</DialogTitle>
+            </DialogHeader>
+            {zoomedImage && (
+              <div className="space-y-4">
+                <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+                  <img
+                    src={zoomedImage.imageUrl}
+                    alt={zoomedImage.visualConcept}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm">
+                    <strong>Concept:</strong> {zoomedImage.visualConcept}
+                  </div>
+                  <div className="text-sm">
+                    <strong>Full Prompt:</strong> {zoomedImage.prompt}
+                  </div>
+                  <div className="text-sm">
+                    <strong>Generated:</strong> {zoomedImage.createdAt ? new Date(zoomedImage.createdAt).toLocaleString() : 'Unknown'}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => handleDownloadImage(zoomedImage)}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button variant="outline" onClick={() => window.open(zoomedImage.imageUrl, '_blank')}>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open in New Tab
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarProvider>
   );
