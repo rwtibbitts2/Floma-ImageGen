@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Download, X, ZoomIn, Sparkles } from 'lucide-react';
+import { Download, X, ZoomIn, Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImage } from '@shared/schema';
 
 interface PersistentImageGalleryProps {
@@ -12,6 +12,7 @@ interface PersistentImageGalleryProps {
   onDelete: (imageId: string) => void;
   onRegenerate?: (image: GeneratedImage) => void;
   onImageClick?: (image: GeneratedImage) => void;
+  isRegenerating?: boolean;
 }
 
 export default function PersistentImageGallery({
@@ -19,7 +20,8 @@ export default function PersistentImageGallery({
   onDownload,
   onDelete,
   onRegenerate,
-  onImageClick
+  onImageClick,
+  isRegenerating
 }: PersistentImageGalleryProps) {
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
 
@@ -42,7 +44,15 @@ export default function PersistentImageGallery({
     <Card className="w-full">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-medium flex items-center justify-between">
-          <span>Session Gallery</span>
+          <div className="flex items-center gap-2">
+            <span>Session Gallery</span>
+            {isRegenerating && (
+              <div className="flex items-center gap-1 text-blue-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-normal">Regenerating...</span>
+              </div>
+            )}
+          </div>
           <Badge variant="outline" className="text-xs">
             {images.length} image{images.length !== 1 ? 's' : ''}
           </Badge>

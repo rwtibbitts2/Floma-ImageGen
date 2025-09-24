@@ -71,6 +71,7 @@ export default function ImageGenerator() {
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [regenerateImage, setRegenerateImage] = useState<GeneratedImage | null>(null);
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false);
+  const [activeRegenerationJobs, setActiveRegenerationJobs] = useState<Set<string>>(new Set());
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -426,6 +427,70 @@ export default function ImageGenerator() {
     setIsRegenerateModalOpen(true);
   };
 
+  const handleRegenerationStarted = (jobId: string) => {
+    setActiveRegenerationJobs(prev => new Set(prev).add(jobId));
+    
+    // Start polling for this job
+    const pollJob = async () => {
+      try {
+        const jobResponse = await fetch(`/api/jobs/${jobId}`, {
+          credentials: 'include'
+        });
+        
+        if (jobResponse.ok) {
+          const job = await jobResponse.json();
+          
+          if (job.status === 'completed' || job.status === 'failed') {
+            // Job finished - remove from active jobs and refresh session images
+            setActiveRegenerationJobs(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(jobId);
+              return newSet;
+            });
+            
+            // Force refresh the session images
+            if (currentSessionId) {
+              // Invalidate queries to trigger refetch
+              const queryClient = (await import('@/lib/queryClient')).queryClient;
+              queryClient.invalidateQueries({ queryKey: ['/api/sessions', currentSessionId, 'images'] });
+              queryClient.refetchQueries({ queryKey: ['/api/sessions', currentSessionId, 'images'] });
+            }
+            
+            if (job.status === 'completed') {
+              toast({
+                title: 'Regeneration Complete',
+                description: 'Your regenerated image is now available in the gallery.',
+              });
+            } else {
+              toast({
+                title: 'Regeneration Failed',
+                description: 'The image regeneration was unsuccessful.',
+                variant: 'destructive'
+              });
+            }
+            
+            return; // Stop polling
+          }
+        }
+        
+        // Continue polling if job is still running
+        setTimeout(pollJob, 2000);
+        
+      } catch (error) {
+        console.error('Error polling regeneration job:', error);
+        // Remove from active jobs on error
+        setActiveRegenerationJobs(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(jobId);
+          return newSet;
+        });
+      }
+    };
+    
+    // Start polling after a short delay
+    setTimeout(pollJob, 1000);
+  };
+
 
   const handleUploadConceptsFile = () => {
     const input = document.createElement('input');
@@ -573,6 +638,7 @@ export default function ImageGenerator() {
                   setZoomedImage(image);
                 }}
                 onRegenerate={handleRegenerate}
+                isRegenerating={activeRegenerationJobs.size > 0}
               />
             </div>
           </main>
@@ -592,6 +658,7 @@ export default function ImageGenerator() {
             open={isRegenerateModalOpen}
             onOpenChange={setIsRegenerateModalOpen}
             sessionId={currentSessionId}
+            onRegenerationStarted={handleRegenerationStarted}
           />
         )}
 

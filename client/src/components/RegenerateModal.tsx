@@ -15,6 +15,7 @@ interface RegenerateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionId: string;
+  onRegenerationStarted?: (jobId: string) => void;
 }
 
 interface RegenerateRequest {
@@ -23,7 +24,7 @@ interface RegenerateRequest {
   sessionId: string;
 }
 
-export default function RegenerateModal({ image, open, onOpenChange, sessionId }: RegenerateModalProps) {
+export default function RegenerateModal({ image, open, onOpenChange, sessionId, onRegenerationStarted }: RegenerateModalProps) {
   const [instruction, setInstruction] = useState('');
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -32,15 +33,19 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId }
     mutationFn: async (data: RegenerateRequest) => {
       return apiRequest('POST', '/api/regenerate', data);
     },
-    onSuccess: (response) => {
-      // More aggressive cache invalidation
-      queryClient.invalidateQueries({ queryKey: ['/api/sessions', sessionId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sessions', sessionId, 'images'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+    onSuccess: async (response) => {
+      // Extract job ID from response
+      const responseData = await response.json();
+      const jobId = responseData.jobId;
+      
+      // Call the callback to start tracking this regeneration
+      if (onRegenerationStarted && jobId) {
+        onRegenerationStarted(jobId);
+      }
       
       toast({
         title: 'Regeneration Started',
-        description: 'Your image is being regenerated with the new instructions. Check back in a few moments.',
+        description: 'Your image is being regenerated with the new instructions. We\'ll notify you when it\'s ready.',
       });
       
       onOpenChange(false);
