@@ -18,6 +18,7 @@ import BatchProgressTracker from '@/components/BatchProgressTracker';
 import GenerationSummaryAction from '@/components/GenerationSummaryAction';
 import PersistentImageGallery from '@/components/PersistentImageGallery';
 import AddStyleModal from '@/components/AddStyleModal';
+import RegenerateModal from '@/components/RegenerateModal';
 import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -68,6 +69,8 @@ export default function ImageGenerator() {
   const [currentSessionId, setCurrentSessionId] = useState<string>();
   const [zoomedImage, setZoomedImage] = useState<GeneratedImage | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [regenerateImage, setRegenerateImage] = useState<GeneratedImage | null>(null);
+  const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false);
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -418,6 +421,11 @@ export default function ImageGenerator() {
     }
   };
 
+  const handleRegenerate = (image: GeneratedImage) => {
+    setRegenerateImage(image);
+    setIsRegenerateModalOpen(true);
+  };
+
 
   const handleUploadConceptsFile = () => {
     const input = document.createElement('input');
@@ -564,6 +572,7 @@ export default function ImageGenerator() {
                 onImageClick={(image) => {
                   setZoomedImage(image);
                 }}
+                onRegenerate={handleRegenerate}
               />
             </div>
           </main>
@@ -576,7 +585,15 @@ export default function ImageGenerator() {
           editingStyle={editingStyle}
         />
 
-
+        {/* Regenerate Modal */}
+        {currentSessionId && (
+          <RegenerateModal
+            image={regenerateImage}
+            open={isRegenerateModalOpen}
+            onOpenChange={setIsRegenerateModalOpen}
+            sessionId={currentSessionId}
+          />
+        )}
 
         {/* Image Zoom Modal */}
         <Dialog open={!!zoomedImage} onOpenChange={() => setZoomedImage(null)}>
