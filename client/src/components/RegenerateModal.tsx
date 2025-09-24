@@ -18,7 +18,7 @@ interface RegenerateModalProps {
 
 interface RegenerateRequest {
   sourceImageId: string;
-  regenerationInstruction: string;
+  instruction: string;
   sessionId: string;
 }
 
@@ -43,7 +43,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId }
     
     regenerateMutation.mutate({
       sourceImageId: image.id,
-      regenerationInstruction: instruction.trim(),
+      instruction: instruction.trim(),
       sessionId,
     });
   };
