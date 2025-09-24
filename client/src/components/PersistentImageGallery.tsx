@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Download, X, ZoomIn } from 'lucide-react';
+import { Download, X, ZoomIn, Sparkles } from 'lucide-react';
 import { GeneratedImage } from '@shared/schema';
 
 interface PersistentImageGalleryProps {
   images: GeneratedImage[];
   onDownload: (image: GeneratedImage) => void;
   onDelete: (imageId: string) => void;
+  onRegenerate?: (image: GeneratedImage) => void;
   onImageClick?: (image: GeneratedImage) => void;
 }
 
@@ -17,6 +18,7 @@ export default function PersistentImageGallery({
   images,
   onDownload,
   onDelete,
+  onRegenerate,
   onImageClick
 }: PersistentImageGalleryProps) {
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -82,6 +84,20 @@ export default function PersistentImageGallery({
                       >
                         <ZoomIn className="w-4 h-4" />
                       </Button>
+                      {onRegenerate && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRegenerate(image);
+                          }}
+                          data-testid={`button-regenerate-${image.id}`}
+                          title="Regenerate with modifications"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"

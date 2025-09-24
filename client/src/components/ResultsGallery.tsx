@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, ExternalLink, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, MoreHorizontal, Trash2, Sparkles } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { GeneratedImage } from '@shared/schema';
 
@@ -12,9 +12,10 @@ interface ResultsGalleryProps {
   onDownload?: (image: GeneratedImage) => void;
   onDownloadAll?: () => void;
   onDelete?: (imageId: string) => void;
+  onRegenerate?: (image: GeneratedImage) => void;
 }
 
-export default function ResultsGallery({ images, onDownload, onDownloadAll, onDelete }: ResultsGalleryProps) {
+export default function ResultsGallery({ images, onDownload, onDownloadAll, onDelete, onRegenerate }: ResultsGalleryProps) {
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
 
   const completedImages = images.filter(img => img.status === 'completed');
@@ -82,6 +83,20 @@ export default function ResultsGallery({ images, onDownload, onDownloadAll, onDe
                     {/* Overlay Controls */}
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <div className="flex items-center gap-2">
+                        {onRegenerate && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRegenerate(image);
+                            }}
+                            data-testid={`button-regenerate-${image.id}`}
+                            title="Regenerate with modifications"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="secondary"
@@ -129,6 +144,12 @@ export default function ResultsGallery({ images, onDownload, onDownloadAll, onDe
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {onRegenerate && (
+                            <DropdownMenuItem onClick={() => onRegenerate(image)}>
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Regenerate
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => onDownload?.(image)}>
                             <Download className="w-4 h-4 mr-2" />
                             Download
