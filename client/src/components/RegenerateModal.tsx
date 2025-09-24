@@ -28,10 +28,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId }
 
   const regenerateMutation = useMutation({
     mutationFn: async (data: RegenerateRequest) => {
-      return apiRequest('/api/regenerate', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return apiRequest('POST', '/api/regenerate', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sessions', sessionId] });
@@ -88,17 +85,14 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId }
                   <p className="text-sm text-muted-foreground">{image.visualConcept}</p>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {image.styleName && (
+                  <Badge variant="outline" className="text-xs">
+                    Generated Image
+                  </Badge>
+                  {image.createdAt && (
                     <Badge variant="outline" className="text-xs">
-                      Style: {image.styleName}
+                      {new Date(image.createdAt).toLocaleDateString()}
                     </Badge>
                   )}
-                  <Badge variant="outline" className="text-xs">
-                    {image.generationSettings?.size || 'Default Size'}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    Quality: {image.generationSettings?.quality || 'Standard'}
-                  </Badge>
                 </div>
               </div>
             </div>
