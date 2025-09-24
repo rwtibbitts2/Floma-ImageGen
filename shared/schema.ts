@@ -45,9 +45,11 @@ export const generatedImages = pgTable("generated_images", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id), // Associate image with user (nullable for migration)
   jobId: varchar("job_id").references(() => generationJobs.id),
+  sourceImageId: varchar("source_image_id").references(() => generatedImages.id), // For regeneration - links to the original image
   visualConcept: text("visual_concept").notNull(),
   imageUrl: text("image_url").notNull(),
   prompt: text("prompt").notNull(),
+  regenerationInstruction: text("regeneration_instruction"), // Store the instruction used for regeneration
   status: text("status").$type<"generating" | "completed" | "failed">().default("generating"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -116,7 +118,7 @@ export const generationJobsRelations = relations(generationJobs, ({ one, many })
   generatedImages: many(generatedImages),
 }));
 
-export const generatedImagesRelations = relations(generatedImages, ({ one }) => ({
+export const generatedImagesRelations = relations(generatedImages, ({ one, many }) => ({
   user: one(users, {
     fields: [generatedImages.userId],
     references: [users.id],
@@ -124,6 +126,14 @@ export const generatedImagesRelations = relations(generatedImages, ({ one }) => 
   job: one(generationJobs, {
     fields: [generatedImages.jobId],
     references: [generationJobs.id],
+  }),
+  sourceImage: one(generatedImages, {
+    fields: [generatedImages.sourceImageId],
+    references: [generatedImages.id],
+    relationName: "imageRegeneration",
+  }),
+  regeneratedImages: many(generatedImages, {
+    relationName: "imageRegeneration",
   }),
 }));
 
