@@ -45,7 +45,7 @@ export const generatedImages = pgTable("generated_images", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id), // Associate image with user (nullable for migration)
   jobId: varchar("job_id").references(() => generationJobs.id),
-  sourceImageId: varchar("source_image_id").references(() => generatedImages.id), // For regeneration - links to the original image
+  sourceImageId: varchar("source_image_id"), // For regeneration - links to the original image (self-reference)
   visualConcept: text("visual_concept").notNull(),
   imageUrl: text("image_url").notNull(),
   prompt: text("prompt").notNull(),
