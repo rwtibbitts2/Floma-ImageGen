@@ -548,7 +548,6 @@ export default function ImageGenerator() {
                   settings={settings}
                   isRunning={isGenerating}
                   onStartGeneration={handleStartGeneration}
-                  onSaveProject={handleSaveProject}
                 />
               </div>
             </div>
