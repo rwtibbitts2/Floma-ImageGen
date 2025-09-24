@@ -8,6 +8,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImage } from '@shared/schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface RegenerateModalProps {
   image: GeneratedImage | null;
@@ -25,16 +26,32 @@ interface RegenerateRequest {
 export default function RegenerateModal({ image, open, onOpenChange, sessionId }: RegenerateModalProps) {
   const [instruction, setInstruction] = useState('');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const regenerateMutation = useMutation({
     mutationFn: async (data: RegenerateRequest) => {
       return apiRequest('POST', '/api/regenerate', data);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // More aggressive cache invalidation
       queryClient.invalidateQueries({ queryKey: ['/api/sessions', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['/api/sessions', sessionId, 'images'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      
+      toast({
+        title: 'Regeneration Started',
+        description: 'Your image is being regenerated with the new instructions. Check back in a few moments.',
+      });
+      
       onOpenChange(false);
       setInstruction('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Regeneration Failed',
+        description: error.message || 'Failed to start regeneration',
+        variant: 'destructive',
+      });
     },
   });
 
