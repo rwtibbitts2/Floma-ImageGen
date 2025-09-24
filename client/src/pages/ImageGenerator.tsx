@@ -441,22 +441,38 @@ export default function ImageGenerator() {
           const job = await jobResponse.json();
           
           if (job.status === 'completed' || job.status === 'failed') {
-            // Job finished - remove from active jobs and refresh session images
+            // Job finished - remove from active jobs
             setActiveRegenerationJobs(prev => {
               const newSet = new Set(prev);
               newSet.delete(jobId);
               return newSet;
             });
             
-            // Force refresh the session images
-            if (currentSessionId) {
-              // Invalidate queries to trigger refetch
-              const queryClient = (await import('@/lib/queryClient')).queryClient;
-              queryClient.invalidateQueries({ queryKey: ['/api/sessions', currentSessionId, 'images'] });
-              queryClient.refetchQueries({ queryKey: ['/api/sessions', currentSessionId, 'images'] });
-            }
-            
             if (job.status === 'completed') {
+              // Fetch the regenerated images for this job
+              try {
+                const imagesResponse = await fetch(`/api/jobs/${jobId}/images`, {
+                  credentials: 'include'
+                });
+                
+                if (imagesResponse.ok) {
+                  const images = await imagesResponse.json();
+                  const completedImages = images.filter((img: any) => img.status === 'completed');
+                  
+                  // Add new regenerated images to session gallery (same pattern as regular generation)
+                  setSessionImages(prev => {
+                    const newImages = completedImages.filter((img: any) => 
+                      !prev.some(existing => existing.id === img.id)
+                    );
+                    return [...prev, ...newImages];
+                  });
+                  
+                  console.log('Added', completedImages.length, 'regenerated images to session gallery');
+                }
+              } catch (imagesError) {
+                console.error('Failed to fetch regenerated images:', imagesError);
+              }
+              
               toast({
                 title: 'Regeneration Complete',
                 description: 'Your regenerated image is now available in the gallery.',
