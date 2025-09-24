@@ -535,6 +535,38 @@ router.delete('/sessions/temporary', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/sessions/working - Get or create working session for authenticated user (Protected)
+router.get('/sessions/working', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    let workingSession = await storage.getWorkingSessionForUser(userId);
+    
+    if (!workingSession) {
+      // Create a new working session with defaults
+      workingSession = await storage.createProjectSession({
+        userId,
+        name: null,
+        displayName: 'Working Session',
+        visualConcepts: [],
+        settings: {
+          model: 'dall-e-3',
+          quality: 'standard',
+          size: '1024x1024',
+          transparency: false,
+          variations: 1,
+        },
+        isTemporary: false,
+        hasUnsavedChanges: false
+      });
+    }
+    
+    res.json(workingSession);
+  } catch (error) {
+    console.error('Error fetching/creating working session:', error);
+    res.status(500).json({ error: 'Failed to get working session' });
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication system - From blueprint:javascript_auth_all_persistance
   setupAuth(app);

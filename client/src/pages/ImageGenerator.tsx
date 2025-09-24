@@ -6,16 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Moon, Sun, ArrowLeft, Download, ExternalLink, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -28,7 +18,6 @@ import BatchProgressTracker from '@/components/BatchProgressTracker';
 import GenerationSummaryAction from '@/components/GenerationSummaryAction';
 import PersistentImageGallery from '@/components/PersistentImageGallery';
 import AddStyleModal from '@/components/AddStyleModal';
-import SaveSessionModal from '@/components/SaveSessionModal';
 import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -76,10 +65,7 @@ export default function ImageGenerator() {
   const [currentConcept, setCurrentConcept] = useState<string>();
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ImageStyle>();
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string>();
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<GeneratedImage | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
 
@@ -149,7 +135,7 @@ export default function ImageGenerator() {
             setCurrentConcept(processingImages[0].visualConcept);
           }
         },
-        (job, images) => {
+        async (job, images) => {
           setCurrentJob(job);
           setIsGenerating(false);
           setCurrentConcept(undefined);
@@ -164,11 +150,25 @@ export default function ImageGenerator() {
             return [...prev, ...newImages];
           });
           
+          // Auto-save after generation completes
+          if (currentSessionId && job.status === 'completed') {
+            try {
+              await api.updateProjectSession(currentSessionId, {
+                styleId: selectedStyle?.id,
+                visualConcepts: concepts,
+                settings
+              });
+              console.log('Auto-saved after generation completion');
+            } catch (error) {
+              console.error('Auto-save after generation failed:', error);
+            }
+          }
+          
           const completedCount = completedImages.length;
           const failedCount = images.filter(img => img.status === 'failed').length;
           
           toast({
-            title: job.status === 'completed' ? 'Generation Complete' : 'Generation Failed',
+            title: job.status === 'completed' ? 'Images Generated & Saved' : 'Generation Failed',
             description: `Generated ${completedCount} images successfully${failedCount > 0 ? `, ${failedCount} failed` : ''}.`,
             variant: job.status === 'completed' ? 'default' : 'destructive'
           });
@@ -262,24 +262,15 @@ export default function ImageGenerator() {
     setEditingStyle(undefined);
   };
 
-  // Save functionality
-  const handleSaveProject = () => {
-    setShowSaveModal(true);
-  };
-
-  const handleSaveComplete = (sessionId: string) => {
-    setCurrentSessionId(sessionId);
-    setHasUnsavedChanges(false);
-    setShowSaveModal(false);
-  };
 
 
-  // Load session from URL parameter
+  // Load session from URL parameter OR load working session
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
     
     if (sessionId && sessionId !== currentSessionId) {
+      // Load specific session from URL
       console.log('Loading session:', sessionId);
       
       const loadSession = async () => {
@@ -309,7 +300,6 @@ export default function ImageGenerator() {
           // Set concepts and settings
           setConcepts(session.visualConcepts || []);
           setSettings(session.settings || settings);
-          setHasUnsavedChanges(false); // This is a loaded session
           
           // Load associated images into session gallery
           setSessionImages(sessionImages);
@@ -332,34 +322,85 @@ export default function ImageGenerator() {
       };
       
       loadSession();
+    } else if (!sessionId && !currentSessionId) {
+      // Load or create working session when no specific session in URL
+      console.log('Loading working session');
+      
+      const loadWorkingSession = async () => {
+        setIsLoadingSession(true);
+        try {
+          const [workingSession, styles] = await Promise.all([
+            api.getWorkingSession(),
+            api.getImageStyles()
+          ]);
+          
+          console.log('Working session loaded:', workingSession);
+          
+          // Set session ID first to avoid re-triggering
+          setCurrentSessionId(workingSession.id);
+          
+          // Find and set the style if it exists
+          if (workingSession.styleId) {
+            const style = styles.find(s => s.id === workingSession.styleId);
+            setSelectedStyle(style);
+          }
+          
+          // Set concepts and settings
+          setConcepts(workingSession.visualConcepts || []);
+          setSettings(workingSession.settings || settings);
+          
+          // Load associated images into session gallery
+          const sessionImages = await api.getGeneratedImagesBySessionId(workingSession.id);
+          setSessionImages(sessionImages);
+          
+          console.log('Working session ready with', sessionImages.length, 'images');
+          
+        } catch (error) {
+          console.error('Failed to load working session:', error);
+          toast({
+            title: 'Setup Failed',
+            description: 'Failed to initialize your workspace.',
+            variant: 'destructive'
+          });
+        } finally {
+          setIsLoadingSession(false);
+        }
+      };
+      
+      loadWorkingSession();
     }
   }, [location, currentSessionId]);
 
-  // Track unsaved changes
+  // Auto-save changes to working session
   useEffect(() => {
-    // Track unsaved changes for any content changes to protect user data
-    // Don't trigger during session loading to avoid false unsaved state
-    if (isLoadingSession) return;
-    setHasUnsavedChanges(true);
-  }, [selectedStyle, concepts, settings]);
+    // Auto-save changes to the working session
+    // Don't trigger during session loading to avoid false saves
+    if (isLoadingSession || !currentSessionId) return;
+    
+    const autoSave = async () => {
+      try {
+        await api.updateProjectSession(currentSessionId, {
+          styleId: selectedStyle?.id,
+          visualConcepts: concepts,
+          settings
+        });
+        console.log('Auto-saved changes to working session');
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+        // Don't show toast for auto-save failures as they're non-critical
+      }
+    };
+    
+    // Debounce auto-save to avoid too many calls
+    const timeoutId = setTimeout(autoSave, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [selectedStyle, concepts, settings, currentSessionId, isLoadingSession]);
 
   // Navigation guard for back to home
   const handleBackToHome = () => {
-    if (hasUnsavedChanges && concepts.length > 0) {
-      setShowLeaveDialog(true);
-      return;
-    }
     setLocation('/');
   };
 
-  const confirmLeave = () => {
-    setShowLeaveDialog(false);
-    setLocation('/');
-  };
-
-  const cancelLeave = () => {
-    setShowLeaveDialog(false);
-  };
 
   const handleLogout = async () => {
     try {
@@ -377,19 +418,6 @@ export default function ImageGenerator() {
     }
   };
 
-  // Warning for unsaved changes before leaving page
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges && concepts.length > 0) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return 'You have unsaved changes. Are you sure you want to leave?';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges, concepts.length]);
 
   const handleUploadConceptsFile = () => {
     const input = document.createElement('input');
@@ -451,16 +479,6 @@ export default function ImageGenerator() {
               <h1 className="text-xl font-semibold">Image Generator</h1>
             </div>
             <div className="flex items-center gap-2">
-              {(hasUnsavedChanges || (selectedStyle && concepts.length > 0)) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowSaveModal(true)}
-                  data-testid="button-save-session"
-                >
-                  Save Session
-                </Button>
-              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -559,35 +577,7 @@ export default function ImageGenerator() {
           editingStyle={editingStyle}
         />
 
-        {/* Save Session Modal */}
-        <SaveSessionModal
-          open={showSaveModal}
-          onOpenChange={setShowSaveModal}
-          onSaveComplete={handleSaveComplete}
-          selectedStyle={selectedStyle}
-          concepts={concepts}
-          settings={settings}
-        />
 
-        {/* Leave confirmation dialog */}
-        <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-              <AlertDialogDescription>
-                You have unsaved changes. Are you sure you want to leave? Your work will be lost unless you save first.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={cancelLeave} data-testid="button-cancel-leave">
-                Stay
-              </AlertDialogCancel>
-              <AlertDialogAction onClick={confirmLeave} data-testid="button-confirm-leave">
-                Leave Anyway
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
 
         {/* Image Zoom Modal */}
         <Dialog open={!!zoomedImage} onOpenChange={() => setZoomedImage(null)}>

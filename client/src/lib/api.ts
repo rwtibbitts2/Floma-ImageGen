@@ -318,3 +318,11 @@ export const getTemporarySessionsForUser = async (): Promise<ProjectSession[]> =
   }
   return response.json();
 };
+
+export const getWorkingSession = async () => {
+  const response = await fetch('/api/sessions/working');
+  if (!response.ok) {
+    throw new Error('Failed to get working session');
+  }
+  return response.json();
+};

@@ -55,6 +55,7 @@ export interface IStorage {
   getTemporarySessionsForUser(userId: string): Promise<ProjectSession[]>;
   clearTemporarySessionsForUser(userId: string): Promise<number>;
   migrateGenerationJobsToSession(sourceSessionId: string, targetSessionId: string): Promise<number>;
+  getWorkingSessionForUser(userId: string): Promise<ProjectSession | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -348,6 +349,19 @@ export class MemStorage implements IStorage {
     }
     return migratedCount;
   }
+
+  async getWorkingSessionForUser(userId: string): Promise<ProjectSession | undefined> {
+    // Find the working session for a user (sessions without a name, most recently updated)
+    let workingSession: ProjectSession | undefined;
+    for (const session of this.projectSessions.values()) {
+      if (session.userId === userId && session.name === null && !session.isTemporary) {
+        if (!workingSession || (session.updatedAt && session.updatedAt > workingSession.updatedAt)) {
+          workingSession = session;
+        }
+      }
+    }
+    return workingSession;
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -622,6 +636,27 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error migrating generation jobs to session:', error);
       return 0;
+    }
+  }
+
+  async getWorkingSessionForUser(userId: string): Promise<ProjectSession | undefined> {
+    try {
+      const [session] = await db
+        .select()
+        .from(projectSessions)
+        .where(
+          and(
+            eq(projectSessions.userId, userId),
+            isNull(projectSessions.name),
+            eq(projectSessions.isTemporary, false)
+          )
+        )
+        .orderBy(desc(projectSessions.updatedAt))
+        .limit(1);
+      return session;
+    } catch (error) {
+      console.error('Error fetching working session for user:', error);
+      return undefined;
     }
   }
 }
