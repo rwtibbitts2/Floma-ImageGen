@@ -178,6 +178,78 @@ router.post('/generate', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/regenerate - Regenerate an image with modifications (Protected)
+router.post('/regenerate', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      sourceImageId: z.string(),
+      instruction: z.string().min(1),
+      sessionId: z.string().optional() // Optional sessionId for image persistence
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { sourceImageId, instruction, sessionId } = validation.data;
+
+    // Get the source image and verify ownership
+    const sourceImage = await storage.getGeneratedImageById(sourceImageId);
+    if (!sourceImage) {
+      return res.status(404).json({ error: 'Source image not found' });
+    }
+
+    // Verify ownership (user owns image or is admin)
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    if (!isAdmin && sourceImage.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied: not your image' });
+    }
+
+    // Get the source image's job to inherit style and settings
+    const sourceJob = await storage.getGenerationJobById(sourceImage.jobId!);
+    if (!sourceJob) {
+      return res.status(404).json({ error: 'Source job not found' });
+    }
+
+    // Get the style for regeneration
+    const style = await storage.getImageStyleById(sourceJob.styleId!);
+    if (!style) {
+      return res.status(404).json({ error: 'Style not found' });
+    }
+
+    // Create regeneration job with modified concept
+    const modifiedConcept = `${sourceImage.visualConcept} (${instruction})`;
+    const job = await storage.createGenerationJob({
+      name: `Regeneration: ${modifiedConcept}`,
+      userId: userId,
+      sessionId: sessionId || sourceJob.sessionId, // Use provided sessionId or inherit from source
+      styleId: sourceJob.styleId!,
+      visualConcepts: [modifiedConcept],
+      settings: sourceJob.settings // Inherit settings from source job
+    });
+    
+    // Update job to running status
+    await storage.updateGenerationJob(job.id, { status: 'running' });
+
+    // Start regeneration process asynchronously, passing source image info
+    generateRegeneratedImagesAsync(job.id, style, sourceImage, instruction, sourceJob.settings);
+
+    res.status(201).json({ 
+      jobId: job.id,
+      message: 'Regeneration started',
+      modifiedConcept: modifiedConcept
+    });
+  } catch (error) {
+    console.error('Error starting regeneration:', error);
+    res.status(500).json({ error: 'Failed to start regeneration' });
+  }
+});
+
 // GET /api/jobs/:id - Get generation job status for authenticated user (Protected)
 router.get('/jobs/:id', requireAuth, async (req, res) => {
   try {
@@ -309,6 +381,103 @@ Subject: ${concept}`;
 
   } catch (error) {
     console.error(`Fatal error in job ${jobId}:`, error);
+    
+    // Mark job as failed
+    await storage.updateGenerationJob(jobId, {
+      status: 'failed'
+    });
+  }
+}
+
+// Async function to regenerate images with modifications using OpenAI
+async function generateRegeneratedImagesAsync(
+  jobId: string,
+  style: any,
+  sourceImage: any,
+  instruction: string,
+  settings: any
+) {
+  try {
+    const totalImages = settings.variations || 1;
+    let completedImages = 0;
+    let failedImages = 0;
+
+    for (let variation = 1; variation <= totalImages; variation++) {
+      try {
+        // Construct regeneration prompt combining original concept with modification instruction
+        const regenerationPrompt = `Generate a clean, professional digital asset:
+Style: ${style.stylePrompt}
+Subject: ${sourceImage.visualConcept}
+Modification: ${instruction}`;
+        
+        console.log(`Regenerating image ${completedImages + 1}/${totalImages}: "${regenerationPrompt}"`);
+
+        // Map quality values to OpenAI-supported values
+        const qualityMapping = {
+          'standard': 'standard',
+          'hd': 'high'
+        } as const;
+        
+        // Generate new image using OpenAI with the modified prompt
+        // Note: For now we use prompt-based regeneration. In the future, we could use
+        // OpenAI's image edit/variation APIs if we had the source image file
+        const response = await openai.images.generate({
+          model: settings.model || "dall-e-3",
+          prompt: regenerationPrompt,
+          n: 1,
+          size: settings.size,
+          quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
+        });
+
+        const imageUrl = response.data?.[0]?.url;
+        if (!imageUrl) {
+          throw new Error('No image URL returned from OpenAI');
+        }
+
+        // Store regenerated image with source reference
+        const job = await storage.getGenerationJobById(jobId);
+        const createdImage = await storage.createGeneratedImage({
+          jobId: jobId,
+          userId: job?.userId || null,
+          sourceImageId: sourceImage.id, // Link to source image
+          visualConcept: sourceImage.visualConcept, // Keep original concept
+          regenerationInstruction: instruction, // Store the modification instruction
+          imageUrl: imageUrl,
+          prompt: regenerationPrompt
+        });
+        
+        // Update the image status to completed
+        await storage.updateGeneratedImage(createdImage.id, { status: 'completed' });
+
+        completedImages++;
+
+        // Update job progress
+        await storage.updateGenerationJob(jobId, {
+          progress: Math.round((completedImages / totalImages) * 100),
+          status: completedImages + failedImages >= totalImages ? 'completed' : 'running'
+        });
+
+        console.log(`Regenerated image ${completedImages}/${totalImages} successfully`);
+
+        // Add small delay to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      } catch (error) {
+        console.error(`Failed to regenerate image with instruction "${instruction}", variation ${variation}:`, error);
+        failedImages++;
+
+        // Update job with failure
+        await storage.updateGenerationJob(jobId, {
+          progress: Math.round(((completedImages + failedImages) / totalImages) * 100),
+          status: completedImages + failedImages >= totalImages ? 'completed' : 'running'
+        });
+      }
+    }
+
+    console.log(`Regeneration job ${jobId} completed: ${completedImages} successful, ${failedImages} failed`);
+
+  } catch (error) {
+    console.error(`Fatal error in regeneration job ${jobId}:`, error);
     
     // Mark job as failed
     await storage.updateGenerationJob(jobId, {
