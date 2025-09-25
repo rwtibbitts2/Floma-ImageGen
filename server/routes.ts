@@ -560,9 +560,7 @@ Subject: ${concept}`;
           const requestParams = buildImageParams(model, settings.size, settings.quality, fullPrompt);
           
           // Generate image using OpenAI
-          console.log('Sending request to OpenAI with params:', JSON.stringify(requestParams, null, 2));
           const response = await openai.images.generate(requestParams);
-          console.log('OpenAI response:', JSON.stringify(response, null, 2));
 
           // Handle both URL and base64 image formats
           let imageUrl = response.data?.[0]?.url;
@@ -725,9 +723,18 @@ async function generateRegeneratedImagesAsync(
         
         const response = await openai.images.edit(requestParams);
 
-        const imageUrl = response.data?.[0]?.url;
+        // Handle both URL and base64 image formats (same as generation)
+        let imageUrl = response.data?.[0]?.url;
+        const base64Data = response.data?.[0]?.b64_json;
+        
+        if (!imageUrl && base64Data) {
+          // GPT Image 1 returns base64 data instead of URL
+          imageUrl = `data:image/png;base64,${base64Data}`;
+          console.log('Received base64 regenerated image data, converted to data URL');
+        }
+        
         if (!imageUrl) {
-          throw new Error('No image URL returned from OpenAI');
+          throw new Error('No image data returned from OpenAI edit API');
         }
 
         // Store regenerated image with source reference
