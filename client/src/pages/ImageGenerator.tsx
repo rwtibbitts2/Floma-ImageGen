@@ -481,6 +481,7 @@ export default function ImageGenerator() {
             
             if (job.status === 'completed') {
               // Fetch the regenerated images for this job
+              let completedImagesCount = 0;
               try {
                 const imagesResponse = await fetch(`/api/jobs/${jobId}/images`, {
                   credentials: 'include'
@@ -489,6 +490,7 @@ export default function ImageGenerator() {
                 if (imagesResponse.ok) {
                   const images = await imagesResponse.json();
                   const completedImages = images.filter((img: any) => img.status === 'completed');
+                  completedImagesCount = completedImages.length;
                   
                   // Add new regenerated images to session gallery (same pattern as regular generation)
                   setSessionImages(prev => {
@@ -504,10 +506,19 @@ export default function ImageGenerator() {
                 console.error('Failed to fetch regenerated images:', imagesError);
               }
               
-              toast({
-                title: 'Regeneration Complete',
-                description: 'Your regenerated image is now available in the gallery.',
-              });
+              // Show success only if at least one image was successfully regenerated
+              if (completedImagesCount > 0) {
+                toast({
+                  title: 'Regeneration Complete',
+                  description: 'Your regenerated image is now available in the gallery.',
+                });
+              } else {
+                toast({
+                  title: 'Regeneration Failed',
+                  description: 'The image regeneration was unsuccessful. Please try again.',
+                  variant: 'destructive'
+                });
+              }
             } else {
               toast({
                 title: 'Regeneration Failed',
