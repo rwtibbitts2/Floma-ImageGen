@@ -571,6 +571,7 @@ async function generateRegeneratedImagesAsync(
   settings: any
 ) {
   let tempImagePath: string | null = null;
+  let convertedImagePath: string | null = null;
   
   try {
     const totalImages = settings.variations || 1;
@@ -582,6 +583,26 @@ async function generateRegeneratedImagesAsync(
     const downloadResult = await downloadImageToTempFile(sourceImage.imageUrl);
     tempImagePath = downloadResult.path;
     console.log(`Image downloaded to: ${tempImagePath} with type: ${downloadResult.contentType}`);
+
+    // Convert image to RGBA format once before processing all variations
+    const parsed = path.parse(tempImagePath);
+    convertedImagePath = path.join(parsed.dir, `${parsed.name}_rgba.png`);
+    
+    try {
+      await sharp(tempImagePath)
+        .ensureAlpha() // Add alpha channel if missing
+        .png() // Convert to PNG format which supports RGBA
+        .toFile(convertedImagePath);
+      console.log(`Image converted to RGBA format: ${convertedImagePath}`);
+    } catch (error) {
+      console.error('Failed to convert image to RGBA format:', error);
+      throw new Error('Image format conversion failed - regeneration requires RGBA format');
+    }
+
+    // Prepare image file for reuse across all variations
+    const imageFile = await toFile(fs.createReadStream(convertedImagePath), path.basename(convertedImagePath), {
+      type: 'image/png'
+    });
 
     for (let variation = 1; variation <= totalImages; variation++) {
       try {
@@ -602,17 +623,6 @@ async function generateRegeneratedImagesAsync(
           throw new Error(`Model ${settings.model} does not support image editing. Use DALL-E 2 or GPT Image 1 for regeneration.`);
         }
         
-        // Convert image to RGBA format for OpenAI edit API compatibility
-        const convertedImagePath = tempImagePath.replace(/\.(png|jpg|jpeg)$/i, '_rgba.png');
-        await sharp(tempImagePath)
-          .ensureAlpha() // Add alpha channel if missing
-          .png() // Convert to PNG format which supports RGBA
-          .toFile(convertedImagePath);
-        
-        // Use the converted RGBA image for OpenAI's edit API
-        const imageFile = await toFile(fs.createReadStream(convertedImagePath), path.basename(convertedImagePath), {
-          type: 'image/png'
-        });
         
         // Build request params with model-specific validation (for edit API, we use image param instead of building through helper)
         const requestParams: any = {
@@ -693,13 +703,12 @@ async function generateRegeneratedImagesAsync(
     if (tempImagePath) {
       cleanupTempFile(tempImagePath);
       console.log(`Cleaned up temporary image file: ${tempImagePath}`);
-      
-      // Also clean up the converted RGBA image file
-      const convertedImagePath = tempImagePath.replace(/\.(png|jpg|jpeg)$/i, '_rgba.png');
-      if (fs.existsSync(convertedImagePath)) {
-        cleanupTempFile(convertedImagePath);
-        console.log(`Cleaned up converted RGBA image file: ${convertedImagePath}`);
-      }
+    }
+    
+    // Clean up converted RGBA image file
+    if (convertedImagePath && fs.existsSync(convertedImagePath)) {
+      cleanupTempFile(convertedImagePath);
+      console.log(`Cleaned up converted RGBA image file: ${convertedImagePath}`);
     }
   }
 }
