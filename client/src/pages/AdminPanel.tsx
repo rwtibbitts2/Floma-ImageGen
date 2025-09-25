@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Users, Shield, UserPlus, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
+import { Users, Shield, UserPlus, ToggleLeft, ToggleRight, AlertTriangle, Home } from 'lucide-react';
 import { getAllUsers, createUser, toggleUserStatus, updateUserRole, type CreateUserRequest, type User } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
@@ -27,6 +28,7 @@ type CreateUserFormData = z.infer<typeof createUserSchema>;
 
 export default function AdminPanel() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Fetch all users
@@ -162,14 +164,25 @@ export default function AdminPanel() {
             <Shield className="h-6 w-6" />
             <h1 className="text-2xl font-bold">Admin Panel</h1>
           </div>
-          <Button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="flex items-center gap-2"
-            data-testid="button-toggle-create-form"
-          >
-            <UserPlus className="h-4 w-4" />
-            {showCreateForm ? 'Cancel' : 'Create User'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setLocation('/')}
+              className="flex items-center gap-2"
+              data-testid="button-back-to-home"
+            >
+              <Home className="h-4 w-4" />
+              Back to Home
+            </Button>
+            <Button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="flex items-center gap-2"
+              data-testid="button-toggle-create-form"
+            >
+              <UserPlus className="h-4 w-4" />
+              {showCreateForm ? 'Cancel' : 'Create User'}
+            </Button>
+          </div>
         </div>
 
         {/* Create User Form */}
