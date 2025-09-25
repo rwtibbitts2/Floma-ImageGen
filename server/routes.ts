@@ -8,6 +8,10 @@ import { fromZodError } from 'zod-validation-error';
 import OpenAI from 'openai';
 import { nanoid } from 'nanoid';
 import { setupAuth, requireAuth } from './auth'; // From blueprint:javascript_auth_all_persistance
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
+import http from 'http';
 
 const router = express.Router();
 
@@ -15,6 +19,56 @@ const router = express.Router();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Utility function to download image from URL to temporary file
+async function downloadImageToTempFile(imageUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const tempDir = path.join(process.cwd(), 'temp');
+    
+    // Ensure temp directory exists
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const tempFileName = `temp_image_${nanoid()}.png`;
+    const tempFilePath = path.join(tempDir, tempFileName);
+    const file = fs.createWriteStream(tempFilePath);
+    
+    const protocol = imageUrl.startsWith('https:') ? https : http;
+    
+    protocol.get(imageUrl, (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`Failed to download image: ${response.statusCode}`));
+        return;
+      }
+      
+      response.pipe(file);
+      
+      file.on('finish', () => {
+        file.close();
+        resolve(tempFilePath);
+      });
+      
+      file.on('error', (err) => {
+        fs.unlink(tempFilePath, () => {}); // Delete the file on error
+        reject(err);
+      });
+    }).on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+// Utility function to clean up temporary files
+function cleanupTempFile(filePath: string) {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (error) {
+    console.error('Error cleaning up temp file:', error);
+  }
+}
 
 // GET /api/styles - Get image styles for authenticated user (Protected)
 router.get('/styles', requireAuth, async (req, res) => {
@@ -389,7 +443,7 @@ Subject: ${concept}`;
   }
 }
 
-// Async function to regenerate images with modifications using OpenAI
+// Async function to regenerate images with modifications using OpenAI's image edit API
 async function generateRegeneratedImagesAsync(
   jobId: string,
   style: any,
@@ -397,20 +451,24 @@ async function generateRegeneratedImagesAsync(
   instruction: string,
   settings: any
 ) {
+  let tempImagePath: string | null = null;
+  
   try {
     const totalImages = settings.variations || 1;
     let completedImages = 0;
     let failedImages = 0;
 
+    // Download the source image to a temporary file for OpenAI's edit API
+    console.log(`Downloading source image from: ${sourceImage.imageUrl}`);
+    tempImagePath = await downloadImageToTempFile(sourceImage.imageUrl);
+    console.log(`Image downloaded to: ${tempImagePath}`);
+
     for (let variation = 1; variation <= totalImages; variation++) {
       try {
-        // Construct regeneration prompt combining original concept with modification instruction
-        const regenerationPrompt = `Generate a clean, professional digital asset:
-Style: ${style.stylePrompt}
-Subject: ${sourceImage.visualConcept}
-Modification: ${instruction}`;
+        // Use a focused instruction prompt for better results
+        const editPrompt = instruction;
         
-        console.log(`Regenerating image ${completedImages + 1}/${totalImages}: "${regenerationPrompt}"`);
+        console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}"`);
 
         // Map quality values to OpenAI-supported values
         const qualityMapping = {
@@ -418,13 +476,11 @@ Modification: ${instruction}`;
           'hd': 'high'
         } as const;
         
-        // Generate new image using OpenAI with the modified prompt
-        // Note: For now we use prompt-based regeneration. In the future, we could use
-        // OpenAI's image edit/variation APIs if we had the source image file
-        const response = await openai.images.generate({
-          model: settings.model || "dall-e-3",
-          prompt: regenerationPrompt,
-          n: 1,
+        // Use OpenAI's image edit API to modify the source image
+        const response = await openai.images.edit({
+          model: "gpt-image-1", // Use the latest image model
+          image: fs.createReadStream(tempImagePath),
+          prompt: editPrompt,
           size: settings.size,
           quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
         });
@@ -443,7 +499,7 @@ Modification: ${instruction}`;
           visualConcept: sourceImage.visualConcept, // Keep original concept
           regenerationInstruction: instruction, // Store the modification instruction
           imageUrl: imageUrl,
-          prompt: regenerationPrompt
+          prompt: `Image edit: ${editPrompt} (applied to original image)`
         });
         
         // Update the image status to completed
@@ -457,7 +513,7 @@ Modification: ${instruction}`;
           status: completedImages + failedImages >= totalImages ? 'completed' : 'running'
         });
 
-        console.log(`Regenerated image ${completedImages}/${totalImages} successfully`);
+        console.log(`Regenerated image ${completedImages}/${totalImages} successfully using image edit API`);
 
         // Add small delay to respect rate limits
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -483,6 +539,12 @@ Modification: ${instruction}`;
     await storage.updateGenerationJob(jobId, {
       status: 'failed'
     });
+  } finally {
+    // Clean up temporary image file
+    if (tempImagePath) {
+      cleanupTempFile(tempImagePath);
+      console.log(`Cleaned up temporary image file: ${tempImagePath}`);
+    }
   }
 }
 
