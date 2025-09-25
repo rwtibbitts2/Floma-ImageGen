@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { Users, Shield, UserPlus, ToggleLeft, ToggleRight, AlertTriangle, Home } from 'lucide-react';
 import { getAllUsers, createUser, toggleUserStatus, updateUserRole, type CreateUserRequest, type User } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { queryClient } from '@/lib/queryClient';
 
 const createUserSchema = z.object({
@@ -28,6 +29,7 @@ type CreateUserFormData = z.infer<typeof createUserSchema>;
 
 export default function AdminPanel() {
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
   const [, setLocation] = useLocation();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -350,9 +352,10 @@ export default function AdminPanel() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleToggleStatus(user.id)}
-                        disabled={toggleStatusMutation.isPending}
+                        disabled={toggleStatusMutation.isPending || user.id === currentUser?.id}
                         className="flex items-center gap-1"
                         data-testid={`button-toggle-status-${user.id}`}
+                        title={user.id === currentUser?.id ? "You cannot deactivate your own account" : ""}
                       >
                         {user.isActive ? (
                           <>

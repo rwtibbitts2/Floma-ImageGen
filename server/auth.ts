@@ -181,6 +181,11 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: "userId required" });
       }
 
+      // Prevent users from deactivating their own account
+      if (userId === req.user?.id) {
+        return res.status(403).json({ error: "You cannot deactivate your own account" });
+      }
+
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
