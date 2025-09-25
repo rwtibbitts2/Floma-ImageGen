@@ -25,6 +25,13 @@ export default function PersistentImageGallery({
 }: PersistentImageGalleryProps) {
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
 
+  // Sort images with most recent first (left side)
+  const sortedImages = [...images].sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateB - dateA; // Most recent first
+  });
+
   if (images.length === 0) {
     return (
       <Card className="w-full">
@@ -54,7 +61,7 @@ export default function PersistentImageGallery({
             )}
           </div>
           <Badge variant="outline" className="text-xs">
-            {images.length} image{images.length !== 1 ? 's' : ''}
+            {sortedImages.length} image{sortedImages.length !== 1 ? 's' : ''}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -62,7 +69,7 @@ export default function PersistentImageGallery({
         {/* Horizontal scrolling container */}
         <ScrollArea className="w-full whitespace-nowrap" data-testid="session-gallery-outer">
           <div className="inline-flex w-max gap-4 pb-2 flex-nowrap" data-testid="session-gallery-inner">
-            {images.map((image) => (
+            {sortedImages.map((image) => (
               <div
                 key={image.id}
                 className="relative shrink-0 group"
@@ -154,7 +161,7 @@ export default function PersistentImageGallery({
         {/* Gallery actions */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t">
           <div className="text-sm text-muted-foreground">
-            {images.length} image{images.length !== 1 ? 's' : ''} in this session
+            {sortedImages.length} image{sortedImages.length !== 1 ? 's' : ''} in this session
           </div>
           
           <div className="flex gap-2">
@@ -162,13 +169,13 @@ export default function PersistentImageGallery({
               variant="outline"
               size="sm"
               onClick={() => {
-                images.forEach(image => onDownload(image));
+                sortedImages.forEach(image => onDownload(image));
               }}
-              disabled={images.length === 0}
+              disabled={sortedImages.length === 0}
               data-testid="button-download-all-session"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download All ({images.length})
+              Download All ({sortedImages.length})
             </Button>
           </div>
         </div>
