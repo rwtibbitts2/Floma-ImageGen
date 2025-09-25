@@ -491,9 +491,9 @@ async function generateRegeneratedImagesAsync(
         
         console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}"`);
 
-        // Map quality values to OpenAI-supported values
+        // Map quality values to OpenAI image edit API supported values
         const qualityMapping = {
-          'standard': 'standard',
+          'standard': 'medium',
           'hd': 'high'
         } as const;
         
@@ -507,7 +507,7 @@ async function generateRegeneratedImagesAsync(
           image: imageFile,
           prompt: editPrompt,
           size: settings.size,
-          quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
+          quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'medium'
         });
 
         const imageUrl = response.data?.[0]?.url;
