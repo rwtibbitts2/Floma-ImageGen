@@ -5,10 +5,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Loader2 } from 'lucide-react';
-import { GeneratedImage } from '@shared/schema';
+import { GeneratedImage, GenerationSettings, generationSettingsSchema } from '@shared/schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import GenerationSettingsComponent from '@/components/GenerationSettings';
 
 interface RegenerateModalProps {
   image: GeneratedImage | null;
@@ -20,12 +21,23 @@ interface RegenerateModalProps {
 
 interface RegenerateRequest {
   sourceImageId: string;
-  instruction: string;
+  instruction?: string;
   sessionId: string;
+  settings?: GenerationSettings;
 }
 
 export default function RegenerateModal({ image, open, onOpenChange, sessionId, onRegenerationStarted }: RegenerateModalProps) {
   const [instruction, setInstruction] = useState('');
+  const [settings, setSettings] = useState<GenerationSettings>(() => 
+    generationSettingsSchema.parse({
+      model: 'gpt-image-1', // Use GPT Image 1 for regeneration
+      quality: 'standard',
+      size: '1024x1024',
+      variations: 1,
+      transparency: false
+    })
+  );
+  const [hasSettingsChanged, setHasSettingsChanged] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -43,10 +55,18 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
         onRegenerationStarted(jobId);
       }
       
+      const description = instruction && instruction.trim().length > 0 
+        ? 'Your image is being regenerated with the new instructions. We\'ll notify you when it\'s ready.'
+        : 'Your image is being enhanced with the updated settings. We\'ll notify you when it\'s ready.';
+        
       toast({
         title: 'Regeneration Started',
-        description: 'Your image is being regenerated with the new instructions. We\'ll notify you when it\'s ready.',
+        description,
       });
+      
+      // Invalidate relevant queries to refresh UI
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions', sessionId, 'images'] });
       
       onOpenChange(false);
       setInstruction('');
@@ -60,20 +80,46 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
     },
   });
 
+  const handleSettingsChange = (newSettings: GenerationSettings) => {
+    setSettings(newSettings);
+    setHasSettingsChanged(true);
+  };
+
   const handleRegenerate = () => {
-    if (!image || !instruction.trim()) return;
+    if (!image) return;
     
-    regenerateMutation.mutate({
+    // Allow regeneration if either instruction is provided OR settings have changed
+    const hasInstruction = instruction.trim().length > 0;
+    if (!hasInstruction && !hasSettingsChanged) return;
+    
+    const requestData: RegenerateRequest = {
       sourceImageId: image.id,
-      instruction: instruction.trim(),
       sessionId,
-    });
+    };
+    
+    if (hasInstruction) {
+      requestData.instruction = instruction.trim();
+    }
+    
+    if (hasSettingsChanged) {
+      requestData.settings = settings;
+    }
+    
+    regenerateMutation.mutate(requestData);
   };
 
   const handleClose = () => {
     if (!regenerateMutation.isPending) {
       onOpenChange(false);
       setInstruction('');
+      setHasSettingsChanged(false);
+      setSettings(generationSettingsSchema.parse({
+        model: 'gpt-image-1',
+        quality: 'standard',
+        size: '1024x1024',
+        variations: 1,
+        transparency: false
+      }));
     }
   };
 
@@ -86,7 +132,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
             Regenerate Image
           </DialogTitle>
           <DialogDescription>
-            Create a new variation of this image with your modifications
+            Create a new variation of this image with modifications or enhanced settings
           </DialogDescription>
         </DialogHeader>
 
@@ -119,10 +165,23 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               </div>
             </div>
 
+            {/* Generation Settings */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Generation Settings</Label>
+              <GenerationSettingsComponent
+                settings={settings}
+                onSettingsChange={handleSettingsChange}
+              />
+              <p className="text-xs text-muted-foreground">
+                Adjust settings to enhance image quality or change parameters
+              </p>
+            </div>
+
             {/* Modification Instructions */}
             <div className="space-y-2">
               <Label htmlFor="instruction" className="text-sm font-medium">
                 Modification Instructions
+                <span className="text-xs text-muted-foreground ml-2">(Optional if changing settings)</span>
               </Label>
               <Textarea
                 id="instruction"
@@ -133,7 +192,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
                 data-testid="textarea-regeneration-instruction"
               />
               <p className="text-xs text-muted-foreground">
-                Be specific about the changes you want to see in the regenerated version
+                Leave blank to enhance with current settings only, or provide specific modification instructions
               </p>
             </div>
           </div>
@@ -150,7 +209,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
           </Button>
           <Button
             onClick={handleRegenerate}
-            disabled={!instruction.trim() || regenerateMutation.isPending}
+            disabled={(!instruction.trim() && !hasSettingsChanged) || regenerateMutation.isPending}
             data-testid="button-confirm-regeneration"
           >
             {regenerateMutation.isPending ? (

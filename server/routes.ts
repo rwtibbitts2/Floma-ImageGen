@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from 'express';
-import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, GenerationSettings } from '@shared/schema';
+import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, GenerationSettings, generationSettingsSchema } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI, { toFile } from 'openai';
@@ -396,10 +396,12 @@ router.post('/regenerate', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       sourceImageId: z.string(),
-      instruction: z.string().min(1),
-      sessionId: z.string().optional() // Optional sessionId for image persistence
+      instruction: z.string().min(1).optional(), // Made optional when settings are provided
+      sessionId: z.string().optional(), // Optional sessionId for image persistence
+      settings: generationSettingsSchema.optional() // Optional settings for enhancement
     });
 
+    // Additional validation: either instruction or settings must be provided
     const validation = schema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({ 
@@ -408,7 +410,15 @@ router.post('/regenerate', requireAuth, async (req, res) => {
       });
     }
 
-    const { sourceImageId, instruction, sessionId } = validation.data;
+    const { sourceImageId, instruction, sessionId, settings } = validation.data;
+
+    // Ensure at least instruction or settings are provided
+    if (!instruction && !settings) {
+      return res.status(400).json({ 
+        error: 'Either instruction or settings must be provided for regeneration'
+      });
+    }
+
 
     // Get the source image and verify ownership
     const sourceImage = await storage.getGeneratedImageById(sourceImageId);
@@ -435,34 +445,74 @@ router.post('/regenerate', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Style not found' });
     }
 
-    // Validate that the model supports image editing using capabilities system
-    const sourceModel = sourceJob.settings.model;
-    const capability = MODEL_CAPABILITIES[sourceModel];
+    // Determine the final settings to use (provided settings or inherited from source)
+    const finalSettings = settings || sourceJob.settings;
+
+    // Validate model capabilities (same as /api/generate)
+    const targetModel = finalSettings.model;
+    const capability = MODEL_CAPABILITIES[targetModel];
     
-    if (!sourceModel || !capability || !capability.supportsEditing) {
-      const modelText = sourceModel ? `"${sourceModel}"` : 'from the original image (likely DALL-E 3)';
+    if (!targetModel || !capability) {
+      return res.status(400).json({ 
+        error: `Unsupported model: ${targetModel}` 
+      });
+    }
+    
+    if (!capability.supportsEditing) {
+      const modelText = targetModel ? `"${targetModel}"` : 'from the settings (likely DALL-E 3)';
       return res.status(400).json({ 
         error: 'Model not supported for regeneration', 
-        details: `The model ${modelText} does not support image editing. Only DALL-E 2 and GPT Image 1 support regeneration. Please generate a new image with an editing-capable model first if you want to use regeneration.`
+        details: `The model ${modelText} does not support image editing. Only DALL-E 2 and GPT Image 1 support regeneration. Please choose a model that supports editing.`
+      });
+    }
+    
+    if (!capability.supportedSizes.includes(finalSettings.size)) {
+      return res.status(400).json({ 
+        error: `Model ${targetModel} does not support size ${finalSettings.size}`,
+        details: `Supported sizes for ${targetModel}: ${capability.supportedSizes.join(', ')}`
+      });
+    }
+    
+    // Validate quality parameter
+    if (!capability.supportsQuality && finalSettings.quality === 'hd') {
+      return res.status(400).json({ 
+        error: `Model ${targetModel} does not support HD quality`,
+        details: `${targetModel} only supports standard quality. Please select standard quality.`
       });
     }
 
-    // Create regeneration job with modified concept
-    const modifiedConcept = `${sourceImage.visualConcept} (${instruction})`;
+    // Create job name and concept based on what's being changed
+    let jobName: string;
+    let modifiedConcept: string;
+    
+    if (instruction && settings) {
+      // Both instruction and settings provided
+      modifiedConcept = `${sourceImage.visualConcept} (${instruction})`;
+      jobName = `Regeneration: ${modifiedConcept}`;
+    } else if (instruction) {
+      // Only instruction provided
+      modifiedConcept = `${sourceImage.visualConcept} (${instruction})`;
+      jobName = `Regeneration: ${modifiedConcept}`;
+    } else {
+      // Only settings provided (enhancement)
+      modifiedConcept = sourceImage.visualConcept;
+      jobName = `Enhancement: ${modifiedConcept}`;
+    }
+
     const job = await storage.createGenerationJob({
-      name: `Regeneration: ${modifiedConcept}`,
+      name: jobName,
       userId: userId,
       sessionId: sessionId || sourceJob.sessionId, // Use provided sessionId or inherit from source
       styleId: sourceJob.styleId!,
       visualConcepts: [modifiedConcept],
-      settings: sourceJob.settings // Inherit settings from source job
+      settings: finalSettings
     });
     
     // Update job to running status
     await storage.updateGenerationJob(job.id, { status: 'running' });
 
     // Start regeneration process asynchronously, passing source image info
-    generateRegeneratedImagesAsync(job.id, style, sourceImage, instruction, sourceJob.settings);
+    generateRegeneratedImagesAsync(job.id, style, sourceImage, instruction || '', finalSettings);
 
     res.status(201).json({ 
       jobId: job.id,
@@ -673,25 +723,34 @@ async function generateRegeneratedImagesAsync(
 
     for (let variation = 1; variation <= totalImages; variation++) {
       try {
-        // Truncate instruction if too long to fit within OpenAI's 1000 character limit
-        const maxPromptLength = 1000;
-        let editPrompt = instruction;
+        // Handle instruction for regeneration
+        let editPrompt: string;
+        let enhancedPrompt: string;
         
-        if (instruction.length > maxPromptLength) {
-          editPrompt = instruction.substring(0, maxPromptLength - 3) + '...';
-          console.log(`Regeneration instruction truncated from ${instruction.length} to ${editPrompt.length} characters`);
+        if (instruction && instruction.trim().length > 0) {
+          // Has instruction - handle as modification
+          const maxPromptLength = 1000;
+          editPrompt = instruction;
+          
+          if (instruction.length > maxPromptLength) {
+            editPrompt = instruction.substring(0, maxPromptLength - 3) + '...';
+            console.log(`Regeneration instruction truncated from ${instruction.length} to ${editPrompt.length} characters`);
+          }
+          
+          console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}" (${editPrompt.length} chars)`);
+          enhancedPrompt = `${editPrompt}. Keep all other details, composition, and style exactly the same. Only modify what is specifically requested.`;
+        } else {
+          // No instruction - enhancement only (settings change)
+          editPrompt = 'enhance image quality and clarity';
+          console.log(`Enhancing image ${completedImages + 1}/${totalImages} with improved settings (no instruction)`);
+          enhancedPrompt = 'Enhance image quality and clarity while keeping all details, composition, and style exactly the same';
         }
-        
-        console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}" (${editPrompt.length} chars)`);
 
         // Validate model supports editing
         const capability = MODEL_CAPABILITIES[settings.model];
         if (!capability || !capability.supportsEditing) {
           throw new Error(`Model ${settings.model} does not support image editing. Use DALL-E 2 or GPT Image 1 for regeneration.`);
         }
-        
-        // Enhance the edit prompt for better results
-        const enhancedPrompt = `${editPrompt}. Keep all other details, composition, and style exactly the same. Only modify what is specifically requested.`;
         console.log(`Enhanced prompt sent to OpenAI: "${enhancedPrompt}" (${enhancedPrompt.length} chars)`);
         
         // Build request params with model-specific validation (for edit API, we use image param instead of building through helper)
