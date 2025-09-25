@@ -55,8 +55,8 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
     const newSettings = { ...settings, model: newModel };
 
     // Adjust size if not supported by new model
-    if (!newCapabilities.supportedSizes.includes(settings.size)) {
-      newSettings.size = newCapabilities.supportedSizes[0] as any;
+    if (!(newCapabilities.supportedSizes as readonly string[]).includes(settings.size)) {
+      newSettings.size = newCapabilities.supportedSizes[0] as typeof settings.size;
     }
 
     // Reset quality to standard if model doesn't support quality
@@ -205,10 +205,10 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
                           <Badge variant="secondary" className="ml-2 text-xs">Recommended</Badge>
                         </SelectItem>
                       )}
-                      {capabilities.supportedSizes.includes('1792x1024') && (
+                      {(capabilities.supportedSizes as readonly string[]).includes('1792x1024') && (
                         <SelectItem value="1792x1024">Landscape (1792×1024)</SelectItem>
                       )}
-                      {capabilities.supportedSizes.includes('1024x1792') && (
+                      {(capabilities.supportedSizes as readonly string[]).includes('1024x1792') && (
                         <SelectItem value="1024x1792">Portrait (1024×1792)</SelectItem>
                       )}
                     </SelectContent>

@@ -398,12 +398,23 @@ async function generateImagesAsync(
     for (const concept of concepts) {
       for (let variation = 1; variation <= settings.variations; variation++) {
         try {
+          // Truncate style prompt if too long to fit within OpenAI's 1000 character limit
+          const maxPromptLength = 1000;
+          const templateText = `Generate a clean, professional digital asset:\nStyle: \nSubject: ${concept}`;
+          const remainingSpace = maxPromptLength - templateText.length;
+          
+          let truncatedStylePrompt = style.stylePrompt;
+          if (style.stylePrompt.length > remainingSpace) {
+            truncatedStylePrompt = style.stylePrompt.substring(0, remainingSpace - 3) + '...';
+            console.log(`Style prompt truncated from ${style.stylePrompt.length} to ${truncatedStylePrompt.length} characters`);
+          }
+          
           // Construct professional structured prompt with clear labeling
           const fullPrompt = `Generate a clean, professional digital asset:
-Style: ${style.stylePrompt}
+Style: ${truncatedStylePrompt}
 Subject: ${concept}`;
           
-          console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}"`);
+          console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}" (${fullPrompt.length} chars)`);
 
           // Map quality values to OpenAI-supported values
           const qualityMapping = {
@@ -508,10 +519,16 @@ async function generateRegeneratedImagesAsync(
 
     for (let variation = 1; variation <= totalImages; variation++) {
       try {
-        // Use a focused instruction prompt for better results
-        const editPrompt = instruction;
+        // Truncate instruction if too long to fit within OpenAI's 1000 character limit
+        const maxPromptLength = 1000;
+        let editPrompt = instruction;
         
-        console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}"`);
+        if (instruction.length > maxPromptLength) {
+          editPrompt = instruction.substring(0, maxPromptLength - 3) + '...';
+          console.log(`Regeneration instruction truncated from ${instruction.length} to ${editPrompt.length} characters`);
+        }
+        
+        console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}" (${editPrompt.length} chars)`);
 
         // Map quality values to OpenAI-supported values (consistent with generation)
         const qualityMapping = {
