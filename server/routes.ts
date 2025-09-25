@@ -97,6 +97,54 @@ async function downloadImageToTempFile(imageUrl: string): Promise<{ path: string
       fs.mkdirSync(tempDir, { recursive: true });
     }
     
+    // Handle data URLs (base64 encoded images from GPT Image 1)
+    if (imageUrl.startsWith('data:')) {
+      try {
+        console.log('Processing data URL for regeneration');
+        
+        // Parse data URL: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
+        const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (!matches) {
+          reject(new Error('Invalid data URL format'));
+          return;
+        }
+        
+        const [, mimeType, base64Data] = matches;
+        
+        // Determine file extension from MIME type
+        let fileExtension = '.png'; // default fallback
+        let validatedContentType = 'image/png'; // default fallback
+        
+        if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+          fileExtension = '.jpg';
+          validatedContentType = 'image/jpeg';
+        } else if (mimeType === 'image/png') {
+          fileExtension = '.png';
+          validatedContentType = 'image/png';
+        } else if (mimeType === 'image/webp') {
+          fileExtension = '.webp';
+          validatedContentType = 'image/webp';
+        } else {
+          reject(new Error(`Unsupported MIME type in data URL: ${mimeType}`));
+          return;
+        }
+        
+        // Decode base64 data and save to file
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        const tempFileName = `temp_image_${nanoid()}${fileExtension}`;
+        const tempFilePath = path.join(tempDir, tempFileName);
+        
+        fs.writeFileSync(tempFilePath, imageBuffer);
+        console.log(`Data URL image saved as: ${fileExtension} (${imageBuffer.length} bytes)`);
+        resolve({ path: tempFilePath, contentType: validatedContentType });
+        
+      } catch (error) {
+        reject(new Error(`Failed to process data URL: ${error}`));
+      }
+      return;
+    }
+    
+    // Handle regular HTTP/HTTPS URLs
     const protocol = imageUrl.startsWith('https:') ? https : http;
     
     protocol.get(imageUrl, (response) => {
