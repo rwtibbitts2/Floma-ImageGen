@@ -30,10 +30,6 @@ async function downloadImageToTempFile(imageUrl: string): Promise<string> {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     
-    const tempFileName = `temp_image_${nanoid()}.png`;
-    const tempFilePath = path.join(tempDir, tempFileName);
-    const file = fs.createWriteStream(tempFilePath);
-    
     const protocol = imageUrl.startsWith('https:') ? https : http;
     
     protocol.get(imageUrl, (response) => {
@@ -42,10 +38,29 @@ async function downloadImageToTempFile(imageUrl: string): Promise<string> {
         return;
       }
       
+      // Determine proper file extension based on Content-Type header
+      const contentType = response.headers['content-type'];
+      let fileExtension = '.png'; // default fallback
+      
+      if (contentType) {
+        if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) {
+          fileExtension = '.jpg';
+        } else if (contentType.includes('image/png')) {
+          fileExtension = '.png';
+        } else if (contentType.includes('image/webp')) {
+          fileExtension = '.webp';
+        }
+      }
+      
+      const tempFileName = `temp_image_${nanoid()}${fileExtension}`;
+      const tempFilePath = path.join(tempDir, tempFileName);
+      const file = fs.createWriteStream(tempFilePath);
+      
       response.pipe(file);
       
       file.on('finish', () => {
         file.close();
+        console.log(`Image downloaded with Content-Type: ${contentType}, saved as: ${fileExtension}`);
         resolve(tempFilePath);
       });
       
