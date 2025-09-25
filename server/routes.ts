@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+import sharp from 'sharp';
 
 const router = express.Router();
 
@@ -601,9 +602,16 @@ async function generateRegeneratedImagesAsync(
           throw new Error(`Model ${settings.model} does not support image editing. Use DALL-E 2 or GPT Image 1 for regeneration.`);
         }
         
-        // Use OpenAI's image edit API to modify the source image with explicit content type
-        const imageFile = await toFile(fs.createReadStream(tempImagePath), path.basename(tempImagePath), {
-          type: downloadResult.contentType
+        // Convert image to RGBA format for OpenAI edit API compatibility
+        const convertedImagePath = tempImagePath.replace(/\.(png|jpg|jpeg)$/i, '_rgba.png');
+        await sharp(tempImagePath)
+          .ensureAlpha() // Add alpha channel if missing
+          .png() // Convert to PNG format which supports RGBA
+          .toFile(convertedImagePath);
+        
+        // Use the converted RGBA image for OpenAI's edit API
+        const imageFile = await toFile(fs.createReadStream(convertedImagePath), path.basename(convertedImagePath), {
+          type: 'image/png'
         });
         
         // Build request params with model-specific validation (for edit API, we use image param instead of building through helper)
@@ -681,10 +689,17 @@ async function generateRegeneratedImagesAsync(
       status: 'failed'
     });
   } finally {
-    // Clean up temporary image file
+    // Clean up temporary image files
     if (tempImagePath) {
       cleanupTempFile(tempImagePath);
       console.log(`Cleaned up temporary image file: ${tempImagePath}`);
+      
+      // Also clean up the converted RGBA image file
+      const convertedImagePath = tempImagePath.replace(/\.(png|jpg|jpeg)$/i, '_rgba.png');
+      if (fs.existsSync(convertedImagePath)) {
+        cleanupTempFile(convertedImagePath);
+        console.log(`Cleaned up converted RGBA image file: ${convertedImagePath}`);
+      }
     }
   }
 }
