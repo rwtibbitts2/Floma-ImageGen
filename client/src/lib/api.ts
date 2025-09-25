@@ -1,5 +1,5 @@
 // API helper functions for image generation
-import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings } from '@shared/schema';
+import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession } from '@shared/schema';
 
 const API_BASE = '/api';
 
@@ -40,21 +40,7 @@ export const login = async (credentials: LoginRequest): Promise<User> => {
   return response.json();
 };
 
-export const register = async (userData: RegisterRequest): Promise<User> => {
-  const response = await fetch(`${API_BASE}/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(userData),
-    credentials: 'include', // Include cookies for session
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Registration failed');
-  }
-  return response.json();
-};
+// Register function removed - now admin-only user creation
 
 export const logout = async (): Promise<void> => {
   const response = await fetch(`${API_BASE}/logout`, {
@@ -81,6 +67,71 @@ export const getCurrentUser = async (): Promise<User | null> => {
   } catch (error) {
     return null;
   }
+};
+
+// Admin API functions
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  role?: 'admin' | 'user';
+}
+
+export const createUser = async (userData: CreateUserRequest): Promise<{ message: string; user: User }> => {
+  const response = await fetch(`${API_BASE}/admin/create-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(userData),
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create user');
+  }
+  return response.json();
+};
+
+export const getAllUsers = async (): Promise<User[]> => {
+  const response = await fetch(`${API_BASE}/admin/users`, {
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch users');
+  }
+  return response.json();
+};
+
+export const toggleUserStatus = async (userId: string): Promise<{ message: string; user: User }> => {
+  const response = await fetch(`${API_BASE}/admin/toggle-user-status`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId }),
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to toggle user status');
+  }
+  return response.json();
+};
+
+export const updateUserRole = async (userId: string, role: 'admin' | 'user'): Promise<{ message: string; user: User }> => {
+  const response = await fetch(`${API_BASE}/admin/elevate-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId, role }),
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update user role');
+  }
+  return response.json();
 };
 
 export interface GenerationRequest {

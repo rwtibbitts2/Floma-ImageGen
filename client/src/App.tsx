@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Home from "@/pages/Home";
 import ImageGenerator from "@/pages/ImageGenerator";
+import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 import LoginForm from "@/components/LoginForm";
 
@@ -14,6 +15,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/generate" component={ImageGenerator} />
+      <Route path="/admin" component={AdminPanel} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

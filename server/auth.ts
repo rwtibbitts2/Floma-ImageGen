@@ -86,42 +86,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Authentication routes
-  app.post("/api/register", async (req, res, next) => {
-    try {
-      // Parse and validate request body - Force role to 'user' to prevent privilege escalation
-      const userData = insertUserSchema.parse({
-        email: req.body.email,
-        password: req.body.password,
-        role: 'user' // Always create as 'user', admin elevation requires separate admin-only endpoint
-      });
-
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(userData.email);
-      if (existingUser) {
-        return res.status(400).json({ error: "Email already exists" });
-      }
-
-      // Hash password and create user
-      const user = await storage.createUser({
-        ...userData,
-        password: await hashPassword(userData.password),
-      });
-
-      // Remove password from response
-      const { password, ...userResponse } = user;
-
-      req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(201).json(userResponse);
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid input data", details: error.errors });
-      }
-      next(error);
-    }
-  });
+  // Authentication routes (public registration removed - now admin-only)
 
   app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: SelectUser | false, info: any) => {
@@ -161,7 +126,83 @@ export function setupAuth(app: Express) {
     res.json(userResponse);
   });
 
-  // Admin-only endpoint to elevate user roles (prevents privilege escalation)
+  // Admin-only user management endpoints
+  
+  // Create new user (admin-only)
+  app.post("/api/admin/create-user", requireAdmin, async (req, res, next) => {
+    try {
+      const userData = insertUserSchema.parse({
+        email: req.body.email,
+        password: req.body.password,
+        role: req.body.role || 'user' // Admin can set role during creation
+      });
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+
+      // Hash password and create user
+      const user = await storage.createUser({
+        ...userData,
+        password: await hashPassword(userData.password),
+      });
+
+      // Remove password from response
+      const { password, ...userResponse } = user;
+      res.status(201).json({ message: "User created successfully", user: userResponse });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid input data", details: error.errors });
+      }
+      next(error);
+    }
+  });
+
+  // List all users (admin-only)
+  app.get("/api/admin/users", requireAdmin, async (req, res, next) => {
+    try {
+      const users = await storage.getAllUsers();
+      // Remove passwords from response
+      const usersResponse = users.map(({ password, ...user }) => user);
+      res.json(usersResponse);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Toggle user active status (admin-only)
+  app.post("/api/admin/toggle-user-status", requireAdmin, async (req, res, next) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "userId required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.updateUser(userId, { isActive: !user.isActive });
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Failed to update user status" });
+      }
+
+      // Remove password from response
+      const { password, ...userResponse } = updatedUser;
+      res.json({ 
+        message: `User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`, 
+        user: userResponse 
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Update user role (admin-only) - renamed from elevate-user for clarity
   app.post("/api/admin/elevate-user", requireAdmin, async (req, res, next) => {
     try {
       const { userId, role } = req.body;

@@ -15,7 +15,8 @@ import {
   Trash2,
   FolderOpen,
   AlertTriangle,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -145,6 +146,16 @@ export default function Home() {
               <Plus className="w-4 h-4 mr-2" />
               Generate Images
             </Button>
+            {user?.role === 'admin' && (
+              <Button 
+                variant="outline"
+                onClick={() => setLocation('/admin')}
+                data-testid="button-admin-panel"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Admin Panel
+              </Button>
+            )}
             <Button 
               variant="outline"
               onClick={handleLogout}

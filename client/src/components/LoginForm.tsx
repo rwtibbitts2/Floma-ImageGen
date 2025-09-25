@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, ImageIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { register } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginForm() {
@@ -14,7 +13,6 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showRegister, setShowRegister] = useState(false);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -38,27 +36,6 @@ export default function LoginForm() {
     }
   };
 
-  const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    const formData = new FormData(event.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
-    try {
-      const user = await register({ email, password });
-      toast({
-        title: 'Account created!',
-        description: `Welcome ${user.email}! You are now logged in.`,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -75,16 +52,13 @@ export default function LoginForm() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{showRegister ? 'Create Account' : 'Login'}</CardTitle>
+            <CardTitle>Login</CardTitle>
             <CardDescription>
-              {showRegister 
-                ? 'Create a new account to start generating images'
-                : 'Enter your credentials to access your account'
-              }
+              Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={showRegister ? handleRegister : handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -102,7 +76,7 @@ export default function LoginForm() {
                   id="password"
                   name="password"
                   type="password"
-                  placeholder={showRegister ? "Create a password" : "Enter your password"}
+                  placeholder="Enter your password"
                   required
                   data-testid="input-password"
                 />
@@ -117,26 +91,14 @@ export default function LoginForm() {
                 type="submit" 
                 className="w-full" 
                 disabled={isLoading}
-                data-testid={showRegister ? "button-register" : "button-login"}
+                data-testid="button-login"
               >
-                {isLoading 
-                  ? (showRegister ? 'Creating account...' : 'Logging in...') 
-                  : (showRegister ? 'Create Account' : 'Login')
-                }
+                {isLoading ? 'Logging in...' : 'Login'}
               </Button>
             </form>
             
-            <div className="mt-4 text-center">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setShowRegister(!showRegister);
-                  setError(null);
-                }}
-                data-testid="button-toggle-mode"
-              >
-                {showRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
-              </Button>
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              Need an account? Contact your administrator.
             </div>
           </CardContent>
         </Card>
