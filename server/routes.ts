@@ -411,14 +411,23 @@ Subject: ${concept}`;
             'hd': 'high'
           } as const;
           
-          // Generate image using OpenAI
-          const response = await openai.images.generate({
-            model: settings.model || "dall-e-3",
+          const model = settings.model || "dall-e-3";
+          
+          // Build request params - only include quality for models that support it
+          const requestParams: any = {
+            model: model,
             prompt: fullPrompt,
             n: 1,
-            size: settings.size,
-            quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
-          });
+            size: settings.size
+          };
+          
+          // Only add quality parameter for models that support it (dall-e-3, gpt-image-1)
+          if (model === 'dall-e-3' || model === 'gpt-image-1') {
+            requestParams.quality = qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard';
+          }
+          
+          // Generate image using OpenAI
+          const response = await openai.images.generate(requestParams);
 
           const imageUrl = response.data?.[0]?.url;
           if (!imageUrl) {
@@ -515,13 +524,20 @@ async function generateRegeneratedImagesAsync(
           type: downloadResult.contentType
         });
         
-        const response = await openai.images.edit({
+        // Build request params - only include quality for models that support it
+        const requestParams: any = {
           model: settings.model, // Use the original model from the source job
           image: imageFile,
           prompt: editPrompt,
-          size: settings.size,
-          quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
-        });
+          size: settings.size
+        };
+        
+        // Only add quality parameter for models that support it (dall-e-3, gpt-image-1)
+        if (settings.model === 'dall-e-3' || settings.model === 'gpt-image-1') {
+          requestParams.quality = qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard';
+        }
+        
+        const response = await openai.images.edit(requestParams);
 
         const imageUrl = response.data?.[0]?.url;
         if (!imageUrl) {
