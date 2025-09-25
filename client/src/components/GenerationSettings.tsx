@@ -5,6 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Info } from 'lucide-react';
 import { GenerationSettings } from '@shared/schema';
 
 interface GenerationSettingsProps {
@@ -12,12 +13,58 @@ interface GenerationSettingsProps {
   onSettingsChange: (settings: GenerationSettings) => void;
 }
 
+// Model capabilities configuration
+const modelCapabilities = {
+  'dall-e-2': {
+    supportsQuality: false,
+    supportedSizes: ['1024x1024'],
+    supportsRegeneration: true,
+    name: 'DALL-E 2',
+    description: 'Lower cost, basic features'
+  },
+  'dall-e-3': {
+    supportsQuality: true,
+    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportsRegeneration: false,
+    name: 'DALL-E 3',
+    description: 'High quality, no regeneration'
+  },
+  'gpt-image-1': {
+    supportsQuality: true,
+    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportsRegeneration: true,
+    name: 'GPT Image 1',
+    description: 'Full features, highest cost'
+  }
+} as const;
+
 export default function GenerationSettingsComponent({ settings, onSettingsChange }: GenerationSettingsProps) {
+  const currentModel = settings.model || 'dall-e-3';
+  const capabilities = modelCapabilities[currentModel];
+
   const updateSetting = <K extends keyof GenerationSettings>(
     key: K, 
     value: GenerationSettings[K]
   ) => {
     onSettingsChange({ ...settings, [key]: value });
+  };
+
+  // Handle model change with capability adjustments
+  const handleModelChange = (newModel: "dall-e-2" | "dall-e-3" | "gpt-image-1") => {
+    const newCapabilities = modelCapabilities[newModel];
+    const newSettings = { ...settings, model: newModel };
+
+    // Adjust size if not supported by new model
+    if (!newCapabilities.supportedSizes.includes(settings.size)) {
+      newSettings.size = newCapabilities.supportedSizes[0] as any;
+    }
+
+    // Reset quality to standard if model doesn't support quality
+    if (!newCapabilities.supportsQuality) {
+      newSettings.quality = 'standard';
+    }
+
+    onSettingsChange(newSettings);
   };
 
   return (
@@ -60,48 +107,86 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
             <AccordionContent>
               <div className="space-y-6 pt-2">
                 {/* Model Setting */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className="text-sm font-medium">Model</Label>
                   <Select
-                    value={settings.model || 'gpt-image-1'}
-                    onValueChange={(value: "dall-e-2" | "dall-e-3" | "gpt-image-1") => updateSetting('model', value)}
+                    value={currentModel}
+                    onValueChange={handleModelChange}
                   >
                     <SelectTrigger data-testid="select-model">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt-image-1">
-                        GPT Image 1
-                        <Badge variant="secondary" className="ml-2 text-xs">Default</Badge>
+                      <SelectItem value="dall-e-3">
+                        <div className="flex flex-col items-start">
+                          <span>DALL-E 3</span>
+                          <span className="text-xs text-muted-foreground">High quality, no regeneration</span>
+                        </div>
                       </SelectItem>
-                      <SelectItem value="dall-e-3">DALL-E 3</SelectItem>
-                      <SelectItem value="dall-e-2">DALL-E 2 (Lower Cost)</SelectItem>
+                      <SelectItem value="gpt-image-1">
+                        <div className="flex flex-col items-start">
+                          <span>GPT Image 1</span>
+                          <span className="text-xs text-muted-foreground">Full features, highest cost</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="dall-e-2">
+                        <div className="flex flex-col items-start">
+                          <span>DALL-E 2</span>
+                          <span className="text-xs text-muted-foreground">Lower cost, basic features</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Choose your preferred AI image generation model for optimal results
-                  </p>
+                  
+                  {/* Model capabilities info */}
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">{capabilities.name}</p>
+                        <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                          <div>• Quality settings: {capabilities.supportsQuality ? 'Supported' : 'Not supported'}</div>
+                          <div>• Image sizes: {capabilities.supportedSizes.length === 1 ? '1024×1024 only' : 'Multiple sizes'}</div>
+                          <div>• Regeneration: {capabilities.supportsRegeneration ? 'Supported' : 'Not supported'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Quality Setting */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Quality</Label>
-                  <Select
-                    value={settings.quality}
-                    onValueChange={(value: "standard" | "hd") => updateSetting('quality', value)}
-                  >
-                    <SelectTrigger data-testid="select-quality">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="hd">HD (Higher Cost)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    HD quality takes longer but produces higher resolution images
-                  </p>
-                </div>
+                {/* Quality Setting - Only show for models that support it */}
+                {capabilities.supportsQuality && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Quality</Label>
+                    <Select
+                      value={settings.quality}
+                      onValueChange={(value: "standard" | "hd") => updateSetting('quality', value)}
+                    >
+                      <SelectTrigger data-testid="select-quality">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="hd">HD (Higher Cost)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      HD quality takes longer but produces higher resolution images
+                    </p>
+                  </div>
+                )}
+                
+                {/* Quality not supported notice */}
+                {!capabilities.supportsQuality && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Quality</Label>
+                    <div className="p-3 bg-muted/50 rounded-md border border-dashed">
+                      <p className="text-sm text-muted-foreground">
+                        Quality settings are not available for {capabilities.name}. All images use standard quality.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Size Setting */}
                 <div className="space-y-2">
@@ -114,14 +199,25 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1024x1024">
-                        Square (1024×1024)
-                        <Badge variant="secondary" className="ml-2 text-xs">Recommended</Badge>
-                      </SelectItem>
-                      <SelectItem value="1792x1024">Landscape (1792×1024)</SelectItem>
-                      <SelectItem value="1024x1792">Portrait (1024×1792)</SelectItem>
+                      {capabilities.supportedSizes.includes('1024x1024') && (
+                        <SelectItem value="1024x1024">
+                          Square (1024×1024)
+                          <Badge variant="secondary" className="ml-2 text-xs">Recommended</Badge>
+                        </SelectItem>
+                      )}
+                      {capabilities.supportedSizes.includes('1792x1024') && (
+                        <SelectItem value="1792x1024">Landscape (1792×1024)</SelectItem>
+                      )}
+                      {capabilities.supportedSizes.includes('1024x1792') && (
+                        <SelectItem value="1024x1792">Portrait (1024×1792)</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
+                  {capabilities.supportedSizes.length === 1 && (
+                    <p className="text-xs text-muted-foreground">
+                      {capabilities.name} only supports 1024×1024 images
+                    </p>
+                  )}
                 </div>
 
                 {/* Transparency Setting */}
@@ -143,11 +239,18 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
                 <div className="p-3 bg-muted/50 rounded-md space-y-2">
                   <h4 className="text-sm font-medium">Configuration Summary</h4>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>Model: <span className="font-medium">{(settings.model || 'gpt-image-1').toUpperCase()}</span></div>
-                    <div>Quality: <span className="font-medium">{settings.quality}</span></div>
+                    <div>Model: <span className="font-medium">{capabilities.name}</span></div>
+                    <div>Quality: <span className="font-medium">
+                      {capabilities.supportsQuality ? settings.quality : 'Standard (Fixed)'}
+                    </span></div>
                     <div>Size: <span className="font-medium">{settings.size}</span></div>
                     <div>Transparency: <span className="font-medium">{settings.transparency ? 'Enabled' : 'Disabled'}</span></div>
                     <div>Variations: <span className="font-medium">{settings.variations}</span></div>
+                    <div className="col-span-2 pt-1 border-t border-muted-foreground/20">
+                      Regeneration: <span className="font-medium">
+                        {capabilities.supportsRegeneration ? 'Available' : 'Not Available'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
