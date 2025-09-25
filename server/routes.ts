@@ -398,7 +398,8 @@ router.post('/regenerate', requireAuth, async (req, res) => {
       sourceImageId: z.string(),
       instruction: z.string().min(1).optional(), // Made optional when settings are provided
       sessionId: z.string().optional(), // Optional sessionId for image persistence
-      settings: generationSettingsSchema.optional() // Optional settings for enhancement
+      settings: generationSettingsSchema.optional(), // Optional settings for enhancement
+      useOriginalAsReference: z.boolean().default(true) // Whether to use original image as reference
     });
 
     // Additional validation: either instruction or settings must be provided
@@ -410,7 +411,7 @@ router.post('/regenerate', requireAuth, async (req, res) => {
       });
     }
 
-    const { sourceImageId, instruction, sessionId, settings } = validation.data;
+    const { sourceImageId, instruction, sessionId, settings, useOriginalAsReference } = validation.data;
 
     // Ensure at least instruction or settings are provided
     if (!instruction && !settings) {
@@ -458,11 +459,12 @@ router.post('/regenerate', requireAuth, async (req, res) => {
       });
     }
     
-    if (!capability.supportsEditing) {
+    // Only check editing capability if using original as reference
+    if (useOriginalAsReference && !capability.supportsEditing) {
       const modelText = targetModel ? `"${targetModel}"` : 'from the settings (likely DALL-E 3)';
       return res.status(400).json({ 
-        error: 'Model not supported for regeneration', 
-        details: `The model ${modelText} does not support image editing. Only DALL-E 2 and GPT Image 1 support regeneration. Please choose a model that supports editing.`
+        error: 'Model not supported for image editing', 
+        details: `The model ${modelText} does not support image editing. Only DALL-E 2 and GPT Image 1 support editing with original reference. Please choose a model that supports editing or uncheck "Use original image as reference".`
       });
     }
     
@@ -481,22 +483,25 @@ router.post('/regenerate', requireAuth, async (req, res) => {
       });
     }
 
-    // Create job name and concept based on what's being changed
+    // Create job name and concept based on what's being changed and regeneration mode
     let jobName: string;
     let modifiedConcept: string;
+    
+    const modePrefix = useOriginalAsReference ? "Edit" : "Regen";
     
     if (instruction && settings) {
       // Both instruction and settings provided
       modifiedConcept = `${sourceImage.visualConcept} (${instruction})`;
-      jobName = `Regeneration: ${modifiedConcept}`;
+      jobName = `${modePrefix}: ${modifiedConcept}`;
     } else if (instruction) {
       // Only instruction provided
       modifiedConcept = `${sourceImage.visualConcept} (${instruction})`;
-      jobName = `Regeneration: ${modifiedConcept}`;
+      jobName = `${modePrefix}: ${modifiedConcept}`;
     } else {
       // Only settings provided (enhancement)
       modifiedConcept = sourceImage.visualConcept;
-      jobName = `Enhancement: ${modifiedConcept}`;
+      const settingsDesc = useOriginalAsReference ? "Enhancement" : "Settings Update";
+      jobName = `${settingsDesc}: ${modifiedConcept}`;
     }
 
     const job = await storage.createGenerationJob({
@@ -511,8 +516,16 @@ router.post('/regenerate', requireAuth, async (req, res) => {
     // Update job to running status
     await storage.updateGenerationJob(job.id, { status: 'running' });
 
-    // Start regeneration process asynchronously, passing source image info
-    generateRegeneratedImagesAsync(job.id, style, sourceImage, instruction || '', finalSettings);
+    // Start regeneration process asynchronously, passing source image info and reference mode
+    if (useOriginalAsReference) {
+      // Image editing mode - modify the original image
+      generateRegeneratedImagesAsync(job.id, style, sourceImage, instruction || '', finalSettings);
+    } else {
+      // Clean generation mode - generate new image from original prompt
+      const originalConcept = sourceImage.visualConcept;
+      const conceptWithInstruction = instruction ? `${originalConcept} (${instruction})` : originalConcept;
+      generateImagesAsync(job.id, style, [conceptWithInstruction], finalSettings);
+    }
 
     res.status(201).json({ 
       jobId: job.id,

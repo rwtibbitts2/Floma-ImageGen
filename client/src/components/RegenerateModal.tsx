@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImage, GenerationSettings, generationSettingsSchema } from '@shared/schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +25,7 @@ interface RegenerateRequest {
   instruction?: string;
   sessionId: string;
   settings?: GenerationSettings;
+  useOriginalAsReference: boolean;
 }
 
 export default function RegenerateModal({ image, open, onOpenChange, sessionId, onRegenerationStarted }: RegenerateModalProps) {
@@ -38,6 +40,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
     })
   );
   const [hasSettingsChanged, setHasSettingsChanged] = useState(false);
+  const [useOriginalAsReference, setUseOriginalAsReference] = useState(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -95,6 +98,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
     const requestData: RegenerateRequest = {
       sourceImageId: image.id,
       sessionId,
+      useOriginalAsReference,
     };
     
     if (hasInstruction) {
@@ -113,6 +117,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
       onOpenChange(false);
       setInstruction('');
       setHasSettingsChanged(false);
+      setUseOriginalAsReference(true);
       setSettings(generationSettingsSchema.parse({
         model: 'gpt-image-1',
         quality: 'standard',
@@ -132,7 +137,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
             Regenerate Image
           </DialogTitle>
           <DialogDescription>
-            Create a new variation of this image with modifications or enhanced settings
+            Create a new variation by editing the original image or generating fresh using the same concept
           </DialogDescription>
         </DialogHeader>
 
@@ -165,6 +170,30 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               </div>
             </div>
 
+            {/* Use Original as Reference Checkbox */}
+            <div className="flex items-center space-x-2 p-3 border rounded-lg">
+              <Checkbox
+                id="use-original-reference"
+                checked={useOriginalAsReference}
+                onCheckedChange={(checked) => setUseOriginalAsReference(checked as boolean)}
+                data-testid="checkbox-use-original-reference"
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  htmlFor="use-original-reference"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Use original image as reference
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {useOriginalAsReference 
+                    ? "Will modify the original image with your instructions and settings"
+                    : "Will create a completely new image using the same prompt with your settings"
+                  }
+                </p>
+              </div>
+            </div>
+
             {/* Generation Settings */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Generation Settings</Label>
@@ -180,19 +209,25 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
             {/* Modification Instructions */}
             <div className="space-y-2">
               <Label htmlFor="instruction" className="text-sm font-medium">
-                Modification Instructions
+                {useOriginalAsReference ? "Modification Instructions" : "Additional Instructions"}
                 <span className="text-xs text-muted-foreground ml-2">(Optional if changing settings)</span>
               </Label>
               <Textarea
                 id="instruction"
-                placeholder="Describe how you want to modify this image (e.g., 'make it more colorful', 'add a sunset background', 'change to a different art style')"
+                placeholder={useOriginalAsReference 
+                  ? "Describe how you want to modify this image (e.g., 'make it more colorful', 'add a sunset background', 'change to a different art style')"
+                  : "Provide additional instructions to refine the original concept (e.g., 'make it more vibrant', 'different lighting', 'different composition')"
+                }
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
                 className="min-h-[100px] resize-none"
                 data-testid="textarea-regeneration-instruction"
               />
               <p className="text-xs text-muted-foreground">
-                Leave blank to enhance with current settings only, or provide specific modification instructions
+                {useOriginalAsReference 
+                  ? "Leave blank to enhance with current settings only, or provide specific modification instructions"
+                  : "Leave blank to regenerate the original concept with new settings, or provide additional refinements"
+                }
               </p>
             </div>
           </div>
