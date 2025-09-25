@@ -69,10 +69,18 @@ function buildImageParams(model: string, size: string, quality: string, prompt: 
   // Add quality only if supported with correct mapping per model
   if (capability.supportsQuality) {
     if (quality === 'hd') {
-      // DALL-E 3 expects 'hd', GPT Image 1 expects 'high'
-      params.quality = model === 'dall-e-3' ? 'hd' : 'high';
+      if (model === 'dall-e-3') {
+        params.quality = 'hd';
+      } else if (model === 'gpt-image-1') {
+        params.quality = 'high';
+      }
     } else {
-      params.quality = 'standard';
+      // Standard quality mapping per model
+      if (model === 'dall-e-3') {
+        params.quality = 'standard';
+      } else if (model === 'gpt-image-1') {
+        params.quality = 'medium'; // GPT Image 1 uses 'medium' instead of 'standard'
+      }
     }
   }
   
@@ -639,10 +647,18 @@ async function generateRegeneratedImagesAsync(
         // Add quality only if supported with correct mapping per model
         if (capability.supportsQuality) {
           if (settings.quality === 'hd') {
-            // DALL-E 3 expects 'hd', GPT Image 1 expects 'high'
-            requestParams.quality = settings.model === 'dall-e-3' ? 'hd' : 'high';
+            if (settings.model === 'dall-e-3') {
+              requestParams.quality = 'hd';
+            } else if (settings.model === 'gpt-image-1') {
+              requestParams.quality = 'high';
+            }
           } else {
-            requestParams.quality = 'standard';
+            // Standard quality mapping per model
+            if (settings.model === 'dall-e-3') {
+              requestParams.quality = 'standard';
+            } else if (settings.model === 'gpt-image-1') {
+              requestParams.quality = 'medium'; // GPT Image 1 uses 'medium' instead of 'standard'
+            }
           }
         }
         
