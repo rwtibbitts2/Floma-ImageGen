@@ -512,10 +512,13 @@ Subject: ${concept}`;
           const requestParams = buildImageParams(model, settings.size, settings.quality, fullPrompt);
           
           // Generate image using OpenAI
+          console.log('Sending request to OpenAI with params:', JSON.stringify(requestParams, null, 2));
           const response = await openai.images.generate(requestParams);
+          console.log('OpenAI response:', JSON.stringify(response, null, 2));
 
           const imageUrl = response.data?.[0]?.url;
           if (!imageUrl) {
+            console.error('No image URL in response. Full response data:', response.data);
             throw new Error('No image URL returned from OpenAI');
           }
 
