@@ -5,7 +5,7 @@ import express from 'express';
 import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, GenerationSettings } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 import { nanoid } from 'nanoid';
 import { setupAuth, requireAuth } from './auth'; // From blueprint:javascript_auth_all_persistance
 import fs from 'fs';
@@ -21,7 +21,7 @@ const openai = new OpenAI({
 });
 
 // Utility function to download image from URL to temporary file
-async function downloadImageToTempFile(imageUrl: string): Promise<string> {
+async function downloadImageToTempFile(imageUrl: string): Promise<{ path: string; contentType: string; }> {
   return new Promise((resolve, reject) => {
     const tempDir = path.join(process.cwd(), 'temp');
     
@@ -38,18 +38,23 @@ async function downloadImageToTempFile(imageUrl: string): Promise<string> {
         return;
       }
       
-      // Determine proper file extension based on Content-Type header
-      const contentType = response.headers['content-type'];
+      // Determine proper file extension and validate Content-Type
+      const contentType = response.headers['content-type'] || '';
       let fileExtension = '.png'; // default fallback
+      let validatedContentType = 'image/png'; // default fallback
       
-      if (contentType) {
-        if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) {
-          fileExtension = '.jpg';
-        } else if (contentType.includes('image/png')) {
-          fileExtension = '.png';
-        } else if (contentType.includes('image/webp')) {
-          fileExtension = '.webp';
-        }
+      if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) {
+        fileExtension = '.jpg';
+        validatedContentType = 'image/jpeg';
+      } else if (contentType.includes('image/png')) {
+        fileExtension = '.png';
+        validatedContentType = 'image/png';
+      } else if (contentType.includes('image/webp')) {
+        fileExtension = '.webp';
+        validatedContentType = 'image/webp';
+      } else if (contentType && !contentType.includes('image/')) {
+        reject(new Error(`Unsupported content type: ${contentType}. Only image/jpeg, image/png, and image/webp are supported.`));
+        return;
       }
       
       const tempFileName = `temp_image_${nanoid()}${fileExtension}`;
@@ -61,7 +66,7 @@ async function downloadImageToTempFile(imageUrl: string): Promise<string> {
       file.on('finish', () => {
         file.close();
         console.log(`Image downloaded with Content-Type: ${contentType}, saved as: ${fileExtension}`);
-        resolve(tempFilePath);
+        resolve({ path: tempFilePath, contentType: validatedContentType });
       });
       
       file.on('error', (err) => {
@@ -475,8 +480,9 @@ async function generateRegeneratedImagesAsync(
 
     // Download the source image to a temporary file for OpenAI's edit API
     console.log(`Downloading source image from: ${sourceImage.imageUrl}`);
-    tempImagePath = await downloadImageToTempFile(sourceImage.imageUrl);
-    console.log(`Image downloaded to: ${tempImagePath}`);
+    const downloadResult = await downloadImageToTempFile(sourceImage.imageUrl);
+    tempImagePath = downloadResult.path;
+    console.log(`Image downloaded to: ${tempImagePath} with type: ${downloadResult.contentType}`);
 
     for (let variation = 1; variation <= totalImages; variation++) {
       try {
@@ -491,10 +497,14 @@ async function generateRegeneratedImagesAsync(
           'hd': 'high'
         } as const;
         
-        // Use OpenAI's image edit API to modify the source image
+        // Use OpenAI's image edit API to modify the source image with explicit content type
+        const imageFile = await toFile(fs.createReadStream(tempImagePath), path.basename(tempImagePath), {
+          type: downloadResult.contentType
+        });
+        
         const response = await openai.images.edit({
           model: "gpt-image-1", // Use the latest image model
-          image: fs.createReadStream(tempImagePath),
+          image: imageFile,
           prompt: editPrompt,
           size: settings.size,
           quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
