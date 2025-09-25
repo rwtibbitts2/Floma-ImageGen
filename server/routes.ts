@@ -20,6 +20,64 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Define model capabilities for validation
+interface ModelCapability {
+  supportsQuality: boolean;
+  supportedSizes: string[];
+  supportsEditing: boolean;
+}
+
+const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
+  'dall-e-2': {
+    supportsQuality: false,
+    supportedSizes: ['1024x1024'],
+    supportsEditing: true
+  },
+  'dall-e-3': {
+    supportsQuality: true, 
+    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportsEditing: false
+  },
+  'gpt-image-1': {
+    supportsQuality: true,
+    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportsEditing: true
+  }
+};
+
+// Helper function to build OpenAI request parameters with model-specific validation
+function buildImageParams(model: string, size: string, quality: string, prompt: string): any {
+  const capability = MODEL_CAPABILITIES[model];
+  if (!capability) {
+    throw new Error(`Unsupported model: ${model}`);
+  }
+  
+  // Validate and coerce size
+  if (!capability.supportedSizes.includes(size)) {
+    throw new Error(`Model ${model} does not support size ${size}. Supported sizes: ${capability.supportedSizes.join(', ')}`);
+  }
+  
+  // Build base parameters
+  const params: any = {
+    model: model,
+    prompt: prompt,
+    n: 1,
+    size: size
+  };
+  
+  // Add quality only if supported with correct mapping per model
+  if (capability.supportsQuality) {
+    if (quality === 'hd') {
+      // DALL-E 3 expects 'hd', GPT Image 1 expects 'high'
+      params.quality = model === 'dall-e-3' ? 'hd' : 'high';
+    } else {
+      params.quality = 'standard';
+    }
+  }
+  
+  return params;
+}
+
 // Utility function to download image from URL to temporary file
 async function downloadImageToTempFile(imageUrl: string): Promise<{ path: string; contentType: string; }> {
   return new Promise((resolve, reject) => {
@@ -221,6 +279,29 @@ router.post('/generate', requireAuth, async (req, res) => {
 
     const { jobName, styleId, concepts, settings, sessionId } = validation.data;
 
+    // Validate model capabilities before processing
+    const capability = MODEL_CAPABILITIES[settings.model];
+    if (!capability) {
+      return res.status(400).json({ 
+        error: `Unsupported model: ${settings.model}` 
+      });
+    }
+    
+    if (!capability.supportedSizes.includes(settings.size)) {
+      return res.status(400).json({ 
+        error: `Model ${settings.model} does not support size ${settings.size}`,
+        details: `Supported sizes for ${settings.model}: ${capability.supportedSizes.join(', ')}`
+      });
+    }
+    
+    // Validate quality parameter
+    if (!capability.supportsQuality && settings.quality === 'hd') {
+      return res.status(400).json({ 
+        error: `Model ${settings.model} does not support HD quality`,
+        details: `${settings.model} only supports standard quality. Please select standard quality.`
+      });
+    }
+
     // Get the selected style
     const style = await storage.getImageStyleById(styleId);
     if (!style) {
@@ -297,15 +378,15 @@ router.post('/regenerate', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Style not found' });
     }
 
-    // Validate that the model supports image editing
-    const editSupportedModels = ['dall-e-2', 'gpt-image-1'];
+    // Validate that the model supports image editing using capabilities system
     const sourceModel = sourceJob.settings.model;
+    const capability = MODEL_CAPABILITIES[sourceModel];
     
-    if (!sourceModel || !editSupportedModels.includes(sourceModel)) {
+    if (!sourceModel || !capability || !capability.supportsEditing) {
       const modelText = sourceModel ? `"${sourceModel}"` : 'from the original image (likely DALL-E 3)';
       return res.status(400).json({ 
         error: 'Model not supported for regeneration', 
-        details: `The model ${modelText} does not support image editing. Only DALL-E 2 and gpt-image-1 support regeneration. Please generate a new image with DALL-E 2 first if you want to use regeneration.`
+        details: `The model ${modelText} does not support image editing. Only DALL-E 2 and GPT Image 1 support regeneration. Please generate a new image with an editing-capable model first if you want to use regeneration.`
       });
     }
 
@@ -416,26 +497,10 @@ Subject: ${concept}`;
           
           console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}" (${fullPrompt.length} chars)`);
 
-          // Map quality values to OpenAI-supported values
-          const qualityMapping = {
-            'standard': 'standard',
-            'hd': 'high'
-          } as const;
-          
           const model = settings.model || "dall-e-3";
           
-          // Build request params - only include quality for models that support it
-          const requestParams: any = {
-            model: model,
-            prompt: fullPrompt,
-            n: 1,
-            size: settings.size
-          };
-          
-          // Only add quality parameter for models that support it (dall-e-3, gpt-image-1)
-          if (model === 'dall-e-3' || model === 'gpt-image-1') {
-            requestParams.quality = qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard';
-          }
+          // Build request params with model-specific validation
+          const requestParams = buildImageParams(model, settings.size, settings.quality, fullPrompt);
           
           // Generate image using OpenAI
           const response = await openai.images.generate(requestParams);
@@ -530,28 +595,33 @@ async function generateRegeneratedImagesAsync(
         
         console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}" (${editPrompt.length} chars)`);
 
-        // Map quality values to OpenAI-supported values (consistent with generation)
-        const qualityMapping = {
-          'standard': 'standard',
-          'hd': 'high'
-        } as const;
+        // Validate model supports editing
+        const capability = MODEL_CAPABILITIES[settings.model];
+        if (!capability || !capability.supportsEditing) {
+          throw new Error(`Model ${settings.model} does not support image editing. Use DALL-E 2 or GPT Image 1 for regeneration.`);
+        }
         
         // Use OpenAI's image edit API to modify the source image with explicit content type
         const imageFile = await toFile(fs.createReadStream(tempImagePath), path.basename(tempImagePath), {
           type: downloadResult.contentType
         });
         
-        // Build request params - only include quality for models that support it
+        // Build request params with model-specific validation (for edit API, we use image param instead of building through helper)
         const requestParams: any = {
-          model: settings.model, // Use the original model from the source job
+          model: settings.model,
           image: imageFile,
           prompt: editPrompt,
           size: settings.size
         };
         
-        // Only add quality parameter for models that support it (dall-e-3, gpt-image-1)
-        if (settings.model === 'dall-e-3' || settings.model === 'gpt-image-1') {
-          requestParams.quality = qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard';
+        // Add quality only if supported with correct mapping per model
+        if (capability.supportsQuality) {
+          if (settings.quality === 'hd') {
+            // DALL-E 3 expects 'hd', GPT Image 1 expects 'high'
+            requestParams.quality = settings.model === 'dall-e-3' ? 'hd' : 'high';
+          } else {
+            requestParams.quality = 'standard';
+          }
         }
         
         const response = await openai.images.edit(requestParams);
