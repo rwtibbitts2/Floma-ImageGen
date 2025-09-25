@@ -19,9 +19,10 @@ import GenerationSummaryAction from '@/components/GenerationSummaryAction';
 import PersistentImageGallery from '@/components/PersistentImageGallery';
 import AddStyleModal from '@/components/AddStyleModal';
 import RegenerateModal from '@/components/RegenerateModal';
-import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob } from '@shared/schema';
+import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImage, GenerationJob, ProjectSession } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { queryClient } from '@/lib/queryClient';
 
 // ThemeToggle component
 function ThemeToggle() {
@@ -67,6 +68,7 @@ export default function ImageGenerator() {
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ImageStyle>();
   const [currentSessionId, setCurrentSessionId] = useState<string>();
+  const [currentSession, setCurrentSession] = useState<ProjectSession>();
   const [zoomedImage, setZoomedImage] = useState<GeneratedImage | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [regenerateImage, setRegenerateImage] = useState<GeneratedImage | null>(null);
@@ -154,15 +156,42 @@ export default function ImageGenerator() {
             return [...prev, ...newImages];
           });
           
-          // Auto-save after generation completes
+          // Auto-save after generation completes and convert working session to saved session
           if (currentSessionId && job.status === 'completed') {
             try {
-              await api.updateProjectSession(currentSessionId, {
-                styleId: selectedStyle?.id,
-                visualConcepts: concepts,
-                settings
-              });
-              console.log('Auto-saved after generation completion');
+              // Check if this is a working session (name is null) that should be converted to saved
+              const isWorkingSession = !currentSession?.name;
+              
+              if (isWorkingSession) {
+                // Convert working session to saved session with style name
+                const displayName = selectedStyle?.name || 'Generated Images';
+                
+                const updatedSession = await api.updateProjectSession(currentSessionId, {
+                  name: displayName, // Set name to make it a saved session
+                  displayName: displayName, // Set display name for UI
+                  styleId: selectedStyle?.id,
+                  visualConcepts: concepts,
+                  settings,
+                  isTemporary: false,
+                  hasUnsavedChanges: false
+                });
+                
+                // Update local session state to reflect the changes
+                setCurrentSession(updatedSession);
+                
+                // Invalidate sessions cache to update homepage
+                queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+                
+                console.log('Converted working session to saved session:', displayName);
+              } else {
+                // For existing saved sessions, only update content, not name/display name
+                await api.updateProjectSession(currentSessionId, {
+                  styleId: selectedStyle?.id,
+                  visualConcepts: concepts,
+                  settings
+                });
+                console.log('Auto-saved existing saved session');
+              }
             } catch (error) {
               console.error('Auto-save after generation failed:', error);
             }
@@ -291,8 +320,9 @@ export default function ImageGenerator() {
           console.log('Available styles:', styles);
           console.log('Session images loaded:', sessionImages);
           
-          // Set session ID first to avoid re-triggering
+          // Set session ID and session data first to avoid re-triggering
           setCurrentSessionId(sessionId);
+          setCurrentSession(session);
           
           // Find and set the style if it exists
           if (session.styleId) {
@@ -340,8 +370,9 @@ export default function ImageGenerator() {
           
           console.log('Working session loaded:', workingSession);
           
-          // Set session ID first to avoid re-triggering
+          // Set session ID and session data first to avoid re-triggering
           setCurrentSessionId(workingSession.id);
+          setCurrentSession(workingSession);
           
           // Find and set the style if it exists
           if (workingSession.styleId) {
