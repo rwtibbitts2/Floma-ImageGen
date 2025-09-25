@@ -516,10 +516,20 @@ Subject: ${concept}`;
           const response = await openai.images.generate(requestParams);
           console.log('OpenAI response:', JSON.stringify(response, null, 2));
 
-          const imageUrl = response.data?.[0]?.url;
+          // Handle both URL and base64 image formats
+          let imageUrl = response.data?.[0]?.url;
+          const base64Data = response.data?.[0]?.b64_json;
+          
+          if (!imageUrl && base64Data) {
+            // GPT Image 1 returns base64 data instead of URL
+            // Convert base64 to a data URL for consistent handling
+            imageUrl = `data:image/png;base64,${base64Data}`;
+            console.log('Received base64 image data, converted to data URL');
+          }
+          
           if (!imageUrl) {
-            console.error('No image URL in response. Full response data:', response.data);
-            throw new Error('No image URL returned from OpenAI');
+            console.error('No image URL or base64 data in response. Full response data:', response.data);
+            throw new Error('No image data returned from OpenAI');
           }
 
           // Store generated image with userId (it starts as 'generating' and we update to 'completed')
