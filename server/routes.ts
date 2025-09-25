@@ -202,6 +202,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       styleId: z.string(),
       concepts: z.array(z.string()).min(1),
       settings: z.object({
+        model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']).default('dall-e-3'),
         quality: z.enum(['standard', 'hd']),
         size: z.enum(['1024x1024', '1792x1024', '1024x1792']),
         variations: z.number().min(1).max(10),
@@ -294,6 +295,18 @@ router.post('/regenerate', requireAuth, async (req, res) => {
     const style = await storage.getImageStyleById(sourceJob.styleId!);
     if (!style) {
       return res.status(404).json({ error: 'Style not found' });
+    }
+
+    // Validate that the model supports image editing
+    const editSupportedModels = ['dall-e-2', 'gpt-image-1'];
+    const sourceModel = sourceJob.settings.model;
+    
+    if (!sourceModel || !editSupportedModels.includes(sourceModel)) {
+      const modelText = sourceModel ? `"${sourceModel}"` : 'from the original image (likely DALL-E 3)';
+      return res.status(400).json({ 
+        error: 'Model not supported for regeneration', 
+        details: `The model ${modelText} does not support image editing. Only DALL-E 2 and gpt-image-1 support regeneration. Please generate a new image with DALL-E 2 first if you want to use regeneration.`
+      });
     }
 
     // Create regeneration job with modified concept
@@ -491,9 +504,9 @@ async function generateRegeneratedImagesAsync(
         
         console.log(`Regenerating image ${completedImages + 1}/${totalImages} with instruction: "${editPrompt}"`);
 
-        // Map quality values to OpenAI image edit API supported values
+        // Map quality values to OpenAI-supported values (consistent with generation)
         const qualityMapping = {
-          'standard': 'medium',
+          'standard': 'standard',
           'hd': 'high'
         } as const;
         
@@ -503,11 +516,11 @@ async function generateRegeneratedImagesAsync(
         });
         
         const response = await openai.images.edit({
-          model: "gpt-image-1", // Use the latest image model
+          model: settings.model, // Use the original model from the source job
           image: imageFile,
           prompt: editPrompt,
           size: settings.size,
-          quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'medium'
+          quality: qualityMapping[settings.quality as keyof typeof qualityMapping] || 'standard'
         });
 
         const imageUrl = response.data?.[0]?.url;
