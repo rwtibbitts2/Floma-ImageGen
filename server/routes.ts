@@ -623,13 +623,17 @@ async function generateRegeneratedImagesAsync(
           throw new Error(`Model ${settings.model} does not support image editing. Use DALL-E 2 or GPT Image 1 for regeneration.`);
         }
         
+        // Enhance the edit prompt for better results
+        const enhancedPrompt = `${editPrompt}. Keep all other details, composition, and style exactly the same. Only modify what is specifically requested.`;
+        console.log(`Enhanced prompt sent to OpenAI: "${enhancedPrompt}" (${enhancedPrompt.length} chars)`);
         
         // Build request params with model-specific validation (for edit API, we use image param instead of building through helper)
         const requestParams: any = {
           model: settings.model,
           image: imageFile,
-          prompt: editPrompt,
-          size: settings.size
+          prompt: enhancedPrompt,
+          size: settings.size,
+          n: 1 // Explicitly request 1 variation
         };
         
         // Add quality only if supported with correct mapping per model
