@@ -662,24 +662,23 @@ export default function ImageGenerator() {
                       recentImages={generatedImages.slice(-4)}
                     />
                   ) : (
-                    <VisualConceptsInput
-                      concepts={concepts}
-                      onConceptsChange={setConcepts}
-                      onUploadFile={handleUploadConceptsFile}
-                    />
+                    <>
+                      <VisualConceptsInput
+                        concepts={concepts}
+                        onConceptsChange={setConcepts}
+                        onUploadFile={handleUploadConceptsFile}
+                      />
+                      
+                      <GenerationSummaryAction
+                        selectedStyle={selectedStyle}
+                        concepts={concepts}
+                        settings={settings}
+                        isRunning={isGenerating}
+                        onStartGeneration={handleStartGeneration}
+                      />
+                    </>
                   )}
                 </div>
-              </div>
-              
-              {/* Bottom Row - Generation Summary and Action (full width) */}
-              <div className="w-full">
-                <GenerationSummaryAction
-                  selectedStyle={selectedStyle}
-                  concepts={concepts}
-                  settings={settings}
-                  isRunning={isGenerating}
-                  onStartGeneration={handleStartGeneration}
-                />
               </div>
             </div>
             
