@@ -1701,6 +1701,49 @@ Please provide the refined style definition in the same JSON format.`;
   }
 });
 
+// User Preferences API endpoints
+router.get('/preferences', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const preferences = await storage.getUserPreferences(userId);
+    
+    if (!preferences) {
+      return res.status(404).json({ error: 'User preferences not found' });
+    }
+    
+    res.json(preferences);
+  } catch (error) {
+    console.error('Error fetching user preferences:', error);
+    res.status(500).json({ error: 'Failed to fetch user preferences' });
+  }
+});
+
+router.put('/preferences', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { defaultExtractionPrompt, defaultConceptPrompt } = req.body;
+    
+    // Validate input
+    if (!defaultExtractionPrompt || !defaultConceptPrompt) {
+      return res.status(400).json({ error: 'Both extraction and concept prompts are required' });
+    }
+    
+    if (typeof defaultExtractionPrompt !== 'string' || typeof defaultConceptPrompt !== 'string') {
+      return res.status(400).json({ error: 'Prompts must be strings' });
+    }
+    
+    const preferences = await storage.updateUserPreferences(userId, {
+      defaultExtractionPrompt,
+      defaultConceptPrompt
+    });
+    
+    res.json(preferences);
+  } catch (error) {
+    console.error('Error updating user preferences:', error);
+    res.status(500).json({ error: 'Failed to update user preferences' });
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication system - From blueprint:javascript_auth_all_persistance
   setupAuth(app);

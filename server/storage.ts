@@ -1,4 +1,4 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, imageStyles, generationJobs, generatedImages, projectSessions, users } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, inArray, and, isNull } from "drizzle-orm";
@@ -56,6 +56,10 @@ export interface IStorage {
   clearTemporarySessionsForUser(userId: string): Promise<number>;
   migrateGenerationJobsToSession(sourceSessionId: string, targetSessionId: string): Promise<number>;
   getWorkingSessionForUser(userId: string): Promise<ProjectSession | undefined>;
+  
+  // User Preferences management
+  getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
+  updateUserPreferences(userId: string, preferences: { defaultExtractionPrompt: string; defaultConceptPrompt: string }): Promise<UserPreferences>;
 }
 
 export class MemStorage implements IStorage {
@@ -64,6 +68,7 @@ export class MemStorage implements IStorage {
   private generatedImages: Map<string, GeneratedImage>;
   private projectSessions: Map<string, ProjectSession>;
   private users: Map<string, User>;
+  private userPreferences: Map<string, UserPreferences>;
   sessionStore: SessionStore;
 
   constructor() {
@@ -72,6 +77,7 @@ export class MemStorage implements IStorage {
     this.generatedImages = new Map();
     this.projectSessions = new Map();
     this.users = new Map();
+    this.userPreferences = new Map();
     
     // Initialize memory session store - From blueprint:javascript_auth_all_persistance
     const MemoryStore = createMemoryStore(session);
@@ -370,6 +376,41 @@ export class MemStorage implements IStorage {
     }
     return workingSession;
   }
+
+  // User Preferences methods
+  async getUserPreferences(userId: string): Promise<UserPreferences | undefined> {
+    return Array.from(this.userPreferences.values()).find(prefs => prefs.userId === userId);
+  }
+
+  async updateUserPreferences(userId: string, preferences: { defaultExtractionPrompt: string; defaultConceptPrompt: string }): Promise<UserPreferences> {
+    // Find existing preferences or create new ones
+    const existingPrefs = await this.getUserPreferences(userId);
+    
+    if (existingPrefs) {
+      // Update existing preferences
+      const updatedPrefs: UserPreferences = {
+        ...existingPrefs,
+        defaultExtractionPrompt: preferences.defaultExtractionPrompt,
+        defaultConceptPrompt: preferences.defaultConceptPrompt,
+        updatedAt: new Date()
+      };
+      this.userPreferences.set(existingPrefs.id, updatedPrefs);
+      return updatedPrefs;
+    } else {
+      // Create new preferences
+      const id = randomUUID();
+      const newPrefs: UserPreferences = {
+        id,
+        userId,
+        defaultExtractionPrompt: preferences.defaultExtractionPrompt,
+        defaultConceptPrompt: preferences.defaultConceptPrompt,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      this.userPreferences.set(id, newPrefs);
+      return newPrefs;
+    }
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -665,6 +706,56 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error fetching working session for user:', error);
       return undefined;
+    }
+  }
+
+  // User Preferences methods
+  async getUserPreferences(userId: string): Promise<UserPreferences | undefined> {
+    try {
+      const [preferences] = await db
+        .select()
+        .from(userPreferences)
+        .where(eq(userPreferences.userId, userId))
+        .limit(1);
+      return preferences;
+    } catch (error) {
+      console.error('Error fetching user preferences:', error);
+      return undefined;
+    }
+  }
+
+  async updateUserPreferences(userId: string, preferences: { defaultExtractionPrompt: string; defaultConceptPrompt: string }): Promise<UserPreferences> {
+    try {
+      // Check if preferences already exist
+      const existing = await this.getUserPreferences(userId);
+      
+      if (existing) {
+        // Update existing preferences
+        const [updated] = await db
+          .update(userPreferences)
+          .set({
+            defaultExtractionPrompt: preferences.defaultExtractionPrompt,
+            defaultConceptPrompt: preferences.defaultConceptPrompt,
+            updatedAt: new Date()
+          })
+          .where(eq(userPreferences.userId, userId))
+          .returning();
+        return updated;
+      } else {
+        // Create new preferences
+        const [created] = await db
+          .insert(userPreferences)
+          .values({
+            userId,
+            defaultExtractionPrompt: preferences.defaultExtractionPrompt,
+            defaultConceptPrompt: preferences.defaultConceptPrompt
+          })
+          .returning();
+        return created;
+      }
+    } catch (error) {
+      console.error('Error updating user preferences:', error);
+      throw new Error('Failed to update user preferences');
     }
   }
 }
