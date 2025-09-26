@@ -92,10 +92,16 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const style: ImageStyle = { 
       ...insertStyle,
-      description: insertStyle.description || null,
       id, 
+      description: insertStyle.description || null,
+      referenceImageUrl: insertStyle.referenceImageUrl || null,
+      isAiExtracted: insertStyle.isAiExtracted || false,
+      extractionPrompt: insertStyle.extractionPrompt || null,
+      conceptPrompt: insertStyle.conceptPrompt || null,
+      aiStyleData: insertStyle.aiStyleData || null,
+      previewImageUrl: insertStyle.previewImageUrl || null,
       createdAt: new Date(),
-      createdBy: insertStyle.createdBy || null // Actually use the provided createdBy value
+      createdBy: insertStyle.createdBy || null
     };
     this.imageStyles.set(id, style);
     return style;
@@ -161,11 +167,13 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const image: GeneratedImage = {
       id,
-      userId: insertImage.userId || null, // Actually use the provided userId value
+      userId: insertImage.userId || null,
       jobId: insertImage.jobId || null,
+      sourceImageId: insertImage.sourceImageId || null,
       visualConcept: insertImage.visualConcept,
       imageUrl: insertImage.imageUrl,
       prompt: insertImage.prompt,
+      regenerationInstruction: insertImage.regenerationInstruction || null,
       status: 'generating',
       createdAt: new Date()
     };
@@ -365,7 +373,7 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: SessionStore;
   
   constructor() {
     // Initialize PostgreSQL session store - From blueprint:javascript_auth_all_persistance

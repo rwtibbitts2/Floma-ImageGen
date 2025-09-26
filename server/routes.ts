@@ -13,12 +13,30 @@ import path from 'path';
 import https from 'https';
 import http from 'http';
 import sharp from 'sharp';
+import multer, { type FileFilterCallback } from 'multer';
+import { randomUUID } from 'crypto';
+import type { Request } from 'express';
 
 const router = express.Router();
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Configure multer for file uploads
+const upload = multer({ 
+  dest: 'temp/',
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
 });
 
 // Define model capabilities for validation
@@ -1117,6 +1135,197 @@ router.delete('/sessions/temporary', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error clearing temporary sessions:', error);
     res.status(500).json({ error: 'Failed to clear temporary sessions' });
+  }
+});
+
+// AI STYLE EXTRACTION ROUTES
+
+// POST /api/upload-reference-image - Upload reference image to object storage (Protected)
+router.post('/upload-reference-image', requireAuth, upload.single('image'), async (req: Request & { file?: Express.Multer.File }, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded' });
+    }
+
+    const tempFilePath = req.file.path;
+    const fileExtension = path.extname(req.file.originalname) || '.png';
+    const fileName = `reference-${randomUUID()}${fileExtension}`;
+    
+    try {
+      // Read the file and prepare it for object storage
+      const fileBuffer = await fs.promises.readFile(tempFilePath);
+      
+      // For now, we'll store it as a data URL (in production, use actual object storage)
+      const base64Data = fileBuffer.toString('base64');
+      const mimeType = req.file.mimetype;
+      const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+      // Clean up temp file
+      await fs.promises.unlink(tempFilePath);
+
+      res.json({
+        url: dataUrl,
+        fileName: fileName,
+        size: req.file.size,
+        mimetype: req.file.mimetype
+      });
+    } catch (error) {
+      // Clean up temp file on error
+      try {
+        await fs.promises.unlink(tempFilePath);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup temp file:', cleanupError);
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error uploading reference image:', error);
+    res.status(500).json({ error: 'Failed to upload reference image' });
+  }
+});
+
+// POST /api/extract-style - Extract style from reference image using GPT-5 vision (Protected)
+router.post('/extract-style', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      imageUrl: z.string().min(1),
+      extractionPrompt: z.string().min(1),
+      conceptPrompt: z.string().min(1),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { imageUrl, extractionPrompt, conceptPrompt } = validation.data;
+
+    // Extract style using GPT-4 Vision (GPT-5 is not yet available)
+    const styleResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: extractionPrompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageUrl
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 1000,
+    });
+
+    const styleAnalysis = styleResponse.choices[0]?.message?.content;
+    if (!styleAnalysis) {
+      throw new Error('No style analysis returned from OpenAI');
+    }
+
+    // Try to parse as JSON, fallback to plain text
+    let styleData;
+    try {
+      styleData = JSON.parse(styleAnalysis);
+    } catch {
+      // If not JSON, create a structured response from the text
+      styleData = {
+        style: styleAnalysis,
+        keywords: [],
+        mood: "extracted from image",
+        colors: [],
+        technique: "analysis"
+      };
+    }
+
+    // Generate concept using the same model
+    const conceptResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: conceptPrompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageUrl
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 100,
+    });
+
+    const concept = conceptResponse.choices[0]?.message?.content?.trim();
+    if (!concept) {
+      throw new Error('No concept generated from OpenAI');
+    }
+
+    res.json({
+      styleData,
+      concept
+    });
+  } catch (error) {
+    console.error('Error extracting style:', error);
+    res.status(500).json({ error: 'Failed to extract style from image' });
+  }
+});
+
+// POST /api/generate-style-preview - Generate preview image using extracted style (Protected)
+router.post('/generate-style-preview', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      styleData: z.object({
+        style: z.string()
+      }),
+      concept: z.string().min(1),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { styleData, concept } = validation.data;
+    
+    // Build prompt combining style and concept
+    const fullPrompt = `${concept}. ${styleData.style}`;
+    
+    // Use default settings for preview generation
+    const requestParams = buildImageParams('dall-e-3', '1024x1024', 'standard', fullPrompt);
+    
+    console.log('Generating style preview with prompt:', fullPrompt);
+    
+    const response = await openai.images.generate(requestParams);
+    
+    const imageUrl = response.data?.[0]?.url;
+    if (!imageUrl) {
+      throw new Error('No image URL returned from OpenAI');
+    }
+
+    res.json({
+      imageUrl,
+      prompt: fullPrompt
+    });
+  } catch (error) {
+    console.error('Error generating style preview:', error);
+    res.status(500).json({ error: 'Failed to generate style preview' });
   }
 });
 
