@@ -26,6 +26,7 @@ export const imageStyles = pgTable("image_styles", {
   isAiExtracted: boolean("is_ai_extracted").default(false), // Track if style was AI-extracted
   extractionPrompt: text("extraction_prompt"), // The prompt used for AI extraction
   conceptPrompt: text("concept_prompt"), // The prompt used for concept generation
+  generatedConcept: text("generated_concept"), // The AI-generated concept phrase
   aiStyleData: jsonb("ai_style_data"), // Raw JSON style data from GPT-5
   previewImageUrl: text("preview_image_url"), // URL to preview image generated during extraction
   createdAt: timestamp("created_at").defaultNow(),

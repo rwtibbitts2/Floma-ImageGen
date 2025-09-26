@@ -134,6 +134,7 @@ export default function AIStyleExtractorModal({
         isAiExtracted: true,
         extractionPrompt,
         conceptPrompt,
+        generatedConcept: data?.concept || generatedConcept, // Save the actual generated concept
         aiStyleData: finalStyleData,
         previewImageUrl,
       };

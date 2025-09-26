@@ -72,8 +72,8 @@ export default function StyleWorkspace() {
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
       // Set generated concept from AI extraction, or create one from style data
-      if (style.conceptPrompt) {
-        setGeneratedConcept(style.conceptPrompt);
+      if (style.generatedConcept) {
+        setGeneratedConcept(style.generatedConcept);
       } else if (style.aiStyleData && (style.aiStyleData as any)?.description) {
         // Fallback: create a simple concept from the style description
         setGeneratedConcept(((style.aiStyleData as any).description as string).split('.')[0] || 'Creative concept');
