@@ -65,7 +65,7 @@ const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
 };
 
 // Helper function to build OpenAI request parameters with model-specific validation
-function buildImageParams(model: string, size: string, quality: string, prompt: string): any {
+function buildImageParams(model: string, size: string, quality: string, prompt: string, transparency?: boolean): any {
   const capability = MODEL_CAPABILITIES[model];
   if (!capability) {
     throw new Error(`Unsupported model: ${model}`);
@@ -99,6 +99,17 @@ function buildImageParams(model: string, size: string, quality: string, prompt: 
       } else if (model === 'gpt-image-1') {
         params.quality = 'medium'; // GPT Image 1 uses 'medium' instead of 'standard'
       }
+    }
+  }
+  
+  // Add transparency support (only gpt-image-1 supports true transparency)
+  if (transparency) {
+    if (model === 'gpt-image-1') {
+      params.background = 'transparent'; // Actually request transparent background
+      params.response_format = 'b64_json'; // Recommended for transparency
+    } else {
+      // For models that don't support transparency, we can't fulfill the request
+      console.warn(`Transparency requested but model ${model} does not support it. Use gpt-image-1 for transparency.`);
     }
   }
   
@@ -1469,6 +1480,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       model: z.string().optional().default('dall-e-3'),
       size: z.string().optional().default('1024x1024'),
       quality: z.string().optional().default('standard'),
+      transparency: z.boolean().optional().default(false),
     });
 
     const validation = schema.safeParse(req.body);
@@ -1479,7 +1491,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       });
     }
 
-    const { styleData, concept, model, size, quality } = validation.data;
+    const { styleData, concept, model, size, quality, transparency } = validation.data;
     
     // Build a comprehensive style description from the extracted style data
     const styleDescription = buildStyleDescription(styleData);
@@ -1488,15 +1500,24 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
     const fullPrompt = `${concept}. Style: ${styleDescription}`;
     
     // Use configurable settings for preview generation
-    const requestParams = buildImageParams(model, size, quality, fullPrompt);
+    const requestParams = buildImageParams(model, size, quality, fullPrompt, transparency);
     
     console.log('Generating style preview with prompt:', fullPrompt);
     
     const response = await openai.images.generate(requestParams);
     
-    const imageUrl = response.data?.[0]?.url;
-    if (!imageUrl) {
-      throw new Error('No image URL returned from OpenAI');
+    let imageUrl: string;
+    
+    // Handle both URL and base64 JSON responses (model-agnostic)
+    const responseData = response.data?.[0];
+    if (responseData?.b64_json) {
+      // Convert base64 to data URL for frontend use (preferred when available)
+      imageUrl = `data:image/png;base64,${responseData.b64_json}`;
+    } else if (responseData?.url) {
+      // Use URL when base64 is not available
+      imageUrl = responseData.url;
+    } else {
+      throw new Error('No image data returned from OpenAI');
     }
 
     res.json({

@@ -15,8 +15,11 @@ import {
   Sparkles, 
   MessageSquare,
   Send,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Settings
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +45,15 @@ export default function StyleWorkspace() {
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [chatMessage, setChatMessage] = useState('');
+  const [generatedConcept, setGeneratedConcept] = useState('');
+  
+  // Generation settings state
+  const [generationSettings, setGenerationSettings] = useState({
+    model: 'dall-e-3',
+    quality: 'standard',
+    size: '1024x1024',
+    transparency: false
+  });
 
   // Fetch style data
   const { data: style, isLoading } = useQuery({
@@ -58,6 +70,13 @@ export default function StyleWorkspace() {
       setStyleData(style.aiStyleData || {});
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
+      // Set generated concept from AI extraction, or create one from style data
+      if (style.conceptPrompt) {
+        setGeneratedConcept(style.conceptPrompt);
+      } else if (style.aiStyleData && (style.aiStyleData as any)?.description) {
+        // Fallback: create a simple concept from the style description
+        setGeneratedConcept(((style.aiStyleData as any).description as string).split('.')[0] || 'Creative concept');
+      }
     }
   }, [style]);
 
@@ -91,6 +110,26 @@ export default function StyleWorkspace() {
         }),
       });
       if (!response.ok) throw new Error('Style refinement failed');
+      return response.json();
+    },
+  });
+
+  // Preview generation mutation
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/generate-style-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          styleData: styleData || {},
+          concept: generatedConcept,
+          model: generationSettings.model,
+          quality: generationSettings.quality,
+          size: generationSettings.size,
+          transparency: generationSettings.transparency,
+        }),
+      });
+      if (!response.ok) throw new Error('Preview generation failed');
       return response.json();
     },
   });
@@ -136,6 +175,49 @@ export default function StyleWorkspace() {
         variant: 'destructive'
       });
     }
+  };
+
+  const handleGeneratePreview = async () => {
+    if (!generatedConcept.trim()) {
+      toast({
+        title: 'Concept Required',
+        description: 'Please enter a concept to generate a preview.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const result = await previewMutation.mutateAsync();
+      setPreviewImageUrl(result.imageUrl);
+      
+      toast({
+        title: 'Preview Generated',
+        description: 'Style preview has been generated successfully.'
+      });
+    } catch (error) {
+      toast({
+        title: 'Preview Failed',
+        description: 'Failed to generate preview. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const updateGenerationSetting = (key: string, value: any) => {
+    setGenerationSettings(prev => {
+      const updated = {
+        ...prev,
+        [key]: value
+      };
+      
+      // Auto-switch to gpt-image-1 when transparency is enabled (only model that supports it)
+      if (key === 'transparency' && value === true) {
+        updated.model = 'gpt-image-1';
+      }
+      
+      return updated;
+    });
   };
 
   const updateStyleField = (field: string, value: any, nestedField?: string) => {
@@ -419,42 +501,143 @@ export default function StyleWorkspace() {
           </div>
         </div>
 
-        {/* Right sidebar - Example Output */}
+        {/* Right sidebar - Style Preview */}
         <div className="w-80 border-l bg-muted/5 p-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium">Example output</h3>
-              <Button variant="outline" size="sm" className="gap-2">
-                <RefreshCw className="w-3 h-3" />
-                New prompt
+              <h3 className="font-medium">Style preview</h3>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={handleGeneratePreview}
+                disabled={previewMutation.isPending}
+                data-testid="button-regenerate-preview"
+              >
+                <RefreshCw className={`w-3 h-3 ${previewMutation.isPending ? 'animate-spin' : ''}`} />
+                Regenerate
               </Button>
             </div>
             
+            {/* Concept Prompt */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Concept prompt</Label>
+              <Textarea
+                value={generatedConcept}
+                onChange={(e) => setGeneratedConcept(e.target.value)}
+                placeholder="Enter a creative concept for this style..."
+                rows={3}
+                className="resize-none"
+                data-testid="textarea-concept-prompt"
+              />
+            </div>
+
+            {/* Preview Image */}
             {previewImageUrl ? (
               <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
                 <img
                   src={previewImageUrl}
                   alt="Style preview"
                   className="w-full h-full object-cover"
+                  data-testid="img-style-preview"
                 />
               </div>
             ) : (
               <div className="aspect-square rounded-lg bg-muted border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
                 <div className="text-center text-muted-foreground">
                   <ImageIcon className="w-12 h-12 mx-auto mb-2" />
-                  <p className="text-sm">No example output yet</p>
-                  <p className="text-xs">Use the feedback chat to refine your style</p>
+                  <p className="text-sm">No preview generated</p>
                 </div>
               </div>
             )}
 
-            {previewImageUrl && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Example output from this style
-                </p>
+            {/* Generation Settings */}
+            <div className="space-y-3 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                <Label className="text-sm font-medium">Settings</Label>
               </div>
-            )}
+
+              {/* Model Selection */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Model</Label>
+                <Select
+                  value={generationSettings.model}
+                  onValueChange={(value) => updateGenerationSetting('model', value)}
+                >
+                  <SelectTrigger className="h-8" data-testid="select-model">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dall-e-3">DALL-E 3</SelectItem>
+                    <SelectItem value="dall-e-2">DALL-E 2</SelectItem>
+                    <SelectItem value="gpt-image-1">GPT Image 1 (supports transparency)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Quality Selection */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Quality</Label>
+                <Select
+                  value={generationSettings.quality}
+                  onValueChange={(value) => updateGenerationSetting('quality', value)}
+                >
+                  <SelectTrigger className="h-8" data-testid="select-quality">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="hd">HD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Size Selection */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Size</Label>
+                <Select
+                  value={generationSettings.size}
+                  onValueChange={(value) => updateGenerationSetting('size', value)}
+                >
+                  <SelectTrigger className="h-8" data-testid="select-size">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1024x1024">Square</SelectItem>
+                    <SelectItem value="1024x1792">Portrait</SelectItem>
+                    <SelectItem value="1792x1024">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Transparency Support */}
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Transparency support</Label>
+                <Switch
+                  checked={generationSettings.transparency}
+                  onCheckedChange={(checked) => updateGenerationSetting('transparency', checked)}
+                  data-testid="switch-transparency"
+                />
+              </div>
+            </div>
+
+            {/* Generate Preview Button */}
+            <Button
+              onClick={handleGeneratePreview}
+              disabled={previewMutation.isPending || !generatedConcept.trim()}
+              className="w-full"
+              data-testid="button-generate-preview"
+            >
+              {previewMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'Generate preview'
+              )}
+            </Button>
           </div>
         </div>
       </div>
