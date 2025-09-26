@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ export default function StyleManagement() {
   const [isExtractorModalOpen, setIsExtractorModalOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ImageStyle | null>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Fetch styles from API
   const { data: styles = [], isLoading, refetch } = useQuery({
@@ -35,8 +36,14 @@ export default function StyleManagement() {
   };
 
   const handleEditStyle = (style: ImageStyle) => {
-    setEditingStyle(style);
-    setIsExtractorModalOpen(true);
+    if (style.isAiExtracted) {
+      // Navigate to workspace for AI-extracted styles
+      setLocation(`/workspace?id=${style.id}`);
+    } else {
+      // Use modal for manually created styles
+      setEditingStyle(style);
+      setIsExtractorModalOpen(true);
+    }
   };
 
   const handleDeleteStyle = async (styleId: string) => {

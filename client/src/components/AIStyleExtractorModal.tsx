@@ -124,23 +124,24 @@ export default function AIStyleExtractorModal({
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const styleData = {
+    mutationFn: async (data?: { styleData: any, concept: string }) => {
+      const finalStyleData = data?.styleData || extractedStyleData;
+      const stylePayload = {
         name: styleName,
         description,
-        stylePrompt: extractedStyleData.style_name ? `${extractedStyleData.style_name}: ${extractedStyleData.description}` : extractedStyleData.description || 'AI-extracted style',
+        stylePrompt: finalStyleData.style_name ? `${finalStyleData.style_name}: ${finalStyleData.description}` : finalStyleData.description || 'AI-extracted style',
         referenceImageUrl,
         isAiExtracted: true,
         extractionPrompt,
         conceptPrompt,
-        aiStyleData: extractedStyleData,
+        aiStyleData: finalStyleData,
         previewImageUrl,
       };
 
       if (editingStyle) {
-        return api.updateImageStyle(editingStyle.id, styleData);
+        return api.updateImageStyle(editingStyle.id, stylePayload);
       } else {
-        return api.createImageStyle(styleData);
+        return api.createImageStyle(stylePayload);
       }
     },
   });
@@ -190,7 +191,9 @@ export default function AIStyleExtractorModal({
       const result = await extractStyleMutation.mutateAsync();
       setExtractedStyleData(result.styleData);
       setGeneratedConcept(result.concept);
-      setStep('preview');
+      
+      // Auto-save the extracted style and navigate to workspace
+      await handleSaveAndNavigate(result.styleData, result.concept);
     } catch (error) {
       toast({
         title: 'Extraction Failed',
@@ -214,7 +217,7 @@ export default function AIStyleExtractorModal({
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveAndNavigate = async (styleData: any, concept: string) => {
     if (!styleName.trim()) {
       toast({
         title: 'Name Required',
@@ -225,9 +228,17 @@ export default function AIStyleExtractorModal({
     }
 
     try {
-      await saveMutation.mutateAsync();
+      const savedStyle = await saveMutation.mutateAsync({ styleData, concept });
       onStyleSaved();
       handleClose();
+      
+      // Navigate to workspace
+      setLocation(`/workspace?id=${savedStyle.id}`);
+      
+      toast({
+        title: 'Style Extracted!',
+        description: 'Your style has been saved and opened in the workspace.'
+      });
     } catch (error) {
       toast({
         title: 'Save Failed',
@@ -428,157 +439,12 @@ export default function AIStyleExtractorModal({
     </div>
   );
 
-  const renderPreviewStep = () => (
-    <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Extracted Style Data */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="w-4 h-4" />
-              Extracted Style
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {extractedStyleData && (
-              <>
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                    Style Description
-                  </Label>
-                  <p className="text-sm" data-testid="text-extracted-style">
-                    {extractedStyleData.style_name && extractedStyleData.description
-                      ? `${extractedStyleData.style_name}: ${extractedStyleData.description}`
-                      : extractedStyleData.description || 'Style analysis completed'}
-                  </p>
-                </div>
-                
-                {extractedStyleData.lighting && (
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Lighting
-                    </Label>
-                    <Badge variant="secondary" data-testid="badge-lighting">
-                      {extractedStyleData.lighting}
-                    </Badge>
-                  </div>
-                )}
-
-                {extractedStyleData.color_palette && (
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Color Palette
-                    </Label>
-                    <div className="flex flex-wrap gap-1">
-                      {extractedStyleData.color_palette.map((color: string, index: number) => (
-                        <div key={index} className="flex items-center gap-1 text-xs">
-                          <div className="w-3 h-3 rounded border" style={{ backgroundColor: color }}></div>
-                          <span>{color}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Generated Concept */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ImageIcon className="w-4 h-4" />
-              Generated Concept
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                Concept Prompt
-              </Label>
-              <p className="text-sm font-medium" data-testid="text-generated-concept">
-                {generatedConcept}
-              </p>
-            </div>
-            
-            <Button
-              variant="outline"
-              onClick={handleGeneratePreview}
-              disabled={previewMutation.isPending}
-              className="w-full gap-2"
-              data-testid="button-generate-preview"
-            >
-              {previewMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Generating Preview...
-                </>
-              ) : (
-                <>
-                  <Eye className="w-4 h-4" />
-                  Generate Preview
-                </>
-              )}
-            </Button>
-
-            {previewImageUrl && (
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Preview Image
-                </Label>
-                <div className="aspect-square rounded-lg overflow-hidden bg-muted">
-                  <img
-                    src={previewImageUrl}
-                    alt="Style preview"
-                    className="w-full h-full object-cover"
-                    data-testid="img-style-preview"
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex gap-3">
-        <Button 
-          variant="outline" 
-          onClick={() => setStep('configure')} 
-          className="flex-1 gap-2"
-          data-testid="button-back-to-configure"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refine Settings
-        </Button>
-        <Button 
-          onClick={handleSave}
-          disabled={saveMutation.isPending}
-          className="flex-1 gap-2"
-          data-testid="button-save-style"
-        >
-          {saveMutation.isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Save Style
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
-  );
 
   const getStepTitle = () => {
     switch (step) {
       case 'upload': return 'Upload Reference Image';
       case 'configure': return 'Configure Style Extraction';
       case 'extract': return 'Extracting Style';
-      case 'preview': return 'Review & Save Style';
       default: return 'AI Style Extractor';
     }
   };
@@ -588,7 +454,6 @@ export default function AIStyleExtractorModal({
       case 'upload': return 'Upload a reference image to extract its visual style';
       case 'configure': return 'Configure the extraction prompts and style details';
       case 'extract': return 'AI is analyzing your image and extracting style elements';
-      case 'preview': return 'Review the extracted style and generate a preview';
       default: return 'Create reusable styles from reference images using AI';
     }
   };
@@ -605,7 +470,6 @@ export default function AIStyleExtractorModal({
           {step === 'upload' && renderUploadStep()}
           {step === 'configure' && renderConfigureStep()}
           {step === 'extract' && renderExtractStep()}
-          {step === 'preview' && renderPreviewStep()}
         </div>
       </DialogContent>
     </Dialog>

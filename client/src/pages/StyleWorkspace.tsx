@@ -80,11 +80,14 @@ export default function StyleWorkspace() {
   // Preview generation mutation
   const previewMutation = useMutation({
     mutationFn: async (concept: string) => {
+      const stylePrompt = styleData.style_name ? `${styleData.style_name}: ${styleData.description}` : styleData.description || 'AI-extracted style';
       const response = await fetch('/api/generate-style-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          styleData: styleData,
+          styleData: {
+            style: stylePrompt
+          },
           concept: concept,
         }),
       });
