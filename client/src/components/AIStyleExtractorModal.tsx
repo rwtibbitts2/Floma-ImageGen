@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import {
   Dialog,
   DialogContent,
@@ -46,7 +47,7 @@ export default function AIStyleExtractorModal({
   onStyleSaved,
   editingStyle
 }: AIStyleExtractorModalProps) {
-  const [step, setStep] = useState<'upload' | 'configure' | 'extract' | 'preview' | 'save'>('upload');
+  const [step, setStep] = useState<'upload' | 'configure' | 'extract'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [styleName, setStyleName] = useState('');
@@ -60,6 +61,7 @@ export default function AIStyleExtractorModal({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Initialize editing mode
   useEffect(() => {

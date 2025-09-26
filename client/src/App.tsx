@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import Home from "@/pages/Home";
 import ImageGenerator from "@/pages/ImageGenerator";
 import StyleManagement from "@/pages/StyleManagement";
+import StyleWorkspace from "@/pages/StyleWorkspace";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 import LoginForm from "@/components/LoginForm";
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/generate" component={ImageGenerator} />
       <Route path="/styles" component={StyleManagement} />
+      <Route path="/workspace" component={StyleWorkspace} />
       <Route path="/admin" component={AdminPanel} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />

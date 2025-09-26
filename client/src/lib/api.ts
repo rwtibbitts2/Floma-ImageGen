@@ -156,6 +156,14 @@ export const getImageStyles = async (): Promise<ImageStyle[]> => {
   return response.json();
 };
 
+export const getImageStyle = async (id: string): Promise<ImageStyle> => {
+  const response = await fetch(`${API_BASE}/styles/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch image style');
+  }
+  return response.json();
+};
+
 export const createImageStyle = async (style: { name: string; stylePrompt: string; description?: string }): Promise<ImageStyle> => {
   const response = await fetch(`${API_BASE}/styles`, {
     method: 'POST',

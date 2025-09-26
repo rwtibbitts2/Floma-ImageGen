@@ -243,6 +243,30 @@ router.get('/styles', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/styles/:id - Get a specific image style by ID (Protected)
+router.get('/styles/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const style = await storage.getImageStyleById(id);
+    
+    if (!style) {
+      return res.status(404).json({ error: 'Style not found' });
+    }
+    
+    // Verify ownership or admin access for private styles
+    const userId = (req as any).user.id;
+    const isAdmin = (req as any).user.role === 'admin';
+    if (!isAdmin && style.createdBy && style.createdBy !== userId) {
+      return res.status(403).json({ error: 'Access denied: not your style' });
+    }
+    
+    res.json(style);
+  } catch (error) {
+    console.error('Error fetching style:', error);
+    res.status(500).json({ error: 'Failed to fetch style' });
+  }
+});
+
 // POST /api/styles - Create a new image style (Protected)
 router.post('/styles', requireAuth, async (req, res) => {
   try {
