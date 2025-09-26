@@ -1454,6 +1454,157 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/refine-style - Refine style definition using GPT-5 based on user feedback (Protected)
+router.post('/refine-style', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      styleData: z.object({
+        style_name: z.string().optional(),
+        description: z.string().optional(),
+        color_palette: z.array(z.string()).optional(),
+        color_usage: z.string().optional(),
+        lighting: z.string().optional(),
+        shadow_style: z.string().optional(),
+        shapes: z.string().optional(),
+        shape_edges: z.string().optional(),
+        symmetry_balance: z.string().optional(),
+        line_quality: z.string().optional(),
+        line_color_treatment: z.string().optional(),
+        texture: z.string().optional(),
+        material_suggestion: z.string().optional(),
+        rendering_style: z.string().optional(),
+        detail_level: z.string().optional(),
+        perspective: z.string().optional(),
+        scale_relationships: z.string().optional(),
+        composition: z.string().optional(),
+        visual_hierarchy: z.string().optional(),
+        typography: z.object({
+          font_styles: z.string().optional(),
+          font_weights: z.string().optional(),
+          case_usage: z.string().optional(),
+          alignment: z.string().optional(),
+          letter_spacing: z.string().optional(),
+          text_treatment: z.string().optional(),
+        }).optional(),
+        ui_elements: z.object({
+          corner_radius: z.string().optional(),
+          icon_style: z.string().optional(),
+          button_style: z.string().optional(),
+          spacing_rhythm: z.string().optional(),
+        }).optional(),
+        motion_or_interaction: z.string().optional(),
+        notable_visual_effects: z.string().optional(),
+      }),
+      feedback: z.string().min(1),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { styleData, feedback } = validation.data;
+
+    // System message for style refinement
+    const systemMessage = `You are a professional visual style analyst. The user will provide you with a current style definition and feedback for improvement. 
+
+Your task is to refine the style definition based on the feedback while maintaining the exact JSON structure. You MUST respond with ONLY valid JSON that matches this exact structure:
+
+{
+  "style_name": "string - short descriptive name",
+  "description": "string - detailed style analysis",
+  "color_palette": ["#RRGGBB", "#RRGGBB", ...],
+  "color_usage": "string - how colors are used",
+  "lighting": "string - lighting characteristics", 
+  "shadow_style": "string - shadow treatment",
+  "shapes": "string - shape characteristics",
+  "shape_edges": "string - edge treatment",
+  "symmetry_balance": "string - balance and symmetry",
+  "line_quality": "string - line characteristics",
+  "line_color_treatment": "string - line color approach",
+  "texture": "string - texture details",
+  "material_suggestion": "string - material qualities",
+  "rendering_style": "string - rendering approach",
+  "detail_level": "string - level of detail",
+  "perspective": "string - perspective characteristics",
+  "scale_relationships": "string - scale and proportions",
+  "composition": "string - compositional elements",
+  "visual_hierarchy": "string - hierarchy approach",
+  "typography": {
+    "font_styles": "string - font characteristics",
+    "font_weights": "string - weight usage",
+    "case_usage": "string - case treatment",
+    "alignment": "string - text alignment",
+    "letter_spacing": "string - spacing approach",
+    "text_treatment": "string - text effects"
+  },
+  "ui_elements": {
+    "corner_radius": "string - corner treatment",
+    "icon_style": "string - icon characteristics", 
+    "button_style": "string - button treatment",
+    "spacing_rhythm": "string - spacing patterns"
+  },
+  "motion_or_interaction": "string - motion qualities",
+  "notable_visual_effects": "string - special effects"
+}
+
+Apply the user's feedback to improve and refine the style definition. Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
+
+    const userMessage = `Current style definition:
+${JSON.stringify(styleData, null, 2)}
+
+User feedback for refinement:
+${feedback}
+
+Please provide the refined style definition in the same JSON format.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemMessage
+        },
+        {
+          role: "user", 
+          content: userMessage
+        }
+      ],
+      max_tokens: 2000,
+      temperature: 0.7,
+    });
+
+    let jsonText = completion.choices[0]?.message?.content?.trim();
+    if (!jsonText) {
+      throw new Error('No response from OpenAI');
+    }
+
+    // Clean up the response - remove markdown code blocks if present
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    let refinedStyleData;
+    try {
+      refinedStyleData = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('Failed to parse refined style JSON:', jsonText);
+      throw new Error('Invalid JSON response from style refinement');
+    }
+
+    console.log('Style refined successfully with feedback:', feedback);
+
+    res.json({
+      refinedStyleData,
+      originalFeedback: feedback
+    });
+  } catch (error) {
+    console.error('Error refining style:', error);
+    res.status(500).json({ error: 'Failed to refine style definition' });
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication system - From blueprint:javascript_auth_all_persistance
   setupAuth(app);
