@@ -200,24 +200,6 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               </div>
             </div>
 
-            {/* Use Original as Reference Checkbox */}
-            <div className="flex items-center space-x-2 p-3 border rounded-lg">
-              <Checkbox
-                id="use-original-reference"
-                checked={useOriginalAsReference}
-                onCheckedChange={(checked) => setUseOriginalAsReference(checked as boolean)}
-                data-testid="checkbox-use-original-reference"
-              />
-              <div className="grid gap-1.5 leading-none">
-                <Label
-                  htmlFor="use-original-reference"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Use original image as reference
-                </Label>
-              </div>
-            </div>
-
             {/* Modification Instructions */}
             <div className="space-y-2">
               <Label htmlFor="instruction" className="text-sm font-medium">
@@ -314,32 +296,50 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
           </div>
         )}
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={regenerateMutation.isPending}
-            data-testid="button-cancel-regeneration"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleRegenerate}
-            disabled={(!instruction.trim() && !hasSettingsChanged) || regenerateMutation.isPending}
-            data-testid="button-confirm-regeneration"
-          >
-            {regenerateMutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Regenerating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Regenerate
-              </>
-            )}
-          </Button>
+        <DialogFooter className="flex justify-between items-center">
+          {/* Use Original as Reference Checkbox */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="use-original-reference"
+              checked={useOriginalAsReference}
+              onCheckedChange={(checked) => setUseOriginalAsReference(checked as boolean)}
+              data-testid="checkbox-use-original-reference"
+            />
+            <Label
+              htmlFor="use-original-reference"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Use original image as reference
+            </Label>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              disabled={regenerateMutation.isPending}
+              data-testid="button-cancel-regeneration"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRegenerate}
+              disabled={(!instruction.trim() && !hasSettingsChanged) || regenerateMutation.isPending}
+              data-testid="button-confirm-regeneration"
+            >
+              {regenerateMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Regenerate
+                </>
+              )}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
