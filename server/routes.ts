@@ -1231,18 +1231,30 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       throw new Error('No style analysis returned from OpenAI');
     }
 
-    // Try to parse as JSON, fallback to plain text
+    // Try to parse as JSON, handling markdown code blocks, fallback to plain text
     let styleData;
     try {
-      styleData = JSON.parse(styleAnalysis);
-    } catch {
+      // Remove markdown code block wrapper if present
+      let jsonText = styleAnalysis.trim();
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      styleData = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('Failed to parse style analysis JSON:', parseError);
+      console.error('Raw response:', styleAnalysis);
+      
       // If not JSON, create a structured response from the text
       styleData = {
-        style: styleAnalysis,
-        keywords: [],
-        mood: "extracted from image",
-        colors: [],
-        technique: "analysis"
+        style_name: "Extracted Style",
+        description: styleAnalysis,
+        color_palette: [],
+        lighting: "unknown",
+        texture: "unknown",
+        rendering_style: "analysis"
       };
     }
 
