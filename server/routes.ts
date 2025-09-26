@@ -1456,9 +1456,29 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
       max_tokens: 100,
     });
 
-    const concept = conceptResponse.choices[0]?.message?.content?.trim();
+    let concept = conceptResponse.choices[0]?.message?.content?.trim();
     if (!concept) {
       throw new Error('No concept generated from OpenAI');
+    }
+
+    // Parse JSON response if it's in that format and extract the concept
+    try {
+      // Remove markdown code blocks if present
+      let cleanedConcept = concept;
+      if (cleanedConcept.startsWith('```json')) {
+        cleanedConcept = cleanedConcept.replace(/^```json\s*/m, '').replace(/\s*```$/m, '');
+      } else if (cleanedConcept.startsWith('```')) {
+        cleanedConcept = cleanedConcept.replace(/^```\s*/m, '').replace(/\s*```$/m, '');
+      }
+      
+      // Try to parse as JSON and extract the Concept field
+      const parsedConcept = JSON.parse(cleanedConcept);
+      if (parsedConcept.Concept) {
+        concept = parsedConcept.Concept;
+      }
+    } catch (parseError) {
+      // If not JSON, use the concept as-is
+      console.log('Concept not in JSON format, using as-is');
     }
 
     res.json({
