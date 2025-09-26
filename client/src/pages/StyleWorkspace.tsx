@@ -503,7 +503,7 @@ export default function StyleWorkspace() {
         </div>
 
         {/* Right sidebar - Style Preview */}
-        <div className="w-80 border-l bg-muted/5 p-4">
+        <div className="w-80 border-l bg-muted/5 p-4 overflow-y-auto max-h-screen">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium">Style preview</h3>
@@ -544,11 +544,9 @@ export default function StyleWorkspace() {
                 />
               </div>
             ) : (
-              <div className="aspect-square rounded-lg bg-muted border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <ImageIcon className="w-12 h-12 mx-auto mb-2" />
-                  <p className="text-sm">No preview generated</p>
-                </div>
+              <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                <ImageIcon className="w-4 h-4" />
+                <p className="text-sm">No preview generated</p>
               </div>
             )}
 
