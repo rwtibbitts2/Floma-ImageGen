@@ -5,12 +5,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImage, GenerationSettings, generationSettingsSchema } from '@shared/schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import GenerationSettingsComponent from '@/components/GenerationSettings';
 
 interface RegenerateModalProps {
   image: GeneratedImage | null;
@@ -87,6 +87,36 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
     setSettings(newSettings);
     setHasSettingsChanged(true);
   };
+
+  // Model capabilities configuration
+  const modelCapabilities = {
+    'dall-e-2': {
+      supportsQuality: false,
+      supportedSizes: ['1024x1024'],
+      supportsRegeneration: true
+    },
+    'dall-e-3': {
+      supportsQuality: true,
+      supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+      supportsRegeneration: false
+    },
+    'gpt-image-1': {
+      supportsQuality: true,
+      supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+      supportsRegeneration: true
+    }
+  } as const;
+
+  const updateSetting = <K extends keyof GenerationSettings>(
+    key: K, 
+    value: GenerationSettings[K]
+  ) => {
+    const newSettings = { ...settings, [key]: value };
+    handleSettingsChange(newSettings);
+  };
+
+  const currentModel = settings.model || 'gpt-image-1';
+  const capabilities = modelCapabilities[currentModel];
 
   const handleRegenerate = () => {
     if (!image) return;
@@ -194,18 +224,6 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               </div>
             </div>
 
-            {/* Generation Settings */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Generation Settings</Label>
-              <GenerationSettingsComponent
-                settings={settings}
-                onSettingsChange={handleSettingsChange}
-              />
-              <p className="text-xs text-muted-foreground">
-                Adjust settings to enhance image quality or change parameters
-              </p>
-            </div>
-
             {/* Modification Instructions */}
             <div className="space-y-2">
               <Label htmlFor="instruction" className="text-sm font-medium">
@@ -223,12 +241,85 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
                 className="min-h-[100px] resize-none"
                 data-testid="textarea-regeneration-instruction"
               />
-              <p className="text-xs text-muted-foreground">
-                {useOriginalAsReference 
-                  ? "Leave blank to enhance with current settings only, or provide specific modification instructions"
-                  : "Leave blank to regenerate the original concept with new settings, or provide additional refinements"
-                }
-              </p>
+            </div>
+
+            {/* Simplified Generation Settings */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Model</Label>
+                <Select
+                  value={currentModel}
+                  onValueChange={(value: "dall-e-2" | "dall-e-3" | "gpt-image-1") => updateSetting('model', value)}
+                >
+                  <SelectTrigger className="h-8" data-testid="select-model">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gpt-image-1">GPT Image 1</SelectItem>
+                    <SelectItem value="dall-e-3">DALL-E 3</SelectItem>
+                    <SelectItem value="dall-e-2">DALL-E 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {capabilities.supportsQuality && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Quality</Label>
+                  <Select
+                    value={settings.quality}
+                    onValueChange={(value: "standard" | "hd") => updateSetting('quality', value)}
+                  >
+                    <SelectTrigger className="h-8" data-testid="select-quality">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Standard</SelectItem>
+                      <SelectItem value="hd">HD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Size</Label>
+                <Select
+                  value={settings.size}
+                  onValueChange={(value: "1024x1024" | "1792x1024" | "1024x1792") => updateSetting('size', value)}
+                >
+                  <SelectTrigger className="h-8" data-testid="select-size">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {capabilities.supportedSizes.includes('1024x1024') && (
+                      <SelectItem value="1024x1024">Square</SelectItem>
+                    )}
+                    {(capabilities.supportedSizes as readonly string[]).includes('1792x1024') && (
+                      <SelectItem value="1792x1024">Landscape</SelectItem>
+                    )}
+                    {(capabilities.supportedSizes as readonly string[]).includes('1024x1792') && (
+                      <SelectItem value="1024x1792">Portrait</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Variations</Label>
+                <Select
+                  value={settings.variations.toString()}
+                  onValueChange={(value) => updateSetting('variations', parseInt(value))}
+                >
+                  <SelectTrigger className="h-8" data-testid="select-variations">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         )}
