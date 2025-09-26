@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Upload,
   X,
@@ -23,10 +24,13 @@ import {
   Loader2,
   Save,
   Eye,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  Settings
 } from 'lucide-react';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
+import { getUserPreferences } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface AIStyleExtractorModalProps {
@@ -58,10 +62,40 @@ export default function AIStyleExtractorModal({
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [preferencesInitialized, setPreferencesInitialized] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+
+  // Load user preferences for default prompts
+  const { data: userPreferences, isLoading: preferencesLoading, error: preferencesError } = useQuery({
+    queryKey: ['/api/preferences'],
+    queryFn: getUserPreferences,
+    enabled: isOpen, // Only load when modal is open
+  });
+
+  // Update prompts when user preferences are loaded (only once per session)
+  useEffect(() => {
+    if (userPreferences && !editingStyle && isOpen && !preferencesInitialized) {
+      // Only use user preferences if not editing an existing style and not already initialized
+      if (userPreferences.defaultExtractionPrompt) {
+        setExtractionPrompt(userPreferences.defaultExtractionPrompt);
+      }
+      if (userPreferences.defaultConceptPrompt) {
+        setConceptPrompt(userPreferences.defaultConceptPrompt);
+      }
+      setPreferencesInitialized(true);
+    }
+  }, [userPreferences, editingStyle, isOpen, preferencesInitialized]);
+
+  // Reset initialization flag when modal closes or switches between edit/create modes
+  useEffect(() => {
+    if (!isOpen) {
+      setPreferencesInitialized(false);
+    }
+  }, [isOpen]);
 
   // Initialize editing mode
   useEffect(() => {
@@ -362,31 +396,57 @@ export default function AIStyleExtractorModal({
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="extraction-prompt">Style Extraction Prompt</Label>
-          <Textarea
-            id="extraction-prompt"
-            value={extractionPrompt}
-            onChange={(e) => setExtractionPrompt(e.target.value)}
-            rows={6}
-            className="resize-none"
-            data-testid="textarea-extraction-prompt"
-          />
-        </div>
+      <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="w-full justify-between p-2 h-auto"
+            data-testid="button-toggle-advanced-settings"
+          >
+            <div className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              <span className="text-sm font-medium">Advanced Prompt Settings</span>
+              {preferencesLoading && (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            <ChevronDown 
+              className={`h-4 w-4 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} 
+            />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="extraction-prompt">Style Extraction Prompt</Label>
+            <Textarea
+              id="extraction-prompt"
+              value={extractionPrompt}
+              onChange={(e) => setExtractionPrompt(e.target.value)}
+              rows={6}
+              className="resize-none"
+              data-testid="textarea-extraction-prompt"
+            />
+            <p className="text-xs text-muted-foreground">
+              This prompt guides the AI in analyzing and extracting visual style characteristics from your reference image.
+            </p>
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="concept-prompt">Concept Generation Prompt</Label>
-          <Textarea
-            id="concept-prompt"
-            value={conceptPrompt}
-            onChange={(e) => setConceptPrompt(e.target.value)}
-            rows={4}
-            className="resize-none"
-            data-testid="textarea-concept-prompt"
-          />
-        </div>
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="concept-prompt">Concept Generation Prompt</Label>
+            <Textarea
+              id="concept-prompt"
+              value={conceptPrompt}
+              onChange={(e) => setConceptPrompt(e.target.value)}
+              rows={4}
+              className="resize-none"
+              data-testid="textarea-concept-prompt"
+            />
+            <p className="text-xs text-muted-foreground">
+              This prompt instructs the AI how to generate creative visual concepts based on the extracted style.
+            </p>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="flex gap-3">
         <Button variant="outline" onClick={handleClose} className="flex-1">
