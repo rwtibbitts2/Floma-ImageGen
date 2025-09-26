@@ -4,8 +4,11 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 import Home from "@/pages/Home";
 import ImageGenerator from "@/pages/ImageGenerator";
+import StyleManagement from "@/pages/StyleManagement";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 import LoginForm from "@/components/LoginForm";
@@ -15,6 +18,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/generate" component={ImageGenerator} />
+      <Route path="/styles" component={StyleManagement} />
       <Route path="/admin" component={AdminPanel} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
@@ -40,7 +44,27 @@ function AuthenticatedApp() {
     return <LoginForm />;
   }
 
-  return <Router />;
+  // Custom sidebar width for enterprise image generation tool
+  const style = {
+    "--sidebar-width": "20rem",       // 320px for better content
+    "--sidebar-width-icon": "4rem",   // default icon width
+  };
+
+  return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1">
+          <header className="flex items-center justify-between p-2 border-b">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+          </header>
+          <main className="flex-1 overflow-hidden">
+            <Router />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
 }
 
 function App() {
