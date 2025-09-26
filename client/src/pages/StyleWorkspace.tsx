@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -553,73 +554,83 @@ export default function StyleWorkspace() {
 
             {/* Generation Settings */}
             <div className="space-y-3 pt-2 border-t">
-              <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                <Label className="text-sm font-medium">Settings</Label>
-              </div>
+              {/* Settings Accordion */}
+              <Accordion type="single" collapsible className="w-full" data-testid="accordion-generation-settings">
+                <AccordionItem value="generation-settings" className="border-0">
+                  <AccordionTrigger className="flex items-center gap-2 py-2 hover:no-underline" data-testid="accordion-trigger-settings">
+                    <div className="flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      <span className="text-sm font-medium">Generation Settings</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 pt-2">
+                      {/* Model Selection */}
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Model</Label>
+                        <Select
+                          value={generationSettings.model}
+                          onValueChange={(value) => updateGenerationSetting('model', value)}
+                        >
+                          <SelectTrigger className="h-8" data-testid="select-model">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="dall-e-3">DALL-E 3</SelectItem>
+                            <SelectItem value="dall-e-2">DALL-E 2</SelectItem>
+                            <SelectItem value="gpt-image-1">GPT Image 1 (supports transparency)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-              {/* Model Selection */}
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Model</Label>
-                <Select
-                  value={generationSettings.model}
-                  onValueChange={(value) => updateGenerationSetting('model', value)}
-                >
-                  <SelectTrigger className="h-8" data-testid="select-model">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dall-e-3">DALL-E 3</SelectItem>
-                    <SelectItem value="dall-e-2">DALL-E 2</SelectItem>
-                    <SelectItem value="gpt-image-1">GPT Image 1 (supports transparency)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                      {/* Quality Selection */}
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Quality</Label>
+                        <Select
+                          value={generationSettings.quality}
+                          onValueChange={(value) => updateGenerationSetting('quality', value)}
+                        >
+                          <SelectTrigger className="h-8" data-testid="select-quality">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="standard">Standard</SelectItem>
+                            <SelectItem value="hd">HD</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-              {/* Quality Selection */}
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Quality</Label>
-                <Select
-                  value={generationSettings.quality}
-                  onValueChange={(value) => updateGenerationSetting('quality', value)}
-                >
-                  <SelectTrigger className="h-8" data-testid="select-quality">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="hd">HD</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                      {/* Size Selection */}
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Size</Label>
+                        <Select
+                          value={generationSettings.size}
+                          onValueChange={(value) => updateGenerationSetting('size', value)}
+                        >
+                          <SelectTrigger className="h-8" data-testid="select-size">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1024x1024">Square</SelectItem>
+                            <SelectItem value="1024x1792">Portrait</SelectItem>
+                            <SelectItem value="1792x1024">Landscape</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-              {/* Size Selection */}
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Size</Label>
-                <Select
-                  value={generationSettings.size}
-                  onValueChange={(value) => updateGenerationSetting('size', value)}
-                >
-                  <SelectTrigger className="h-8" data-testid="select-size">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1024x1024">Square</SelectItem>
-                    <SelectItem value="1024x1792">Portrait</SelectItem>
-                    <SelectItem value="1792x1024">Landscape</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Transparency Support */}
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Transparency support</Label>
-                <Switch
-                  checked={generationSettings.transparency}
-                  onCheckedChange={(checked) => updateGenerationSetting('transparency', checked)}
-                  data-testid="switch-transparency"
-                />
-              </div>
+                      {/* Transparency Support */}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Transparency support</Label>
+                        <Switch
+                          checked={generationSettings.transparency}
+                          onCheckedChange={(checked) => updateGenerationSetting('transparency', checked)}
+                          data-testid="switch-transparency"
+                        />
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
 
             {/* Generate Preview Button */}
