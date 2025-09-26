@@ -105,6 +105,57 @@ function buildImageParams(model: string, size: string, quality: string, prompt: 
   return params;
 }
 
+// Helper function to build style description from extracted style data
+function buildStyleDescription(styleData: any): string {
+  const parts: string[] = [];
+  
+  if (styleData.description) {
+    parts.push(styleData.description);
+  }
+  
+  if (styleData.lighting) {
+    parts.push(`Lighting: ${styleData.lighting}`);
+  }
+  
+  if (styleData.color_palette && Array.isArray(styleData.color_palette)) {
+    parts.push(`Colors: ${styleData.color_palette.join(', ')}`);
+  }
+  
+  if (styleData.color_usage) {
+    parts.push(`Color usage: ${styleData.color_usage}`);
+  }
+  
+  if (styleData.shapes) {
+    parts.push(`Shapes: ${styleData.shapes}`);
+  }
+  
+  if (styleData.texture) {
+    parts.push(`Texture: ${styleData.texture}`);
+  }
+  
+  if (styleData.material_suggestion) {
+    parts.push(`Materials: ${styleData.material_suggestion}`);
+  }
+  
+  if (styleData.rendering_style) {
+    parts.push(`Rendering: ${styleData.rendering_style}`);
+  }
+  
+  if (styleData.perspective) {
+    parts.push(`Perspective: ${styleData.perspective}`);
+  }
+  
+  if (styleData.composition) {
+    parts.push(`Composition: ${styleData.composition}`);
+  }
+  
+  if (styleData.notable_visual_effects) {
+    parts.push(`Effects: ${styleData.notable_visual_effects}`);
+  }
+  
+  return parts.join('. ');
+}
+
 // Utility function to download image from URL to temporary file
 async function downloadImageToTempFile(imageUrl: string): Promise<{ path: string; contentType: string; }> {
   return new Promise((resolve, reject) => {
@@ -1413,10 +1464,11 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 router.post('/generate-style-preview', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
-      styleData: z.object({
-        style: z.string()
-      }),
+      styleData: z.record(z.any()), // Accept the full extracted style data object
       concept: z.string().min(1),
+      model: z.string().optional().default('dall-e-3'),
+      size: z.string().optional().default('1024x1024'),
+      quality: z.string().optional().default('standard'),
     });
 
     const validation = schema.safeParse(req.body);
@@ -1427,13 +1479,16 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       });
     }
 
-    const { styleData, concept } = validation.data;
+    const { styleData, concept, model, size, quality } = validation.data;
     
-    // Build prompt combining style and concept
-    const fullPrompt = `${concept}. ${styleData.style}`;
+    // Build a comprehensive style description from the extracted style data
+    const styleDescription = buildStyleDescription(styleData);
     
-    // Use default settings for preview generation
-    const requestParams = buildImageParams('dall-e-3', '1024x1024', 'standard', fullPrompt);
+    // Build prompt combining concept and full style description
+    const fullPrompt = `${concept}. Style: ${styleDescription}`;
+    
+    // Use configurable settings for preview generation
+    const requestParams = buildImageParams(model, size, quality, fullPrompt);
     
     console.log('Generating style preview with prompt:', fullPrompt);
     
