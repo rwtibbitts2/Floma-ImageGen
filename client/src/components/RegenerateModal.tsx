@@ -296,7 +296,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
           </div>
         )}
 
-        <DialogFooter className="flex justify-between items-center">
+        <DialogFooter className="flex items-center">
           {/* Use Original as Reference Checkbox */}
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -312,6 +312,8 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               Use original image as reference
             </Label>
           </div>
+          
+          <div className="flex-1"></div>
           
           <div className="flex gap-2">
             <Button
