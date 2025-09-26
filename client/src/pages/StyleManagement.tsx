@@ -36,13 +36,8 @@ export default function StyleManagement() {
   };
 
   const handleEditStyle = (style: ImageStyle) => {
-    console.log('Editing style:', style);
-    console.log('Is AI extracted:', style.isAiExtracted);
-    console.log('Style ID:', style.id);
-    
     if (style.isAiExtracted) {
       // Navigate to workspace for AI-extracted styles
-      console.log('Navigating to workspace with URL:', `/workspace?id=${style.id}`);
       setLocation(`/workspace?id=${style.id}`);
     } else {
       // Use modal for manually created styles

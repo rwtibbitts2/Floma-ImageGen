@@ -229,7 +229,6 @@ export default function AIStyleExtractorModal({
 
     try {
       const savedStyle = await saveMutation.mutateAsync({ styleData, concept });
-      console.log('Saved style:', savedStyle);
       
       // Navigate to workspace BEFORE closing modal
       setLocation(`/workspace?id=${savedStyle.id}`);
@@ -245,7 +244,6 @@ export default function AIStyleExtractorModal({
       }, 100);
       
     } catch (error) {
-      console.error('Save error:', error);
       toast({
         title: 'Save Failed',
         description: 'Failed to save the style. Please try again.',

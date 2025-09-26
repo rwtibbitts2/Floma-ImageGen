@@ -34,11 +34,6 @@ export default function StyleWorkspace() {
   const urlParams = new URLSearchParams(fullUrl);
   const styleId = urlParams.get('id');
   
-  // Debug logging
-  console.log('Current location:', location);
-  console.log('Full URL search:', fullUrl);
-  console.log('URL params:', urlParams.toString());
-  console.log('Extracted styleId:', styleId);
   
   // State for style data
   const [styleName, setStyleName] = useState('');
@@ -148,9 +143,9 @@ export default function StyleWorkspace() {
 
   const updateStyleField = (field: string, value: any, nestedField?: string) => {
     setStyleData((prev: any) => {
-      const updated = { ...prev };
+      const updated = { ...(prev || {}) };
       if (nestedField) {
-        updated[field] = { ...updated[field], [nestedField]: value };
+        updated[field] = { ...(updated[field] || {}), [nestedField]: value };
       } else {
         updated[field] = value;
       }
@@ -160,17 +155,17 @@ export default function StyleWorkspace() {
 
   const addColor = () => {
     const newColor = '#000000';
-    updateStyleField('color_palette', [...(styleData.color_palette || []), newColor]);
+    updateStyleField('color_palette', [...(styleData?.color_palette || []), newColor]);
   };
 
   const updateColor = (index: number, color: string) => {
-    const updatedPalette = [...(styleData.color_palette || [])];
+    const updatedPalette = [...(styleData?.color_palette || [])];
     updatedPalette[index] = color;
     updateStyleField('color_palette', updatedPalette);
   };
 
   const removeColor = (index: number) => {
-    const updatedPalette = styleData.color_palette?.filter((_: any, i: number) => i !== index) || [];
+    const updatedPalette = styleData?.color_palette?.filter((_: any, i: number) => i !== index) || [];
     updateStyleField('color_palette', updatedPalette);
   };
 
@@ -343,7 +338,7 @@ export default function StyleWorkspace() {
                   <Label className="text-sm font-medium text-blue-600">Color palette</Label>
                   <div className="mt-2 space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {(styleData.color_palette || []).map((color: string, index: number) => (
+                      {(styleData?.color_palette || []).map((color: string, index: number) => (
                         <div key={index} className="flex items-center gap-1">
                           <input
                             type="color"
@@ -397,7 +392,7 @@ export default function StyleWorkspace() {
                 <div key={key} className="space-y-2">
                   <Label className="text-sm font-medium text-blue-600">{label}</Label>
                   <Textarea
-                    value={styleData[key] || ''}
+                    value={styleData?.[key] || ''}
                     onChange={(e) => updateStyleField(key, e.target.value)}
                     rows={2}
                     className="resize-none"
@@ -417,7 +412,7 @@ export default function StyleWorkspace() {
                   <div key={key} className="space-y-1">
                     <Label className="text-xs text-muted-foreground">{label}</Label>
                     <Input
-                      value={styleData.typography?.[key] || ''}
+                      value={styleData?.typography?.[key] || ''}
                       onChange={(e) => updateStyleField('typography', e.target.value, key)}
                     />
                   </div>
