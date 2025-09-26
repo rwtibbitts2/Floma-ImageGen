@@ -215,12 +215,6 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
                 >
                   Use original image as reference
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  {useOriginalAsReference 
-                    ? "Will modify the original image with your instructions and settings"
-                    : "Will create a completely new image using the same prompt with your settings"
-                  }
-                </p>
               </div>
             </div>
 
@@ -228,14 +222,10 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
             <div className="space-y-2">
               <Label htmlFor="instruction" className="text-sm font-medium">
                 {useOriginalAsReference ? "Modification Instructions" : "Additional Instructions"}
-                <span className="text-xs text-muted-foreground ml-2">(Optional if changing settings)</span>
               </Label>
               <Textarea
                 id="instruction"
-                placeholder={useOriginalAsReference 
-                  ? "Describe how you want to modify this image (e.g., 'make it more colorful', 'add a sunset background', 'change to a different art style')"
-                  : "Provide additional instructions to refine the original concept (e.g., 'make it more vibrant', 'different lighting', 'different composition')"
-                }
+                placeholder=""
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
                 className="min-h-[100px] resize-none"
