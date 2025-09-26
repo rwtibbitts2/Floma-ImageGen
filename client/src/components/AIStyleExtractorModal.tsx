@@ -364,27 +364,11 @@ export default function AIStyleExtractorModal({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="style-name">Style Name *</Label>
-          <Input
-            id="style-name"
-            value={styleName}
-            onChange={(e) => setStyleName(e.target.value)}
-            placeholder="e.g., Vintage Photography"
-            data-testid="input-style-name"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Input
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional description"
-            data-testid="input-description"
-          />
-        </div>
+      <div className="p-4 bg-muted/50 rounded-lg border">
+        <p className="text-sm text-muted-foreground">
+          The AI will automatically generate a style name and description based on your reference image. 
+          You can edit these later in the workspace.
+        </p>
       </div>
 
       <div className="space-y-4">
@@ -419,7 +403,7 @@ export default function AIStyleExtractorModal({
         </Button>
         <Button 
           onClick={handleExtractStyle}
-          disabled={!styleName.trim() || extractStyleMutation.isPending}
+          disabled={extractStyleMutation.isPending}
           className="flex-1 gap-2"
           data-testid="button-extract-style"
         >
