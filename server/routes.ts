@@ -1203,10 +1203,57 @@ router.post('/extract-style', requireAuth, async (req, res) => {
 
     const { imageUrl, extractionPrompt, conceptPrompt } = validation.data;
 
-    // Extract style using GPT-4 Vision (GPT-5 is not yet available)
+    // Hardcoded system message for reliable JSON structure
+    const systemMessage = `You are a professional visual style analyst. You MUST respond with ONLY valid JSON that matches this exact structure:
+
+{
+  "style_name": "string - short descriptive name",
+  "description": "string - detailed style analysis",
+  "color_palette": ["#RRGGBB", "#RRGGBB", ...],
+  "color_usage": "string - how colors are used",
+  "lighting": "string - lighting characteristics", 
+  "shadow_style": "string - shadow treatment",
+  "shapes": "string - shape characteristics",
+  "shape_edges": "string - edge treatment",
+  "symmetry_balance": "string - balance and symmetry",
+  "line_quality": "string - line characteristics",
+  "line_color_treatment": "string - line color approach",
+  "texture": "string - texture details",
+  "material_suggestion": "string - material qualities",
+  "rendering_style": "string - rendering approach",
+  "detail_level": "string - level of detail",
+  "perspective": "string - perspective characteristics",
+  "scale_relationships": "string - scale and proportions",
+  "composition": "string - compositional elements",
+  "visual_hierarchy": "string - hierarchy approach",
+  "typography": {
+    "font_styles": "string - font characteristics",
+    "font_weights": "string - weight usage",
+    "case_usage": "string - case treatment",
+    "alignment": "string - text alignment",
+    "letter_spacing": "string - spacing approach",
+    "text_treatment": "string - text effects"
+  },
+  "ui_elements": {
+    "corner_radius": "string - corner treatment",
+    "icon_style": "string - icon characteristics", 
+    "button_style": "string - button treatment",
+    "spacing_rhythm": "string - spacing patterns"
+  },
+  "motion_or_interaction": "string - motion qualities",
+  "notable_visual_effects": "string - special effects"
+}
+
+Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
+
+    // Extract style using GPT-4 Vision with system message + user prompt
     const styleResponse = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
+        {
+          role: "system",
+          content: systemMessage
+        },
         {
           role: "user",
           content: [
@@ -1223,7 +1270,7 @@ router.post('/extract-style', requireAuth, async (req, res) => {
           ]
         }
       ],
-      max_tokens: 1000,
+      max_tokens: 2000, // Increased for detailed JSON response
     });
 
     const styleAnalysis = styleResponse.choices[0]?.message?.content;
