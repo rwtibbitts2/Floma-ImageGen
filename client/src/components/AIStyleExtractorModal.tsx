@@ -229,17 +229,23 @@ export default function AIStyleExtractorModal({
 
     try {
       const savedStyle = await saveMutation.mutateAsync({ styleData, concept });
-      onStyleSaved();
-      handleClose();
+      console.log('Saved style:', savedStyle);
       
-      // Navigate to workspace
+      // Navigate to workspace BEFORE closing modal
       setLocation(`/workspace?id=${savedStyle.id}`);
       
-      toast({
-        title: 'Style Extracted!',
-        description: 'Your style has been saved and opened in the workspace.'
-      });
+      // Small delay to ensure navigation happens before cleanup
+      setTimeout(() => {
+        onStyleSaved();
+        handleClose();
+        toast({
+          title: 'Style Extracted!',
+          description: 'Your style has been saved and opened in the workspace.'
+        });
+      }, 100);
+      
     } catch (error) {
+      console.error('Save error:', error);
       toast({
         title: 'Save Failed',
         description: 'Failed to save the style. Please try again.',

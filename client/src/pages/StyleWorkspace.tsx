@@ -33,6 +33,11 @@ export default function StyleWorkspace() {
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const styleId = urlParams.get('id');
   
+  // Debug logging
+  console.log('Current location:', location);
+  console.log('URL params:', urlParams.toString());
+  console.log('Extracted styleId:', styleId);
+  
   // State for style data
   const [styleName, setStyleName] = useState('');
   const [description, setDescription] = useState('');
