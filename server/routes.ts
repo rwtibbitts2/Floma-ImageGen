@@ -1278,32 +1278,74 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
       throw new Error('No style analysis returned from OpenAI');
     }
 
-    // Try to parse as JSON, handling markdown code blocks, fallback to plain text
+    console.log('=== STYLE EXTRACTION DEBUG ===');
+    console.log('Raw OpenAI Response Length:', styleAnalysis.length);
+    console.log('Raw OpenAI Response (first 200 chars):', styleAnalysis.substring(0, 200));
+    console.log('Raw OpenAI Response (last 200 chars):', styleAnalysis.substring(Math.max(0, styleAnalysis.length - 200)));
+
+    // Try to parse as JSON, handling markdown code blocks, fallback to structured data
     let styleData;
     try {
       // Remove markdown code block wrapper if present
       let jsonText = styleAnalysis.trim();
+      
+      // Handle various markdown wrapper formats
       if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        jsonText = jsonText.replace(/^```json\s*/m, '').replace(/\s*```$/m, '');
       } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        jsonText = jsonText.replace(/^```\s*/m, '').replace(/\s*```$/m, '');
       }
       
+      console.log('Cleaned JSON Text (first 200 chars):', jsonText.substring(0, 200));
+      
       styleData = JSON.parse(jsonText);
+      console.log('Successfully parsed JSON with keys:', Object.keys(styleData));
+      
     } catch (parseError) {
       console.error('Failed to parse style analysis JSON:', parseError);
-      console.error('Raw response:', styleAnalysis);
+      console.error('Attempted to parse:', jsonText?.substring(0, 500));
       
-      // If not JSON, create a structured response from the text
+      // Create a structured response from the raw text
       styleData = {
-        style_name: "Extracted Style",
-        description: styleAnalysis,
-        color_palette: [],
-        lighting: "unknown",
-        texture: "unknown",
-        rendering_style: "analysis"
+        style_name: "AI Extracted Style", 
+        description: `Style analysis: ${styleAnalysis.substring(0, 500)}`,
+        color_palette: ["#000000", "#FFFFFF"],
+        color_usage: "Unable to parse color information",
+        lighting: "Unable to parse lighting information", 
+        shadow_style: "Unable to parse shadow information",
+        shapes: "Unable to parse shape information",
+        shape_edges: "Unable to parse edge information",
+        symmetry_balance: "Unable to parse balance information",
+        line_quality: "Unable to parse line information",
+        line_color_treatment: "Unable to parse line color information",
+        texture: "Unable to parse texture information",
+        material_suggestion: "Unable to parse material information", 
+        rendering_style: "Unable to parse rendering information",
+        detail_level: "Unable to parse detail information",
+        perspective: "Unable to parse perspective information",
+        scale_relationships: "Unable to parse scale information",
+        composition: "Unable to parse composition information",
+        visual_hierarchy: "Unable to parse hierarchy information",
+        typography: {
+          font_styles: "Unable to parse typography",
+          font_weights: "Unable to parse weights", 
+          case_usage: "Unable to parse case usage",
+          alignment: "Unable to parse alignment",
+          letter_spacing: "Unable to parse spacing",
+          text_treatment: "Unable to parse text treatment"
+        },
+        ui_elements: {
+          corner_radius: "Unable to parse corner radius",
+          icon_style: "Unable to parse icon style",
+          button_style: "Unable to parse button style", 
+          spacing_rhythm: "Unable to parse spacing rhythm"
+        },
+        motion_or_interaction: "Unable to parse motion information",
+        notable_visual_effects: "Unable to parse effects information"
       };
     }
+    
+    console.log('Final styleData structure:', JSON.stringify(styleData, null, 2));
 
     // Generate concept using the same model
     const conceptResponse = await openai.chat.completions.create({
