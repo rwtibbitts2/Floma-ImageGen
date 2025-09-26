@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   Dialog,
@@ -36,16 +36,7 @@ interface AIStyleExtractorModalProps {
 }
 
 // Default prompts
-const DEFAULT_EXTRACTION_PROMPT = `Analyze this image and extract its visual style characteristics. Return a JSON object with the following structure:
-{
-  "style": "A comprehensive style description including artistic style, color palette, lighting, composition, mood, and visual elements",
-  "keywords": ["list", "of", "key", "visual", "elements"],
-  "mood": "overall mood or atmosphere",
-  "colors": ["dominant", "color", "palette"],
-  "technique": "artistic technique or medium"
-}
-
-Focus on extracting the visual essence that could be applied to generate new images in a similar style.`;
+const DEFAULT_EXTRACTION_PROMPT = `Role: You are an expert visual analyst and systematizer. Goal: Analyze the provided reference image and output a single JSON object that captures only its reusable visual style — never its subject matter, narrative, brand, or specific content. Output Format (single JSON object only) { "style_name": "", "description": "", "color_palette": ["#RRGGBB"], "color_usage": "", "lighting": "", "shadow_style": "", "shapes": "", "shape_edges": "", "symmetry_balance": "", "line_quality": "", "line_color_treatment": "", "texture": "", "material_suggestion": "", "rendering_style": "", "detail_level": "", "perspective": "", "scale_relationships": "", "composition": "", "visual_hierarchy": "", "typography": { "font_styles": "", "font_weights": "", "case_usage": "", "alignment": "", "letter_spacing": "", "text_treatment": "" }, "ui_elements": { "corner_radius": "", "icon_style": "", "button_style": "", "spacing_rhythm": "" }, "motion_or_interaction": "", "notable_visual_effects": "" } Strict Rules No content/subject references: Do not mention people, objects, locations, logos, words in the image, brand names, IP, or narrative elements. Style only: Describe visual treatment (e.g., "isometric perspective," "soft diffused lighting," "grainy texture") rather than what is depicted. Neutral, reusable language: Prefer generic terms ("rounded pill buttons," "duotone icons") over any brand cues. Fill every field: If a field truly does not apply or is not visible, use "none" (string) — not null/empty — to preserve schema consistency. Quantify/qualify where possible: Use clear qualifiers (e.g., "high contrast," "low saturation," "2–4 px stroke," "8–12 px corner radius"). Color palette: Provide 5–8 representative colors in uppercase HEX (#RRGGBB). Include both background/base tones and accent colors when visible. If gradients dominate, include both endpoints as separate swatches. Typography & UI: Only populate if visible/inferable from the image. Otherwise set each field to "none". One JSON object only: No prose before/after. No markdown. No comments. Output only the JSON object as specified.`;
 
 const DEFAULT_CONCEPT_PROMPT = `Based on the visual style you just analyzed, generate a single creative concept that would work well with this style. Return only a short, descriptive concept phrase (2-5 words) that could be used as a prompt for image generation. Examples: "mysterious forest clearing", "vintage coffee shop", "futuristic city skyline"`;
 
@@ -71,8 +62,8 @@ export default function AIStyleExtractorModal({
   const { toast } = useToast();
 
   // Initialize editing mode
-  useState(() => {
-    if (editingStyle) {
+  useEffect(() => {
+    if (editingStyle && isOpen) {
       setStep('configure');
       setStyleName(editingStyle.name);
       setDescription(editingStyle.description || '');
@@ -84,7 +75,7 @@ export default function AIStyleExtractorModal({
         setExtractedStyleData(editingStyle.aiStyleData);
       }
     }
-  });
+  }, [editingStyle, isOpen]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -135,7 +126,7 @@ export default function AIStyleExtractorModal({
       const styleData = {
         name: styleName,
         description,
-        stylePrompt: extractedStyleData.style,
+        stylePrompt: extractedStyleData.style_name ? `${extractedStyleData.style_name}: ${extractedStyleData.description}` : extractedStyleData.description || 'AI-extracted style',
         referenceImageUrl,
         isAiExtracted: true,
         extractionPrompt,
@@ -454,31 +445,34 @@ export default function AIStyleExtractorModal({
                     Style Description
                   </Label>
                   <p className="text-sm" data-testid="text-extracted-style">
-                    {extractedStyleData.style}
+                    {extractedStyleData.style_name && extractedStyleData.description
+                      ? `${extractedStyleData.style_name}: ${extractedStyleData.description}`
+                      : extractedStyleData.description || 'Style analysis completed'}
                   </p>
                 </div>
                 
-                {extractedStyleData.mood && (
+                {extractedStyleData.lighting && (
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Mood
+                      Lighting
                     </Label>
-                    <Badge variant="secondary" data-testid="badge-mood">
-                      {extractedStyleData.mood}
+                    <Badge variant="secondary" data-testid="badge-lighting">
+                      {extractedStyleData.lighting}
                     </Badge>
                   </div>
                 )}
 
-                {extractedStyleData.keywords && (
+                {extractedStyleData.color_palette && (
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Keywords
+                      Color Palette
                     </Label>
                     <div className="flex flex-wrap gap-1">
-                      {extractedStyleData.keywords.map((keyword: string, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {keyword}
-                        </Badge>
+                      {extractedStyleData.color_palette.map((color: string, index: number) => (
+                        <div key={index} className="flex items-center gap-1 text-xs">
+                          <div className="w-3 h-3 rounded border" style={{ backgroundColor: color }}></div>
+                          <span>{color}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
