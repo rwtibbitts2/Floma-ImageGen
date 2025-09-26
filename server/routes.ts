@@ -1285,9 +1285,9 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 
     // Try to parse as JSON, handling markdown code blocks, fallback to structured data
     let styleData;
+    let jsonText = styleAnalysis.trim(); // Declare outside try block for proper scope
     try {
       // Remove markdown code block wrapper if present
-      let jsonText = styleAnalysis.trim();
       
       // Handle various markdown wrapper formats
       if (jsonText.startsWith('```json')) {
