@@ -633,9 +633,9 @@ export default function ImageGenerator() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+      <div className="flex min-h-screen w-full overflow-x-hidden">
         {/* Main Content */}
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 min-w-0">
           {/* Header */}
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <div className="flex items-center gap-4">
@@ -664,7 +664,7 @@ export default function ImageGenerator() {
                       Settings
                     </Button>
                   </SheetTrigger>
-                  <SheetContent side="left" className="w-[400px] sm:w-[540px] overflow-y-auto">
+                  <SheetContent side="left" className="w-[85vw] max-w-sm sm:max-w-md overflow-y-auto">
                     <SheetHeader>
                       <SheetTitle>Image Style & Generation Settings</SheetTitle>
                       <SheetDescription>
@@ -691,7 +691,7 @@ export default function ImageGenerator() {
           </header>
 
           {/* Main Layout */}
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto p-6 min-w-0">
             <div className="flex flex-col space-y-3">
               {/* Responsive Layout */}
               {isNarrowViewport ? (
@@ -736,12 +736,12 @@ export default function ImageGenerator() {
                 /* Desktop Layout - Two columns */
                 <div className="grid grid-cols-12 gap-6">
                   {/* Left Column (33%) - Style + Settings */}
-                  <div className="col-span-4 space-y-6">
+                  <div className="col-span-4 space-y-6 min-w-0">
                     <StyleAndSettings />
                   </div>
 
                   {/* Right Column (66%) - Visual Concepts or Progress */}
-                  <div className="col-span-8 space-y-6">
+                  <div className="col-span-8 space-y-6 min-w-0">
                     {/* Show progress tracker during active generation states, otherwise show visual concepts input */}
                     {(currentJob?.status === 'running' || currentJob?.status === 'pending' || isGenerating) ? (
                       <BatchProgressTracker
