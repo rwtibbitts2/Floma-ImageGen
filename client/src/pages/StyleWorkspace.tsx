@@ -74,7 +74,7 @@ export default function StyleWorkspace() {
       const updateData = {
         name: styleName,
         description,
-        stylePrompt: styleData.style_name ? `${styleData.style_name}: ${styleData.description}` : styleData.description || 'AI-extracted style',
+        stylePrompt: styleData?.style_name ? `${styleData.style_name}: ${styleData.description}` : styleData?.description || 'AI-extracted style',
         aiStyleData: styleData,
         previewImageUrl,
         referenceImageUrl,
@@ -87,7 +87,7 @@ export default function StyleWorkspace() {
   // Preview generation mutation
   const previewMutation = useMutation({
     mutationFn: async (concept: string) => {
-      const stylePrompt = styleData.style_name ? `${styleData.style_name}: ${styleData.description}` : styleData.description || 'AI-extracted style';
+      const stylePrompt = styleData?.style_name ? `${styleData.style_name}: ${styleData.description}` : styleData?.description || 'AI-extracted style';
       const response = await fetch('/api/generate-style-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -343,7 +343,7 @@ export default function StyleWorkspace() {
                   <Label className="text-sm font-medium text-blue-600">Color palette</Label>
                   <div className="mt-2 space-y-2">
                     <div className="flex flex-wrap gap-2">
-                      {styleData.color_palette?.map((color: string, index: number) => (
+                      {(styleData.color_palette || []).map((color: string, index: number) => (
                         <div key={index} className="flex items-center gap-1">
                           <input
                             type="color"
