@@ -3,7 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, ArrowLeft, Download, ExternalLink, LogOut } from 'lucide-react';
+import { Moon, Sun, ArrowLeft, Download, ExternalLink, LogOut, Settings2 } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -74,10 +82,24 @@ export default function ImageGenerator() {
   const [regenerateImage, setRegenerateImage] = useState<GeneratedImage | null>(null);
   const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false);
   const [activeRegenerationJobs, setActiveRegenerationJobs] = useState<Set<string>>(new Set());
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
 
   const { toast } = useToast();
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [currentJob, setCurrentJob] = useState<GenerationJob | null>(null);
+  
+  // Detect viewport width for responsive design
+  useEffect(() => {
+    const checkViewportWidth = () => {
+      setIsNarrowViewport(window.innerWidth < 1000);
+    };
+    
+    checkViewportWidth();
+    window.addEventListener('resize', checkViewportWidth);
+    
+    return () => window.removeEventListener('resize', checkViewportWidth);
+  }, []);
   
   // Fetch image styles from API
   const { data: apiStyles = [], isLoading: stylesLoading } = useQuery({
@@ -589,6 +611,25 @@ export default function ImageGenerator() {
   };
 
   const totalImages = concepts.length * settings.variations;
+  
+  // Component for Style and Settings (used in both desktop and mobile layouts)
+  const StyleAndSettings = () => (
+    <div className="space-y-6">
+      <StyleSelector
+        selectedStyle={selectedStyle}
+        onStyleSelect={setSelectedStyle}
+        onUploadStyle={handleOpenStyleModal}
+        onEditStyle={handleEditStyle}
+        styles={apiStyles}
+        isLoading={stylesLoading}
+      />
+      
+      <GenerationSettings
+        settings={settings}
+        onSettingsChange={setSettings}
+      />
+    </div>
+  );
 
   return (
     <SidebarProvider>
@@ -610,6 +651,32 @@ export default function ImageGenerator() {
               <h1 className="text-xl font-semibold">Image Generator</h1>
             </div>
             <div className="flex items-center gap-2">
+              {/* Settings trigger for narrow viewports */}
+              {isNarrowViewport && (
+                <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-settings-drawer"
+                    >
+                      <Settings2 className="h-4 w-4 mr-2" />
+                      Settings
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[400px] sm:w-[540px] overflow-y-auto">
+                    <SheetHeader>
+                      <SheetTitle>Image Style & Generation Settings</SheetTitle>
+                      <SheetDescription>
+                        Configure your image style and generation parameters.
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div className="mt-6">
+                      <StyleAndSettings />
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -626,60 +693,89 @@ export default function ImageGenerator() {
           {/* Main Layout */}
           <main className="flex-1 overflow-y-auto p-6">
             <div className="flex flex-col space-y-3">
-              {/* Two columns */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                {/* Left Column (33%) - Style + Settings */}
-                <div className="md:col-span-4 space-y-6">
-                  <StyleSelector
-                    selectedStyle={selectedStyle}
-                    onStyleSelect={setSelectedStyle}
-                    onUploadStyle={handleOpenStyleModal}
-                    onEditStyle={handleEditStyle}
-                    styles={apiStyles}
-                    isLoading={stylesLoading}
-                  />
-                  
-                  <GenerationSettings
-                    settings={settings}
-                    onSettingsChange={setSettings}
-                  />
-                </div>
-
-                {/* Right Column (66%) - Visual Concepts or Progress */}
-                <div className="md:col-span-8 space-y-6">
-                  {/* Show progress tracker during active generation states, otherwise show visual concepts input */}
-                  {(currentJob?.status === 'running' || currentJob?.status === 'pending' || isGenerating) ? (
-                    <BatchProgressTracker
-                      totalConcepts={concepts.length}
-                      totalVariations={settings.variations}
-                      completedImages={currentProgress}
-                      failedImages={0}
-                      currentConcept={currentConcept}
-                      isRunning={isGenerating}
-                      onPause={handlePauseGeneration}
-                      onResume={handleResumeGeneration}
-                      onStop={handleStopGeneration}
-                      recentImages={generatedImages.slice(-4)}
-                    />
-                  ) : (
-                    <>
-                      <VisualConceptsInput
-                        concepts={concepts}
-                        onConceptsChange={setConcepts}
-                        onUploadFile={handleUploadConceptsFile}
-                      />
-                      
-                      <GenerationSummaryAction
-                        selectedStyle={selectedStyle}
-                        concepts={concepts}
-                        settings={settings}
+              {/* Responsive Layout */}
+              {isNarrowViewport ? (
+                /* Mobile Layout - Single column */
+                <div className="space-y-6">
+                  {/* Visual Concepts and Progress take full width */}
+                  <div className="w-full">
+                    {/* Show progress tracker during active generation states, otherwise show visual concepts input */}
+                    {(currentJob?.status === 'running' || currentJob?.status === 'pending' || isGenerating) ? (
+                      <BatchProgressTracker
+                        totalConcepts={concepts.length}
+                        totalVariations={settings.variations}
+                        completedImages={currentProgress}
+                        failedImages={0}
+                        currentConcept={currentConcept}
                         isRunning={isGenerating}
-                        onStartGeneration={handleStartGeneration}
+                        onPause={handlePauseGeneration}
+                        onResume={handleResumeGeneration}
+                        onStop={handleStopGeneration}
+                        recentImages={generatedImages.slice(-4)}
                       />
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <VisualConceptsInput
+                          concepts={concepts}
+                          onConceptsChange={setConcepts}
+                          onUploadFile={handleUploadConceptsFile}
+                        />
+                        
+                        <GenerationSummaryAction
+                          selectedStyle={selectedStyle}
+                          concepts={concepts}
+                          settings={settings}
+                          isRunning={isGenerating}
+                          onStartGeneration={handleStartGeneration}
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Desktop Layout - Two columns */
+                <div className="grid grid-cols-12 gap-6">
+                  {/* Left Column (33%) - Style + Settings */}
+                  <div className="col-span-4 space-y-6">
+                    <StyleAndSettings />
+                  </div>
+
+                  {/* Right Column (66%) - Visual Concepts or Progress */}
+                  <div className="col-span-8 space-y-6">
+                    {/* Show progress tracker during active generation states, otherwise show visual concepts input */}
+                    {(currentJob?.status === 'running' || currentJob?.status === 'pending' || isGenerating) ? (
+                      <BatchProgressTracker
+                        totalConcepts={concepts.length}
+                        totalVariations={settings.variations}
+                        completedImages={currentProgress}
+                        failedImages={0}
+                        currentConcept={currentConcept}
+                        isRunning={isGenerating}
+                        onPause={handlePauseGeneration}
+                        onResume={handleResumeGeneration}
+                        onStop={handleStopGeneration}
+                        recentImages={generatedImages.slice(-4)}
+                      />
+                    ) : (
+                      <>
+                        <VisualConceptsInput
+                          concepts={concepts}
+                          onConceptsChange={setConcepts}
+                          onUploadFile={handleUploadConceptsFile}
+                        />
+                        
+                        <GenerationSummaryAction
+                          selectedStyle={selectedStyle}
+                          concepts={concepts}
+                          settings={settings}
+                          isRunning={isGenerating}
+                          onStartGeneration={handleStartGeneration}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Persistent Session Gallery - Always at bottom, full width */}
