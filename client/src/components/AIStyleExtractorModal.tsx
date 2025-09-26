@@ -127,8 +127,8 @@ export default function AIStyleExtractorModal({
     mutationFn: async (data?: { styleData: any, concept: string }) => {
       const finalStyleData = data?.styleData || extractedStyleData;
       const stylePayload = {
-        name: styleName,
-        description,
+        name: finalStyleData?.style_name || 'AI Extracted Style',
+        description: finalStyleData?.description || '',
         stylePrompt: finalStyleData.style_name ? `${finalStyleData.style_name}: ${finalStyleData.description}` : finalStyleData.description || 'AI-extracted style',
         referenceImageUrl,
         isAiExtracted: true,
@@ -219,15 +219,6 @@ export default function AIStyleExtractorModal({
   };
 
   const handleSaveAndNavigate = async (styleData: any, concept: string) => {
-    if (!styleName.trim()) {
-      toast({
-        title: 'Name Required',
-        description: 'Please enter a name for this style.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     try {
       const savedStyle = await saveMutation.mutateAsync({ styleData, concept });
       
