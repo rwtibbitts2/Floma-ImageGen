@@ -10,11 +10,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Users, Shield, UserPlus, ToggleLeft, ToggleRight, AlertTriangle, Home } from 'lucide-react';
-import { getAllUsers, createUser, toggleUserStatus, updateUserRole, type CreateUserRequest, type User } from '@/lib/api';
+import { Users, Shield, UserPlus, ToggleLeft, ToggleRight, AlertTriangle, Home, Settings, Save } from 'lucide-react';
+import { getAllUsers, createUser, toggleUserStatus, updateUserRole, getUserPreferences, updateUserPreferences, type CreateUserRequest, type User, type UserPreferences, type UpdatePreferencesRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { queryClient } from '@/lib/queryClient';
@@ -25,18 +26,31 @@ const createUserSchema = z.object({
   role: z.enum(['admin', 'user']).default('user'),
 });
 
+const promptSettingsSchema = z.object({
+  defaultExtractionPrompt: z.string().min(1, 'Extraction prompt is required'),
+  defaultConceptPrompt: z.string().min(1, 'Concept prompt is required'),
+});
+
 type CreateUserFormData = z.infer<typeof createUserSchema>;
+type PromptSettingsFormData = z.infer<typeof promptSettingsSchema>;
 
 export default function AdminPanel() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const [, setLocation] = useLocation();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showPromptSettings, setShowPromptSettings] = useState(false);
 
   // Fetch all users
   const { data: users = [], isLoading, error } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: getAllUsers,
+  });
+
+  // Fetch user preferences for default prompts
+  const { data: userPreferences, isLoading: preferencesLoading } = useQuery({
+    queryKey: ['/api/preferences'],
+    queryFn: getUserPreferences,
   });
 
   // Create user mutation
@@ -99,6 +113,26 @@ export default function AdminPanel() {
     },
   });
 
+  // Update preferences mutation
+  const updatePreferencesMutation = useMutation({
+    mutationFn: updateUserPreferences,
+    onSuccess: () => {
+      toast({
+        title: 'Preferences updated',
+        description: 'Default prompts have been saved successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/preferences'] });
+      setShowPromptSettings(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Failed to update preferences',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Form setup
   const form = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
@@ -109,8 +143,21 @@ export default function AdminPanel() {
     },
   });
 
+  // Prompt settings form setup
+  const promptForm = useForm<PromptSettingsFormData>({
+    resolver: zodResolver(promptSettingsSchema),
+    defaultValues: {
+      defaultExtractionPrompt: userPreferences?.defaultExtractionPrompt || 'Analyze this image and extract its visual style characteristics including colors, composition, lighting, textures, and artistic elements. Focus on style attributes that can be replicated in generated images.',
+      defaultConceptPrompt: userPreferences?.defaultConceptPrompt || 'Generate 5 creative visual concepts based on the provided style. Each concept should be a brief, imaginative description that would work well for image generation. Format as a simple numbered list.',
+    },
+  });
+
   const onSubmit = (data: CreateUserFormData) => {
     createUserMutation.mutate(data);
+  };
+
+  const onPromptSettingsSubmit = (data: PromptSettingsFormData) => {
+    updatePreferencesMutation.mutate(data);
   };
 
   const handleToggleStatus = (userId: string) => {
@@ -183,6 +230,15 @@ export default function AdminPanel() {
             >
               <UserPlus className="h-4 w-4" />
               {showCreateForm ? 'Cancel' : 'Create User'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowPromptSettings(!showPromptSettings)}
+              className="flex items-center gap-2"
+              data-testid="button-toggle-prompt-settings"
+            >
+              <Settings className="h-4 w-4" />
+              {showPromptSettings ? 'Cancel' : 'Default Prompts'}
             </Button>
           </div>
         </div>
@@ -275,6 +331,88 @@ export default function AdminPanel() {
                       variant="outline"
                       onClick={() => setShowCreateForm(false)}
                       data-testid="button-create-user-cancel"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Prompt Settings Form */}
+        {showPromptSettings && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Default Extraction Prompts
+              </CardTitle>
+              <CardDescription>
+                Configure the default prompts used for AI style extraction and concept generation. These prompts will be pre-loaded when users extract styles from images.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...promptForm}>
+                <form onSubmit={promptForm.handleSubmit(onPromptSettingsSubmit)} className="space-y-6">
+                  <FormField
+                    control={promptForm.control}
+                    name="defaultExtractionPrompt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Default Style Extraction Prompt</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter the default prompt for extracting visual styles from images..."
+                            className="min-h-32"
+                            data-testid="textarea-extraction-prompt"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          This prompt instructs the AI how to analyze and extract visual style characteristics from uploaded images.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={promptForm.control}
+                    name="defaultConceptPrompt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Default Concept Generation Prompt</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter the default prompt for generating visual concepts..."
+                            className="min-h-32"
+                            data-testid="textarea-concept-prompt"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          This prompt instructs the AI how to generate creative visual concepts based on the extracted style.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      disabled={updatePreferencesMutation.isPending}
+                      className="flex items-center gap-2"
+                      data-testid="button-save-prompts"
+                    >
+                      <Save className="h-4 w-4" />
+                      {updatePreferencesMutation.isPending ? 'Saving...' : 'Save Prompts'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowPromptSettings(false)}
+                      data-testid="button-cancel-prompts"
                     >
                       Cancel
                     </Button>

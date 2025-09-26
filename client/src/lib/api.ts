@@ -385,3 +385,46 @@ export const getWorkingSession = async () => {
   }
   return response.json();
 };
+
+// User Preferences API
+export interface UserPreferences {
+  id: string;
+  userId: string;
+  defaultExtractionPrompt: string | null;
+  defaultConceptPrompt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdatePreferencesRequest {
+  defaultExtractionPrompt: string;
+  defaultConceptPrompt: string;
+}
+
+export const getUserPreferences = async (): Promise<UserPreferences | null> => {
+  const response = await fetch(`${API_BASE}/preferences`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) {
+    return null; // No preferences set yet
+  }
+  if (!response.ok) {
+    throw new Error('Failed to get user preferences');
+  }
+  return response.json();
+};
+
+export const updateUserPreferences = async (preferences: UpdatePreferencesRequest): Promise<UserPreferences> => {
+  const response = await fetch(`${API_BASE}/preferences`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(preferences),
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update user preferences');
+  }
+  return response.json();
+};
