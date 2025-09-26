@@ -29,12 +29,14 @@ export default function StyleWorkspace() {
   const [location] = useLocation();
   const { toast } = useToast();
   
-  // Extract styleId from URL parameters
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  // Extract styleId from URL parameters using window.location for full URL
+  const fullUrl = window.location.search;
+  const urlParams = new URLSearchParams(fullUrl);
   const styleId = urlParams.get('id');
   
   // Debug logging
   console.log('Current location:', location);
+  console.log('Full URL search:', fullUrl);
   console.log('URL params:', urlParams.toString());
   console.log('Extracted styleId:', styleId);
   
