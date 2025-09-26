@@ -79,21 +79,18 @@ export default function StyleWorkspace() {
     },
   });
 
-  // Preview generation mutation
-  const previewMutation = useMutation({
-    mutationFn: async (concept: string) => {
-      const stylePrompt = styleData?.style_name ? `${styleData.style_name}: ${styleData.description}` : styleData?.description || 'AI-extracted style';
-      const response = await fetch('/api/generate-style-preview', {
+  // Style refinement mutation
+  const refineMutation = useMutation({
+    mutationFn: async (feedback: string) => {
+      const response = await fetch('/api/refine-style', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          styleData: {
-            style: stylePrompt
-          },
-          concept: concept,
+          styleData: styleData || {},
+          feedback: feedback,
         }),
       });
-      if (!response.ok) throw new Error('Preview generation failed');
+      if (!response.ok) throw new Error('Style refinement failed');
       return response.json();
     },
   });
@@ -114,28 +111,28 @@ export default function StyleWorkspace() {
     }
   };
 
-  const handleGeneratePreview = async () => {
+  const handleRefineStyle = async () => {
     if (!chatMessage.trim()) {
       toast({
-        title: 'Concept Required',
-        description: 'Please enter a concept to generate a preview.',
+        title: 'Feedback Required',
+        description: 'Please enter feedback to refine the style definition.',
         variant: 'destructive'
       });
       return;
     }
 
     try {
-      const result = await previewMutation.mutateAsync(chatMessage);
-      setPreviewImageUrl(result.imageUrl);
+      const result = await refineMutation.mutateAsync(chatMessage);
+      setStyleData(result.refinedStyleData);
       setChatMessage('');
       toast({
-        title: 'Preview Generated',
-        description: 'Your style preview has been generated successfully.'
+        title: 'Style Refined',
+        description: 'Your style definition has been successfully refined with your feedback.'
       });
     } catch (error) {
       toast({
-        title: 'Preview Failed',
-        description: 'Failed to generate preview. Please try again.',
+        title: 'Refinement Failed',
+        description: 'Failed to refine the style definition. Please try again.',
         variant: 'destructive'
       });
     }
@@ -268,27 +265,27 @@ export default function StyleWorkspace() {
             </div>
             <div className="space-y-2">
               <Textarea
-                placeholder="Describe changes or generate a preview..."
+                placeholder="Describe changes to refine your style definition..."
                 value={chatMessage}
                 onChange={(e) => setChatMessage(e.target.value)}
                 rows={3}
                 className="resize-none"
               />
               <Button 
-                onClick={handleGeneratePreview}
-                disabled={previewMutation.isPending || !chatMessage.trim()}
+                onClick={handleRefineStyle}
+                disabled={refineMutation.isPending || !chatMessage.trim()}
                 size="sm" 
                 className="w-full gap-2"
               >
-                {previewMutation.isPending ? (
+                {refineMutation.isPending ? (
                   <>
                     <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                    Generating...
+                    Refining...
                   </>
                 ) : (
                   <>
                     <Send className="w-3 h-3" />
-                    Generate preview
+                    Refine style definition
                   </>
                 )}
               </Button>
@@ -445,8 +442,8 @@ export default function StyleWorkspace() {
               <div className="aspect-square rounded-lg bg-muted border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
                 <div className="text-center text-muted-foreground">
                   <ImageIcon className="w-12 h-12 mx-auto mb-2" />
-                  <p className="text-sm">No preview generated</p>
-                  <p className="text-xs">Use the chat to generate a preview</p>
+                  <p className="text-sm">No example output yet</p>
+                  <p className="text-xs">Use the feedback chat to refine your style</p>
                 </div>
               </div>
             )}
@@ -454,7 +451,7 @@ export default function StyleWorkspace() {
             {previewImageUrl && (
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">
-                  Generated using concept: "{chatMessage}"
+                  Example output from this style
                 </p>
               </div>
             )}
