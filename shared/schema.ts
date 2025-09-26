@@ -76,6 +76,16 @@ export const projectSessions = pgTable("project_sessions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// User Preferences - for storing default extraction prompts and other settings
+export const userPreferences = pgTable("user_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  defaultExtractionPrompt: text("default_extraction_prompt"),
+  defaultConceptPrompt: text("default_concept_prompt"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zod Schemas
 export const generationSettingsSchema = z.object({
   model: z.enum(["dall-e-2", "dall-e-3", "gpt-image-1"]).default("dall-e-3"),
@@ -93,12 +103,14 @@ export const insertImageStyleSchema = createInsertSchema(imageStyles).omit({ id:
 export const insertGenerationJobSchema = createInsertSchema(generationJobs).omit({ id: true, createdAt: true, status: true, progress: true });
 export const insertGeneratedImageSchema = createInsertSchema(generatedImages).omit({ id: true, createdAt: true, status: true });
 export const insertProjectSessionSchema = createInsertSchema(projectSessions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Relations - Updated for user authentication
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   projectSessions: many(projectSessions),
   generationJobs: many(generationJobs), 
   generatedImages: many(generatedImages),
+  preferences: one(userPreferences),
 }));
 
 export const imageStylesRelations = relations(imageStyles, ({ many, one }) => ({
@@ -156,6 +168,13 @@ export const projectSessionsRelations = relations(projectSessions, ({ one, many 
   generationJobs: many(generationJobs),
 }));
 
+export const userPreferencesRelations = relations(userPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [userPreferences.userId],
+    references: [users.id],
+  }),
+}));
+
 // Types - From blueprint:javascript_auth_all_persistance
 export type GenerationSettings = z.infer<typeof generationSettingsSchema>;
 export type User = typeof users.$inferSelect;
@@ -168,3 +187,5 @@ export type GeneratedImage = typeof generatedImages.$inferSelect;
 export type InsertGeneratedImage = z.infer<typeof insertGeneratedImageSchema>;
 export type ProjectSession = typeof projectSessions.$inferSelect;
 export type InsertProjectSession = z.infer<typeof insertProjectSessionSchema>;
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
