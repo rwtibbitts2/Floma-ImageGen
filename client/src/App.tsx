@@ -10,6 +10,7 @@ import Home from "@/pages/Home";
 import ImageGenerator from "@/pages/ImageGenerator";
 import StyleManagement from "@/pages/StyleManagement";
 import StyleWorkspace from "@/pages/StyleWorkspace";
+import PromptManagement from "@/pages/PromptManagement";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 import LoginForm from "@/components/LoginForm";
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/generate" component={ImageGenerator} />
       <Route path="/styles" component={StyleManagement} />
+      <Route path="/prompts" component={PromptManagement} />
       <Route path="/workspace" component={StyleWorkspace} />
       <Route path="/admin" component={AdminPanel} />
       {/* Fallback to 404 */}

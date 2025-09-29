@@ -28,10 +28,11 @@ import {
   ChevronDown,
   Settings
 } from 'lucide-react';
-import { ImageStyle } from '@shared/schema';
+import { ImageStyle, SystemPrompt } from '@shared/schema';
 import * as api from '@/lib/api';
 import { getUserPreferences } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import PromptSelector from '@/components/PromptSelector';
 
 interface AIStyleExtractorModalProps {
   isOpen: boolean;
@@ -58,6 +59,8 @@ export default function AIStyleExtractorModal({
   const [description, setDescription] = useState('');
   const [extractionPrompt, setExtractionPrompt] = useState(DEFAULT_EXTRACTION_PROMPT);
   const [conceptPrompt, setConceptPrompt] = useState(DEFAULT_CONCEPT_PROMPT);
+  const [selectedExtractionPromptId, setSelectedExtractionPromptId] = useState<string | undefined>(undefined);
+  const [selectedConceptPromptId, setSelectedConceptPromptId] = useState<string | undefined>(undefined);
   const [extractedStyleData, setExtractedStyleData] = useState<any>(null);
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState('');
@@ -82,9 +85,11 @@ export default function AIStyleExtractorModal({
       // Only use user preferences if not editing an existing style and not already initialized
       if (userPreferences.defaultExtractionPrompt) {
         setExtractionPrompt(userPreferences.defaultExtractionPrompt);
+        setSelectedExtractionPromptId(undefined); // Clear selection since we're using custom text
       }
       if (userPreferences.defaultConceptPrompt) {
         setConceptPrompt(userPreferences.defaultConceptPrompt);
+        setSelectedConceptPromptId(undefined); // Clear selection since we're using custom text
       }
       setPreferencesInitialized(true);
     }
@@ -105,6 +110,8 @@ export default function AIStyleExtractorModal({
       setDescription(editingStyle.description || '');
       setExtractionPrompt(editingStyle.extractionPrompt || DEFAULT_EXTRACTION_PROMPT);
       setConceptPrompt(editingStyle.conceptPrompt || DEFAULT_CONCEPT_PROMPT);
+      setSelectedExtractionPromptId(undefined); // Clear selection when editing - prompts are from the style
+      setSelectedConceptPromptId(undefined); // Clear selection when editing - prompts are from the style
       setReferenceImageUrl(editingStyle.referenceImageUrl || '');
       setPreviewImageUrl(editingStyle.previewImageUrl || '');
       if (editingStyle.aiStyleData) {
@@ -287,6 +294,8 @@ export default function AIStyleExtractorModal({
     setDescription('');
     setExtractionPrompt(DEFAULT_EXTRACTION_PROMPT);
     setConceptPrompt(DEFAULT_CONCEPT_PROMPT);
+    setSelectedExtractionPromptId(undefined);
+    setSelectedConceptPromptId(undefined);
     setExtractedStyleData(null);
     setGeneratedConcept('');
     setPreviewImageUrl('');
@@ -416,34 +425,54 @@ export default function AIStyleExtractorModal({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-4 pt-4">
+          <PromptSelector
+            category="style_extraction"
+            selectedPromptId={selectedExtractionPromptId}
+            onPromptSelect={(prompt: SystemPrompt) => {
+              setSelectedExtractionPromptId(prompt.id);
+              setExtractionPrompt(prompt.promptText);
+            }}
+            description="Select a template for analyzing and extracting visual style characteristics"
+          />
+
           <div className="space-y-2">
-            <Label htmlFor="extraction-prompt">Style Extraction Prompt</Label>
+            <Label htmlFor="extraction-prompt">Style Extraction Prompt (Editable)</Label>
             <Textarea
               id="extraction-prompt"
               value={extractionPrompt}
-              onChange={(e) => setExtractionPrompt(e.target.value)}
+              onChange={(e) => {
+                setExtractionPrompt(e.target.value);
+                setSelectedExtractionPromptId(undefined); // Clear selection on manual edit
+              }}
               rows={6}
               className="resize-none"
               data-testid="textarea-extraction-prompt"
             />
-            <p className="text-xs text-muted-foreground">
-              This prompt guides the AI in analyzing and extracting visual style characteristics from your reference image.
-            </p>
           </div>
 
+          <PromptSelector
+            category="concept_generation"
+            selectedPromptId={selectedConceptPromptId}
+            onPromptSelect={(prompt: SystemPrompt) => {
+              setSelectedConceptPromptId(prompt.id);
+              setConceptPrompt(prompt.promptText);
+            }}
+            description="Select a template for generating creative visual concepts"
+          />
+
           <div className="space-y-2">
-            <Label htmlFor="concept-prompt">Concept Generation Prompt</Label>
+            <Label htmlFor="concept-prompt">Concept Generation Prompt (Editable)</Label>
             <Textarea
               id="concept-prompt"
               value={conceptPrompt}
-              onChange={(e) => setConceptPrompt(e.target.value)}
+              onChange={(e) => {
+                setConceptPrompt(e.target.value);
+                setSelectedConceptPromptId(undefined); // Clear selection on manual edit
+              }}
               rows={4}
               className="resize-none"
               data-testid="textarea-concept-prompt"
             />
-            <p className="text-xs text-muted-foreground">
-              This prompt instructs the AI how to generate creative visual concepts based on the extracted style.
-            </p>
           </div>
         </CollapsibleContent>
       </Collapsible>

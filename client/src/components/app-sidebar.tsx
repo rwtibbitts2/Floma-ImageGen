@@ -1,4 +1,4 @@
-import { Home, ImageIcon, Palette, Settings, LogOut } from "lucide-react";
+import { Home, ImageIcon, Palette, FileText, Settings, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -28,6 +28,11 @@ const navigationItems = [
     title: "Style Management",
     url: "/styles",
     icon: Palette,
+  },
+  {
+    title: "Prompt Management",
+    url: "/prompts",
+    icon: FileText,
   },
 ];
 
