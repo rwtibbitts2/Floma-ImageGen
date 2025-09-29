@@ -1463,7 +1463,7 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 
     console.log('Raw concept response:', concept);
 
-    // Parse JSON response if it's in that format and extract the concept
+    // Parse JSON response to validate and clean, but keep the full structure
     try {
       // Remove markdown code blocks if present
       let cleanedConcept = concept;
@@ -1474,38 +1474,14 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
       }
       
       cleanedConcept = cleanedConcept.trim();
-      console.log('Cleaned concept for parsing:', cleanedConcept.substring(0, 200));
       
-      // Try to parse as JSON and extract the concept from various possible fields
-      const parsedConcept = JSON.parse(cleanedConcept);
-      
-      // Check for common concept field names in order of preference
-      const conceptFields = [
-        'subject',      // Most descriptive for image generation
-        'metaphor',     // Also very descriptive
-        'concept',      // Generic concept field
-        'Concept',      // Capital C version
-        'title',        // Shorter but useful
-        'description',  // Fallback
-        'message'       // Last resort
-      ];
-      
-      let conceptExtracted = false;
-      for (const field of conceptFields) {
-        if (parsedConcept[field]) {
-          concept = parsedConcept[field];
-          console.log(`✓ Extracted concept from field '${field}':`, concept);
-          conceptExtracted = true;
-          break;
-        }
-      }
-      
-      if (!conceptExtracted) {
-        console.log('JSON parsed but no recognized concept field found. Available fields:', Object.keys(parsedConcept));
-      }
+      // Try to parse as JSON - if successful, use the cleaned JSON string
+      JSON.parse(cleanedConcept); // Just validate it's valid JSON
+      concept = cleanedConcept; // Use the full cleaned JSON string
+      console.log('✓ Using full concept JSON (parsed and validated)');
     } catch (parseError) {
       // If not JSON, use the concept as-is
-      console.log('Concept not in JSON format, using as-is. Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
+      console.log('Concept not in JSON format, using raw text. Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
     }
 
     res.json({
