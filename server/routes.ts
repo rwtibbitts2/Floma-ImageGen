@@ -1453,13 +1453,15 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
           ]
         }
       ],
-      max_tokens: 100,
+      max_tokens: 300, // Increased to allow complete JSON responses
     });
 
     let concept = conceptResponse.choices[0]?.message?.content?.trim();
     if (!concept) {
       throw new Error('No concept generated from OpenAI');
     }
+
+    console.log('Raw concept response:', concept);
 
     // Parse JSON response if it's in that format and extract the concept
     try {
@@ -1470,6 +1472,9 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
       } else if (cleanedConcept.includes('```')) {
         cleanedConcept = cleanedConcept.replace(/```\s*/g, '').replace(/```/g, '');
       }
+      
+      cleanedConcept = cleanedConcept.trim();
+      console.log('Cleaned concept for parsing:', cleanedConcept.substring(0, 200));
       
       // Try to parse as JSON and extract the concept from various possible fields
       const parsedConcept = JSON.parse(cleanedConcept);
@@ -1485,16 +1490,22 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
         'message'       // Last resort
       ];
       
+      let conceptExtracted = false;
       for (const field of conceptFields) {
         if (parsedConcept[field]) {
           concept = parsedConcept[field];
-          console.log(`Extracted concept from field '${field}':`, concept);
+          console.log(`✓ Extracted concept from field '${field}':`, concept);
+          conceptExtracted = true;
           break;
         }
       }
+      
+      if (!conceptExtracted) {
+        console.log('JSON parsed but no recognized concept field found. Available fields:', Object.keys(parsedConcept));
+      }
     } catch (parseError) {
       // If not JSON, use the concept as-is
-      console.log('Concept not in JSON format, using as-is');
+      console.log('Concept not in JSON format, using as-is. Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
     }
 
     res.json({
