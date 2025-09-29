@@ -441,7 +441,7 @@ export class DatabaseStorage implements IStorage {
       .insert(users)
       .values({
         ...insertUser,
-        createdAt: new Date(),
+        role: insertUser.role as "admin" | "user" | null,
         updatedAt: new Date()
       })
       .returning();
@@ -449,9 +449,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const updateData = { 
+      ...updates, 
+      updatedAt: new Date() 
+    };
+    if (updates.role) {
+      updateData.role = updates.role as "admin" | "user" | null;
+    }
     const [updated] = await db
       .update(users)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(users.id, id))
       .returning();
     return updated || undefined;
@@ -511,7 +518,10 @@ export class DatabaseStorage implements IStorage {
   async createGenerationJob(insertJob: InsertGenerationJob): Promise<GenerationJob> {
     const [job] = await db
       .insert(generationJobs)
-      .values(insertJob)
+      .values({
+        ...insertJob,
+        visualConcepts: insertJob.visualConcepts as string[]
+      })
       .returning();
     return job;
   }
@@ -586,7 +596,7 @@ export class DatabaseStorage implements IStorage {
       name: insertSession.name || null,
       displayName: insertSession.displayName,
       styleId: insertSession.styleId || null,
-      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts : [],
+      visualConcepts: Array.isArray(insertSession.visualConcepts) ? insertSession.visualConcepts as string[] : [] as string[],
       settings: insertSession.settings as GenerationSettings,
       isTemporary: Boolean(insertSession.isTemporary) || false,
       hasUnsavedChanges: Boolean(insertSession.hasUnsavedChanges) || false
@@ -607,7 +617,7 @@ export class DatabaseStorage implements IStorage {
     if (updates.displayName !== undefined) safeUpdates.displayName = updates.displayName;
     if (updates.styleId !== undefined) safeUpdates.styleId = updates.styleId;
     if (updates.visualConcepts !== undefined) {
-      safeUpdates.visualConcepts = Array.isArray(updates.visualConcepts) ? updates.visualConcepts : [];
+      safeUpdates.visualConcepts = Array.isArray(updates.visualConcepts) ? updates.visualConcepts as string[] : [] as string[];
     }
     if (updates.settings !== undefined) {
       safeUpdates.settings = updates.settings as GenerationSettings;
