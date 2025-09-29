@@ -20,8 +20,14 @@ import type { Request } from 'express';
 const router = express.Router();
 
 // Initialize OpenAI client
+const apiKey = process.env.OPENAI_API_KEY;
+console.log('=== OpenAI Initialization ===');
+console.log('OPENAI_API_KEY exists:', !!apiKey);
+console.log('OPENAI_API_KEY length:', apiKey?.length || 0);
+console.log('OPENAI_API_KEY first 10 chars:', apiKey?.substring(0, 10) || 'NONE');
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: apiKey,
 });
 
 // Configure multer for file uploads
