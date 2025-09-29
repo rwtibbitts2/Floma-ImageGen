@@ -4,7 +4,7 @@
 
 This is an enterprise-grade batch image generation application built with React and Express.js. The application enables professional users to generate multiple AI-powered images at scale using OpenAI's image generation API. It features a workflow-first design inspired by professional creative tools like Figma and Adobe Creative Suite, focusing on batch processing with style consistency across generated images.
 
-The application provides a comprehensive workflow for managing image styles, inputting visual concepts in bulk, configuring generation settings, tracking batch progress in real-time, and organizing results in a professional gallery interface.
+The application provides a comprehensive workflow for managing image styles, inputting visual concepts in bulk, configuring generation settings, tracking batch progress in real-time, and organizing results in a professional gallery interface. It also includes an AI-powered concept generator that analyzes reference images and marketing content to produce creative visual concepts for marketing campaigns.
 
 ## User Preferences
 
@@ -29,15 +29,16 @@ Preferred communication style: Simple, everyday language.
 
 **Database Design**
 - PostgreSQL database with Drizzle ORM for type-safe database operations
-- Three core entities: ImageStyles (reusable prompt templates), GenerationJobs (batch operations), and GeneratedImages (individual results)
-- Schema supports tracking generation progress, status management, and image metadata
+- Core entities: ImageStyles (reusable prompt templates), GenerationJobs (batch operations), GeneratedImages (individual results), ConceptLists (AI-generated marketing concepts)
+- Schema supports tracking generation progress, status management, image metadata, and concept list management
 - Migration system using Drizzle Kit for database version control
 
 **Component Architecture**
-- Modular UI components including StyleSelector, VisualConceptsInput, GenerationSettings, BatchProgressTracker, and ResultsGallery
+- Modular UI components including StyleSelector, VisualConceptsInput, GenerationSettings, BatchProgressTracker, ResultsGallery, and ConceptGeneratorModal
 - Each component follows single responsibility principle with clear prop interfaces
 - Real-time progress tracking with thumbnail previews during batch generation
 - Professional workflow components designed for repeated enterprise use
+- Multi-step modals for AI-powered style extraction and concept generation workflows
 
 **Design System**
 - Custom Tailwind configuration with enterprise-focused color palette
