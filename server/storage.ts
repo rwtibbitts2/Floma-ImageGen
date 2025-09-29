@@ -1,6 +1,6 @@
 import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, desc, inArray, and, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -420,7 +420,7 @@ export class DatabaseStorage implements IStorage {
     // Initialize PostgreSQL session store - From blueprint:javascript_auth_all_persistance
     const PostgresSessionStore = connectPg(session);
     this.sessionStore = new PostgresSessionStore({ 
-      pool: (db as any).pool, // Access the underlying pool
+      pool: pool, // Use the imported pool directly
       createTableIfMissing: true 
     }) as SessionStore;
   }
