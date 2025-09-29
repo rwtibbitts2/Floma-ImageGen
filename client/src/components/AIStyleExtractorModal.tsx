@@ -124,8 +124,17 @@ export default function AIStyleExtractorModal({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('image', file);
+      
+      // Get JWT token for authentication
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/upload-reference-image', {
         method: 'POST',
+        headers,
         body: formData,
       });
       if (!response.ok) throw new Error('Upload failed');
