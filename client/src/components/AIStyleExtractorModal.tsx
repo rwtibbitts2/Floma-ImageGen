@@ -59,6 +59,7 @@ export default function AIStyleExtractorModal({
   const [description, setDescription] = useState('');
   const [extractionPrompt, setExtractionPrompt] = useState(DEFAULT_EXTRACTION_PROMPT);
   const [conceptPrompt, setConceptPrompt] = useState(DEFAULT_CONCEPT_PROMPT);
+  const [instructions, setInstructions] = useState('');
   const [selectedExtractionPromptId, setSelectedExtractionPromptId] = useState<string | undefined>(undefined);
   const [selectedConceptPromptId, setSelectedConceptPromptId] = useState<string | undefined>(undefined);
   const [extractedStyleData, setExtractedStyleData] = useState<any>(null);
@@ -144,12 +145,17 @@ export default function AIStyleExtractorModal({
 
   const extractStyleMutation = useMutation({
     mutationFn: async () => {
+      // Combine extraction prompt with optional instructions
+      const finalExtractionPrompt = instructions
+        ? `${extractionPrompt}\n\nAdditional Instructions: ${instructions}`
+        : extractionPrompt;
+      
       const response = await fetch('/api/extract-style', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageUrl: referenceImageUrl,
-          extractionPrompt,
+          extractionPrompt: finalExtractionPrompt,
           conceptPrompt,
         }),
       });
@@ -303,6 +309,7 @@ export default function AIStyleExtractorModal({
     setDescription('');
     setExtractionPrompt(DEFAULT_EXTRACTION_PROMPT);
     setConceptPrompt(DEFAULT_CONCEPT_PROMPT);
+    setInstructions('');
     setSelectedExtractionPromptId(undefined);
     setSelectedConceptPromptId(undefined);
     setExtractedStyleData(null);
@@ -411,6 +418,22 @@ export default function AIStyleExtractorModal({
         <p className="text-sm text-muted-foreground">
           The AI will automatically generate a style name and description based on your reference image. 
           You can edit these later in the workspace.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="extraction-instructions">Special Instructions (Optional)</Label>
+        <Textarea
+          id="extraction-instructions"
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          rows={2}
+          placeholder='e.g., "ignore the background colors and focus only on the image subjects"'
+          className="resize-none"
+          data-testid="textarea-extraction-instructions"
+        />
+        <p className="text-xs text-muted-foreground">
+          Add specific guidance for the AI during style extraction
         </p>
       </div>
 
