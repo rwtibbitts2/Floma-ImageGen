@@ -37,6 +37,9 @@ export function setupAuth(app: Express) {
     throw new Error('SESSION_SECRET environment variable is required for authentication');
   }
 
+  // Detect if running in Replit environment (preview iframe requires SameSite=None)
+  const isReplit = !!process.env.REPL_ID;
+  
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
     resave: false,
@@ -45,10 +48,14 @@ export function setupAuth(app: Express) {
     cookie: {
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      secure: process.env.NODE_ENV === 'production', // Only HTTPS in prod
-      sameSite: 'lax' // Works with Replit's preview domain structure
+      // Replit preview (iframe) needs secure=true + sameSite=none
+      // Local dev needs secure=false + sameSite=lax
+      secure: isReplit ? true : false,
+      sameSite: isReplit ? 'none' : 'lax'
     }
   };
+
+  console.log(`[Auth] Environment: ${isReplit ? 'Replit' : 'Local'}, Cookie config: { secure: ${sessionSettings.cookie?.secure}, sameSite: '${sessionSettings.cookie?.sameSite}' }`);
 
   app.set("trust proxy", 1);
   app.use(session(sessionSettings));
