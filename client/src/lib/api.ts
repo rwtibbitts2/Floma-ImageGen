@@ -3,6 +3,23 @@ import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectS
 
 const API_BASE = '/api';
 
+// Helper function to make authenticated fetch requests
+async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> || {}),
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+}
+
 // Authentication types
 export interface LoginRequest {
   email: string;
@@ -22,6 +39,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   lastLogin: string | null;
+  token?: string; // JWT token returned on login
 }
 
 // Authentication API
@@ -32,21 +50,33 @@ export const login = async (credentials: LoginRequest): Promise<User> => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(credentials),
-    credentials: 'include', // Include cookies for session
   });
   if (!response.ok) {
     throw new Error('Invalid email or password');
   }
-  return response.json();
+  const user = await response.json();
+  
+  // Store JWT token in localStorage
+  if (user.token) {
+    localStorage.setItem('authToken', user.token);
+  }
+  
+  return user;
 };
 
 // Register function removed - now admin-only user creation
 
 export const logout = async (): Promise<void> => {
+  const token = localStorage.getItem('authToken');
+  
   const response = await fetch(`${API_BASE}/logout`, {
     method: 'POST',
-    credentials: 'include',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
   });
+  
+  // Remove JWT token from localStorage regardless of response
+  localStorage.removeItem('authToken');
+  
   if (!response.ok) {
     throw new Error('Logout failed');
   }
@@ -54,11 +84,20 @@ export const logout = async (): Promise<void> => {
 
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      return null; // No token, not authenticated
+    }
+    
     const response = await fetch(`${API_BASE}/user`, {
-      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     });
     if (response.status === 401) {
-      return null; // User not authenticated
+      // Token invalid or expired, clear it
+      localStorage.removeItem('authToken');
+      return null;
     }
     if (!response.ok) {
       throw new Error('Failed to get user');
@@ -77,13 +116,18 @@ export interface CreateUserRequest {
 }
 
 export const createUser = async (userData: CreateUserRequest): Promise<{ message: string; user: User }> => {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(`${API_BASE}/admin/create-user`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(userData),
-    credentials: 'include',
   });
   if (!response.ok) {
     const error = await response.json();
@@ -93,8 +137,14 @@ export const createUser = async (userData: CreateUserRequest): Promise<{ message
 };
 
 export const getAllUsers = async (): Promise<User[]> => {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(`${API_BASE}/admin/users`, {
-    credentials: 'include',
+    headers,
   });
   if (!response.ok) {
     throw new Error('Failed to fetch users');
@@ -103,13 +153,18 @@ export const getAllUsers = async (): Promise<User[]> => {
 };
 
 export const toggleUserStatus = async (userId: string): Promise<{ message: string; user: User }> => {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(`${API_BASE}/admin/toggle-user-status`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({ userId }),
-    credentials: 'include',
   });
   if (!response.ok) {
     const error = await response.json();
@@ -119,13 +174,18 @@ export const toggleUserStatus = async (userId: string): Promise<{ message: strin
 };
 
 export const updateUserRole = async (userId: string, role: 'admin' | 'user'): Promise<{ message: string; user: User }> => {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(`${API_BASE}/admin/elevate-user`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({ userId, role }),
-    credentials: 'include',
   });
   if (!response.ok) {
     const error = await response.json();
@@ -149,7 +209,7 @@ export interface GenerationResponse {
 
 // Image Styles API
 export const getImageStyles = async (): Promise<ImageStyle[]> => {
-  const response = await fetch(`${API_BASE}/styles`);
+  const response = await authenticatedFetch(`${API_BASE}/styles`);
   if (!response.ok) {
     throw new Error('Failed to fetch image styles');
   }
@@ -157,7 +217,7 @@ export const getImageStyles = async (): Promise<ImageStyle[]> => {
 };
 
 export const getImageStyle = async (id: string): Promise<ImageStyle> => {
-  const response = await fetch(`${API_BASE}/styles/${id}`);
+  const response = await authenticatedFetch(`${API_BASE}/styles/${id}`);
   if (!response.ok) {
     throw new Error('Failed to fetch image style');
   }
@@ -165,7 +225,7 @@ export const getImageStyle = async (id: string): Promise<ImageStyle> => {
 };
 
 export const createImageStyle = async (style: { name: string; stylePrompt: string; description?: string }): Promise<ImageStyle> => {
-  const response = await fetch(`${API_BASE}/styles`, {
+  const response = await authenticatedFetch(`${API_BASE}/styles`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -179,7 +239,7 @@ export const createImageStyle = async (style: { name: string; stylePrompt: strin
 };
 
 export const updateImageStyle = async (id: string, style: Partial<{ name: string; stylePrompt: string; description?: string }>): Promise<ImageStyle> => {
-  const response = await fetch(`${API_BASE}/styles/${id}`, {
+  const response = await authenticatedFetch(`${API_BASE}/styles/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -193,7 +253,7 @@ export const updateImageStyle = async (id: string, style: Partial<{ name: string
 };
 
 export const deleteImageStyle = async (id: string): Promise<void> => {
-  const response = await fetch(`${API_BASE}/styles/${id}`, {
+  const response = await authenticatedFetch(`${API_BASE}/styles/${id}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -203,7 +263,7 @@ export const deleteImageStyle = async (id: string): Promise<void> => {
 
 // Generation Job API
 export const startGeneration = async (request: GenerationRequest): Promise<GenerationResponse> => {
-  const response = await fetch(`${API_BASE}/generate`, {
+  const response = await authenticatedFetch(`${API_BASE}/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -217,7 +277,7 @@ export const startGeneration = async (request: GenerationRequest): Promise<Gener
 };
 
 export const getGenerationJob = async (jobId: string): Promise<GenerationJob> => {
-  const response = await fetch(`${API_BASE}/jobs/${jobId}`);
+  const response = await authenticatedFetch(`${API_BASE}/jobs/${jobId}`);
   if (!response.ok) {
     throw new Error('Failed to fetch generation job');
   }
@@ -225,7 +285,7 @@ export const getGenerationJob = async (jobId: string): Promise<GenerationJob> =>
 };
 
 export const getGeneratedImages = async (jobId: string): Promise<GeneratedImage[]> => {
-  const response = await fetch(`${API_BASE}/jobs/${jobId}/images`);
+  const response = await authenticatedFetch(`${API_BASE}/jobs/${jobId}/images`);
   if (!response.ok) {
     throw new Error('Failed to fetch generated images');
   }
@@ -270,7 +330,7 @@ export const pollGenerationProgress = (
 // PROJECT SESSION API FUNCTIONS
 
 export const getAllProjectSessions = async () => {
-  const response = await fetch('/api/sessions');
+  const response = await authenticatedFetch('/api/sessions');
   if (!response.ok) {
     throw new Error('Failed to fetch sessions');
   }
@@ -278,7 +338,7 @@ export const getAllProjectSessions = async () => {
 };
 
 export const getProjectSessionById = async (id: string) => {
-  const response = await fetch(`/api/sessions/${id}`);
+  const response = await authenticatedFetch(`/api/sessions/${id}`);
   if (!response.ok) {
     throw new Error('Failed to fetch session');
   }
@@ -294,7 +354,7 @@ export const createProjectSession = async (sessionData: {
   isTemporary?: boolean;
   hasUnsavedChanges?: boolean;
 }) => {
-  const response = await fetch('/api/sessions', {
+  const response = await authenticatedFetch('/api/sessions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -310,7 +370,7 @@ export const createProjectSession = async (sessionData: {
 };
 
 export const updateProjectSession = async (id: string, updates: any) => {
-  const response = await fetch(`/api/sessions/${id}`, {
+  const response = await authenticatedFetch(`/api/sessions/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -326,7 +386,7 @@ export const updateProjectSession = async (id: string, updates: any) => {
 };
 
 export const deleteProjectSession = async (id: string) => {
-  const response = await fetch(`/api/sessions/${id}`, {
+  const response = await authenticatedFetch(`/api/sessions/${id}`, {
     method: 'DELETE',
   });
 
@@ -337,7 +397,7 @@ export const deleteProjectSession = async (id: string) => {
 
 
 export const clearTemporarySessions = async () => {
-  const response = await fetch('/api/sessions/temporary', {
+  const response = await authenticatedFetch('/api/sessions/temporary', {
     method: 'DELETE',
   });
 
@@ -347,7 +407,7 @@ export const clearTemporarySessions = async () => {
 };
 
 export const getGeneratedImagesBySessionId = async (sessionId: string): Promise<GeneratedImage[]> => {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}/images`);
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}/images`);
   if (!response.ok) {
     throw new Error('Failed to fetch session images');
   }
@@ -355,7 +415,7 @@ export const getGeneratedImagesBySessionId = async (sessionId: string): Promise<
 };
 
 export const migrateGenerationJobsToSession = async (targetSessionId: string, sourceSessionId: string) => {
-  const response = await fetch(`${API_BASE}/sessions/${targetSessionId}/migrate-jobs`, {
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${targetSessionId}/migrate-jobs`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -371,7 +431,7 @@ export const migrateGenerationJobsToSession = async (targetSessionId: string, so
 };
 
 export const getTemporarySessionsForUser = async (): Promise<ProjectSession[]> => {
-  const response = await fetch(`${API_BASE}/sessions/temporary`);
+  const response = await authenticatedFetch(`${API_BASE}/sessions/temporary`);
   if (!response.ok) {
     throw new Error('Failed to fetch temporary sessions');
   }
@@ -379,7 +439,7 @@ export const getTemporarySessionsForUser = async (): Promise<ProjectSession[]> =
 };
 
 export const getWorkingSession = async () => {
-  const response = await fetch('/api/sessions/working');
+  const response = await authenticatedFetch('/api/sessions/working');
   if (!response.ok) {
     throw new Error('Failed to get working session');
   }
@@ -402,8 +462,14 @@ export interface UpdatePreferencesRequest {
 }
 
 export const getUserPreferences = async (): Promise<UserPreferences | null> => {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(`${API_BASE}/preferences`, {
-    credentials: 'include',
+    headers,
   });
   if (response.status === 404) {
     return null; // No preferences set yet
@@ -415,13 +481,18 @@ export const getUserPreferences = async (): Promise<UserPreferences | null> => {
 };
 
 export const updateUserPreferences = async (preferences: UpdatePreferencesRequest): Promise<UserPreferences> => {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const response = await fetch(`${API_BASE}/preferences`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(preferences),
-    credentials: 'include',
   });
   if (!response.ok) {
     throw new Error('Failed to update user preferences');

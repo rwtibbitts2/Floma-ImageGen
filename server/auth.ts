@@ -1,8 +1,6 @@
-// Authentication system - From blueprint:javascript_auth_all_persistance
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
-import session from "express-session";
+// Token-based authentication system
+import { Express, Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
@@ -11,7 +9,9 @@ import { z } from "zod";
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface Request {
+      user?: SelectUser;
+    }
   }
 }
 
@@ -30,106 +30,78 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-export function setupAuth(app: Express) {
-  // Validate SESSION_SECRET is present
-  const sessionSecret = process.env.SESSION_SECRET;
-  if (!sessionSecret) {
-    throw new Error('SESSION_SECRET environment variable is required for authentication');
+// Generate JWT token
+function generateToken(user: SelectUser): string {
+  const jwtSecret = process.env.SESSION_SECRET;
+  if (!jwtSecret) {
+    throw new Error('SESSION_SECRET environment variable is required for JWT signing');
+  }
+  
+  return jwt.sign(
+    { 
+      id: user.id, 
+      email: user.email, 
+      role: user.role 
+    },
+    jwtSecret,
+    { expiresIn: '24h' }
+  );
+}
+
+// Verify JWT token and extract user data
+function verifyToken(token: string): { id: string; email: string; role: string } | null {
+  const jwtSecret = process.env.SESSION_SECRET;
+  if (!jwtSecret) {
+    throw new Error('SESSION_SECRET environment variable is required for JWT verification');
   }
 
-  // Detect if running in Replit environment (preview iframe requires SameSite=None)
-  const isReplit = !!process.env.REPL_ID;
-  
-  const sessionSettings: session.SessionOptions = {
-    secret: sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      // Replit preview (iframe) needs secure=true + sameSite=none
-      // Local dev needs secure=false + sameSite=lax
-      secure: isReplit ? true : false,
-      sameSite: isReplit ? 'none' : 'lax'
-    }
-  };
+  try {
+    const decoded = jwt.verify(token, jwtSecret) as { id: string; email: string; role: string };
+    return decoded;
+  } catch (error) {
+    return null;
+  }
+}
 
-  console.log(`[Auth] Environment: ${isReplit ? 'Replit' : 'Local'}, Cookie config: { secure: ${sessionSettings.cookie?.secure}, sameSite: '${sessionSettings.cookie?.sameSite}' }`);
+export function setupAuth(app: Express) {
+  console.log('[Auth] Using token-based authentication (JWT)');
 
-  app.set("trust proxy", 1);
-  app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  // Use email as username field
-  passport.use(
-    new LocalStrategy(
-      { usernameField: 'email', passwordField: 'password' },
-      async (email, password, done) => {
-        try {
-          const user = await storage.getUserByEmail(email);
-          if (!user || !user.isActive || !(await comparePasswords(password, user.password))) {
-            return done(null, false, { message: 'Invalid email or password' });
-          }
-          
-          // Update last login
-          await storage.updateUserLastLogin(user.id);
-          return done(null, user);
-        } catch (error) {
-          return done(error);
-        }
-      }
-    ),
-  );
-
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: string, done) => {
+  // Authentication routes
+  app.post("/api/login", async (req, res, next) => {
     try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error, null);
-    }
-  });
-
-  // Authentication routes (public registration removed - now admin-only)
-
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: SelectUser | false, info: any) => {
-      if (err) return next(err);
-      if (!user) {
-        return res.status(401).json({ error: info?.message || "Authentication failed" });
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
       }
 
-      req.login(user, (loginErr) => {
-        if (loginErr) return next(loginErr);
-        
-        // Remove password from response
-        const { password, ...userResponse } = user;
-        res.status(200).json(userResponse);
-      });
-    })(req, res, next);
-  });
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.isActive || !(await comparePasswords(password, user.password))) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
 
-  app.post("/api/logout", (req, res, next) => {
-    req.logout((err) => {
-      if (err) return next(err);
-      req.session.destroy((destroyErr) => {
-        if (destroyErr) return next(destroyErr);
-        res.clearCookie('connect.sid');
-        res.sendStatus(200);
-      });
-    });
-  });
+      // Update last login
+      await storage.updateUserLastLogin(user.id);
 
-  app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.sendStatus(401);
+      // Generate JWT token
+      const token = generateToken(user);
+
+      // Remove password from response
+      const { password: _, ...userResponse } = user;
+      res.status(200).json({ ...userResponse, token });
+    } catch (error) {
+      next(error);
     }
-    
+  });
+
+  app.post("/api/logout", (req, res) => {
+    // With JWT, logout is handled client-side by removing the token
+    res.sendStatus(200);
+  });
+
+  app.get("/api/user", requireAuth, (req, res) => {
     // Remove password from response
-    const { password, ...userResponse } = req.user;
+    const { password, ...userResponse } = req.user!;
     res.json(userResponse);
   });
 
@@ -141,7 +113,7 @@ export function setupAuth(app: Express) {
       const userData = insertUserSchema.parse({
         email: req.body.email,
         password: req.body.password,
-        role: req.body.role || 'user' // Admin can set role during creation
+        role: req.body.role || 'user'
       });
 
       // Check if user already exists
@@ -214,7 +186,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Update user role (admin-only) - renamed from elevate-user for clarity
+  // Update user role (admin-only)
   app.post("/api/admin/elevate-user", requireAdmin, async (req, res, next) => {
     try {
       const { userId, role } = req.body;
@@ -242,22 +214,64 @@ export function setupAuth(app: Express) {
   });
 }
 
-// Authentication middleware
-export function requireAuth(req: any, res: any, next: any) {
-  if (!req.isAuthenticated()) {
+// Authentication middleware - verifies JWT token
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: "Authentication required" });
   }
-  next();
+
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  const decoded = verifyToken(token);
+  
+  if (!decoded) {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+
+  try {
+    // Fetch full user data from database
+    const user = await storage.getUser(decoded.id);
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: "User not found or inactive" });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: "Authentication failed" });
+  }
 }
 
-export function requireAdmin(req: any, res: any, next: any) {
-  if (!req.isAuthenticated()) {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: "Authentication required" });
   }
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: "Admin access required" });
+
+  const token = authHeader.substring(7);
+  const decoded = verifyToken(token);
+  
+  if (!decoded) {
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
-  next();
+
+  try {
+    const user = await storage.getUser(decoded.id);
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: "User not found or inactive" });
+    }
+    
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: "Authentication failed" });
+  }
 }
 
 export { hashPassword, comparePasswords };
