@@ -117,49 +117,74 @@ function buildImageParams(model: string, size: string, quality: string, prompt: 
 }
 
 // Helper function to convert JSON concept to rich descriptive text
+// Includes ALL fields from the JSON to preserve complete concept information
 function convertConceptJsonToText(conceptJson: string): string {
   try {
     const parsed = JSON.parse(conceptJson);
     const parts: string[] = [];
     
-    // Build a natural language description from the JSON fields
-    // Prioritize the most descriptive fields for image generation
+    // Process ALL fields in a structured order for natural language
+    
+    // Core subject/description (most important)
     if (parsed.subject) {
       parts.push(parsed.subject);
     } else if (parsed.description) {
       parts.push(parsed.description);
+    } else if (parsed.message) {
+      parts.push(parsed.message);
     }
     
-    if (parsed.metaphor && !parsed.subject?.includes(parsed.metaphor)) {
+    // Title (if not redundant with subject)
+    if (parsed.title && !parts.some(p => p.includes(parsed.title))) {
+      parts.push(`Theme: ${parsed.title}`);
+    }
+    
+    // Metaphor (if present and not already mentioned)
+    if (parsed.metaphor && !parts.some(p => p.toLowerCase().includes(parsed.metaphor.toLowerCase()))) {
       parts.push(`Visual metaphor: ${parsed.metaphor}`);
     }
     
+    // Composition details
     if (parsed.composition) {
       const comp = parsed.composition;
       const compParts: string[] = [];
       if (comp.shot) compParts.push(comp.shot + ' shot');
       if (comp.angle) compParts.push(comp.angle + ' angle');
-      if (comp.focal_point) compParts.push('focusing on ' + comp.focal_point);
+      if (comp.focal_point) compParts.push('focal point: ' + comp.focal_point);
+      if (comp.framing) compParts.push('framing: ' + comp.framing);
+      if (comp.depth) compParts.push('depth: ' + comp.depth);
       if (compParts.length > 0) {
-        parts.push(compParts.join(', '));
+        parts.push('Composition - ' + compParts.join(', '));
       }
     }
     
+    // Constraints
     if (parsed.constraints) {
       if (parsed.constraints.include && Array.isArray(parsed.constraints.include)) {
-        parts.push('Include: ' + parsed.constraints.include.join(', '));
+        parts.push('Must include: ' + parsed.constraints.include.join(', '));
       }
       if (parsed.constraints.avoid && Array.isArray(parsed.constraints.avoid)) {
-        parts.push('Avoid: ' + parsed.constraints.avoid.join(', '));
+        parts.push('Must avoid: ' + parsed.constraints.avoid.join(', '));
+      }
+      if (parsed.constraints.required_elements) {
+        parts.push('Required elements: ' + parsed.constraints.required_elements);
       }
     }
     
-    if (parsed.title && parts.length === 0) {
-      parts.push(parsed.title);
-    }
-    
-    if (parsed.message && parts.length === 0) {
-      parts.push(parsed.message);
+    // Any other top-level fields not already processed
+    const processedKeys = new Set(['subject', 'description', 'message', 'title', 'metaphor', 'composition', 'constraints', 'concept_version']);
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!processedKeys.has(key) && value) {
+        if (typeof value === 'string') {
+          parts.push(`${key.replace(/_/g, ' ')}: ${value}`);
+        } else if (typeof value === 'object' && !Array.isArray(value)) {
+          // Handle nested objects
+          const objParts = Object.entries(value).map(([k, v]) => `${k}: ${v}`).join(', ');
+          parts.push(`${key.replace(/_/g, ' ')}: ${objParts}`);
+        } else if (Array.isArray(value)) {
+          parts.push(`${key.replace(/_/g, ' ')}: ${value.join(', ')}`);
+        }
+      }
     }
     
     return parts.length > 0 ? parts.join('. ') : conceptJson;
