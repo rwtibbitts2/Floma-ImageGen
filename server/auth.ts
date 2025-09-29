@@ -55,16 +55,6 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Debug: Log cookie state for all API requests
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-      console.log(`\n[${req.method} ${req.path}] Cookie header:`, req.headers.cookie || 'NONE');
-      console.log(`[${req.method} ${req.path}] Session ID:`, req.sessionID || 'NONE');
-      console.log(`[${req.method} ${req.path}] Authenticated:`, req.isAuthenticated ? req.isAuthenticated() : false);
-    }
-    next();
-  });
-
   // Use email as username field
   passport.use(
     new LocalStrategy(
@@ -107,12 +97,6 @@ export function setupAuth(app: Express) {
 
       req.login(user, (loginErr) => {
         if (loginErr) return next(loginErr);
-        
-        console.log('=== LOGIN SUCCESS ===');
-        console.log('Session ID:', req.sessionID);
-        console.log('Session saved:', req.session);
-        console.log('Cookie will be set for:', req.get('host'));
-        console.log('User agent:', req.get('user-agent'));
         
         // Remove password from response
         const { password, ...userResponse } = user;
