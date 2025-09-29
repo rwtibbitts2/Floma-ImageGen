@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from 'express';
-import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, GenerationSettings, generationSettingsSchema } from '@shared/schema';
+import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, InsertConceptList, GenerationSettings, generationSettingsSchema } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI, { toFile } from 'openai';
@@ -1966,7 +1966,7 @@ router.put('/prompts/:id', requireAuth, async (req, res) => {
 // DELETE /api/prompts/:id - Delete a system prompt (Protected)
 router.delete('/prompts/:id', requireAuth, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id} = req.params;
     const deleted = await storage.deleteSystemPrompt(id);
     
     if (!deleted) {
@@ -1977,6 +1977,234 @@ router.delete('/prompts/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting system prompt:', error);
     res.status(500).json({ error: 'Failed to delete system prompt' });
+  }
+});
+
+// Concept List Routes
+
+// GET /api/concept-lists - Get all concept lists (Protected)
+router.get('/concept-lists', requireAuth, async (req, res) => {
+  try {
+    const conceptLists = await storage.getAllConceptLists();
+    res.json(conceptLists);
+  } catch (error) {
+    console.error('Error fetching concept lists:', error);
+    res.status(500).json({ error: 'Failed to fetch concept lists' });
+  }
+});
+
+// GET /api/concept-lists/:id - Get a specific concept list (Protected)
+router.get('/concept-lists/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const conceptList = await storage.getConceptListById(id);
+    
+    if (!conceptList) {
+      return res.status(404).json({ error: 'Concept list not found' });
+    }
+    
+    res.json(conceptList);
+  } catch (error) {
+    console.error('Error fetching concept list:', error);
+    res.status(500).json({ error: 'Failed to fetch concept list' });
+  }
+});
+
+// POST /api/generate-concept-list - Generate a new concept list with AI (Protected)
+router.post('/generate-concept-list', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { 
+      name, 
+      companyName, 
+      referenceImageUrl, 
+      marketingContent, 
+      promptId,
+      promptText,
+      quantity = 5
+    } = req.body;
+
+    if (!companyName || !marketingContent) {
+      return res.status(400).json({ error: 'Company name and marketing content are required' });
+    }
+
+    // Call OpenAI API to generate concepts
+    const openai = (req as any).openai;
+    
+    // Build the system prompt
+    const systemPrompt = promptText || `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
+    
+    // Build the user message
+    let userMessage = `Company: ${companyName}\n\nMarketing Content:\n${marketingContent}\n\nGenerate ${quantity} distinct visual concepts that would effectively communicate this marketing message. Each concept should be a detailed description of a visual scene or composition.`;
+    
+    if (referenceImageUrl) {
+      userMessage += `\n\nReference Image: Consider the visual style and elements from the provided reference image.`;
+    }
+    
+    userMessage += `\n\nReturn ONLY a JSON array of concept strings, nothing else. Example: ["concept 1", "concept 2", "concept 3"]`;
+
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage }
+    ];
+
+    // If there's a reference image, add it to the message
+    if (referenceImageUrl) {
+      messages[1] = {
+        role: 'user',
+        content: [
+          { type: 'text', text: userMessage },
+          { type: 'image_url', image_url: { url: referenceImageUrl } }
+        ]
+      };
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages,
+      temperature: 0.8,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '[]';
+    
+    // Parse the JSON array of concepts
+    let concepts: string[];
+    try {
+      concepts = JSON.parse(responseText);
+      if (!Array.isArray(concepts)) {
+        throw new Error('Response is not an array');
+      }
+    } catch (parseError) {
+      // If JSON parsing fails, try to extract concepts from text
+      const lines = responseText.split('\n').filter(line => line.trim().length > 0);
+      concepts = lines.slice(0, quantity);
+    }
+
+    // Create the concept list in storage
+    const conceptList = await storage.createConceptList({
+      name: name || `${companyName} - ${new Date().toLocaleDateString()}`,
+      companyName,
+      referenceImageUrl: referenceImageUrl || null,
+      marketingContent,
+      promptId: promptId || null,
+      promptText: promptText || null,
+      concepts,
+      userId
+    });
+
+    res.json(conceptList);
+  } catch (error) {
+    console.error('Error generating concept list:', error);
+    res.status(500).json({ error: 'Failed to generate concept list' });
+  }
+});
+
+// PATCH /api/concept-lists/:id - Update a concept list (Protected)
+router.patch('/concept-lists/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, concepts, marketingContent } = req.body;
+
+    const updates: Partial<InsertConceptList> = {};
+    if (name !== undefined) updates.name = name;
+    if (concepts !== undefined) updates.concepts = concepts;
+    if (marketingContent !== undefined) updates.marketingContent = marketingContent;
+
+    const conceptList = await storage.updateConceptList(id, updates);
+    
+    if (!conceptList) {
+      return res.status(404).json({ error: 'Concept list not found' });
+    }
+    
+    res.json(conceptList);
+  } catch (error) {
+    console.error('Error updating concept list:', error);
+    res.status(500).json({ error: 'Failed to update concept list' });
+  }
+});
+
+// POST /api/concept-lists/:id/revise - Revise a concept list with feedback (Protected)
+router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { feedback } = req.body;
+
+    if (!feedback) {
+      return res.status(400).json({ error: 'Feedback is required' });
+    }
+
+    const existingList = await storage.getConceptListById(id);
+    if (!existingList) {
+      return res.status(404).json({ error: 'Concept list not found' });
+    }
+
+    // Call OpenAI API to revise concepts
+    const openai = (req as any).openai;
+    
+    const systemPrompt = existingList.promptText || `You are a creative marketing concept generator. Revise visual concepts based on user feedback.`;
+    
+    const userMessage = `Company: ${existingList.companyName}\n\nMarketing Content:\n${existingList.marketingContent}\n\nCurrent Concepts:\n${existingList.concepts.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nUser Feedback:\n${feedback}\n\nRevise ALL the concepts based on this feedback. Return ONLY a JSON array of the revised concept strings, nothing else. Maintain the same number of concepts (${existingList.concepts.length}).`;
+
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage }
+    ];
+
+    // If there's a reference image, add it
+    if (existingList.referenceImageUrl) {
+      messages[1] = {
+        role: 'user',
+        content: [
+          { type: 'text', text: userMessage },
+          { type: 'image_url', image_url: { url: existingList.referenceImageUrl } }
+        ]
+      };
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages,
+      temperature: 0.8,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '[]';
+    
+    // Parse the JSON array of concepts
+    let concepts: string[];
+    try {
+      concepts = JSON.parse(responseText);
+      if (!Array.isArray(concepts)) {
+        throw new Error('Response is not an array');
+      }
+    } catch (parseError) {
+      const lines = responseText.split('\n').filter(line => line.trim().length > 0);
+      concepts = lines.slice(0, existingList.concepts.length);
+    }
+
+    // Update the concept list with revised concepts
+    const updatedList = await storage.updateConceptList(id, { concepts });
+    
+    res.json(updatedList);
+  } catch (error) {
+    console.error('Error revising concept list:', error);
+    res.status(500).json({ error: 'Failed to revise concept list' });
+  }
+});
+
+// DELETE /api/concept-lists/:id - Delete a concept list (Protected)
+router.delete('/concept-lists/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteConceptList(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Concept list not found' });
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting concept list:', error);
+    res.status(500).json({ error: 'Failed to delete concept list' });
   }
 });
 
