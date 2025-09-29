@@ -8,7 +8,6 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
-import cors from "cors";
 
 declare global {
   namespace Express {
@@ -38,16 +37,6 @@ export function setupAuth(app: Express) {
     throw new Error('SESSION_SECRET environment variable is required for authentication');
   }
 
-  // Configure CORS to allow credentials (cookies)
-  app.use(cors({
-    origin: true, // Allow requests from any origin in development
-    credentials: true, // Allow cookies to be sent
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }));
-
-  console.log('Setting up session store...');
-  
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
     resave: false,
@@ -65,19 +54,6 @@ export function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
-
-  console.log('Session and passport middleware configured');
-
-  // Debug middleware to log cookies and sessions for API requests (AFTER session middleware)
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api/') && req.path !== '/api/login') {
-      console.log(`[${req.method}] ${req.path}:`);
-      console.log('  Cookies received:', req.headers.cookie);
-      console.log('  Session ID:', req.sessionID);
-      console.log('  Is authenticated:', req.isAuthenticated ? req.isAuthenticated() : 'no auth method');
-    }
-    next();
-  });
 
   // Use email as username field
   passport.use(
@@ -121,10 +97,6 @@ export function setupAuth(app: Express) {
 
       req.login(user, (loginErr) => {
         if (loginErr) return next(loginErr);
-        
-        console.log('Login successful - Session ID:', req.sessionID);
-        console.log('Session:', req.session);
-        console.log('Response headers will include Set-Cookie:', res.get('Set-Cookie'));
         
         // Remove password from response
         const { password, ...userResponse } = user;
