@@ -796,7 +796,7 @@ export const storage = new DatabaseStorage();
     console.log('Initialized storage with default image styles');
   }
 
-  // Create test user for login
+  // Create test users for login
   const existingUsers = await storage.getAllUsers();
   if (existingUsers.length === 0) {
     // Import crypto for password hashing
@@ -804,16 +804,28 @@ export const storage = new DatabaseStorage();
     const { promisify } = await import("util");
     const scryptAsync = promisify(scrypt);
     
-    // Hash the password properly
-    const salt = randomBytes(16).toString("hex");
-    const buf = (await scryptAsync('password123', salt, 64)) as Buffer;
-    const hashedPassword = `${buf.toString("hex")}.${salt}`;
+    // Create test user
+    const testSalt = randomBytes(16).toString("hex");
+    const testBuf = (await scryptAsync('password123', testSalt, 64)) as Buffer;
+    const testHashedPassword = `${testBuf.toString("hex")}.${testSalt}`;
     
     await storage.createUser({
       email: 'test@example.com',
-      password: hashedPassword,
+      password: testHashedPassword,
       role: 'user'
     });
     console.log('Created test user: test@example.com / password123');
+    
+    // Create admin user
+    const adminSalt = randomBytes(16).toString("hex");
+    const adminBuf = (await scryptAsync('admin123', adminSalt, 64)) as Buffer;
+    const adminHashedPassword = `${adminBuf.toString("hex")}.${adminSalt}`;
+    
+    await storage.createUser({
+      email: 'admin@example.com',
+      password: adminHashedPassword,
+      role: 'admin'
+    });
+    console.log('Created admin user: admin@example.com / admin123');
   }
 })();
