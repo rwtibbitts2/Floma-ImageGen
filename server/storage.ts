@@ -1,4 +1,4 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, type SystemPrompt, type InsertSystemPrompt, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences, systemPrompts } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, type SystemPrompt, type InsertSystemPrompt, type ConceptList, type InsertConceptList, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences, systemPrompts, conceptLists } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db, pool } from "./db";
 import { eq, desc, inArray, and, isNull } from "drizzle-orm";
@@ -69,6 +69,13 @@ export interface IStorage {
   createSystemPrompt(prompt: InsertSystemPrompt): Promise<SystemPrompt>;
   updateSystemPrompt(id: string, updates: Partial<InsertSystemPrompt>): Promise<SystemPrompt | undefined>;
   deleteSystemPrompt(id: string): Promise<boolean>;
+  
+  // Concept List management
+  getConceptListById(id: string): Promise<ConceptList | undefined>;
+  getAllConceptLists(): Promise<ConceptList[]>;
+  createConceptList(conceptList: InsertConceptList): Promise<ConceptList>;
+  updateConceptList(id: string, updates: Partial<InsertConceptList>): Promise<ConceptList | undefined>;
+  deleteConceptList(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -79,6 +86,7 @@ export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private userPreferences: Map<string, UserPreferences>;
   private systemPrompts: Map<string, SystemPrompt>;
+  private conceptLists: Map<string, ConceptList>;
   sessionStore: SessionStore;
 
   constructor() {
@@ -89,6 +97,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.userPreferences = new Map();
     this.systemPrompts = new Map();
+    this.conceptLists = new Map();
     
     // Initialize memory session store - From blueprint:javascript_auth_all_persistance
     const MemoryStore = createMemoryStore(session);
@@ -470,6 +479,47 @@ export class MemStorage implements IStorage {
 
   async deleteSystemPrompt(id: string): Promise<boolean> {
     return this.systemPrompts.delete(id);
+  }
+
+  async getConceptListById(id: string): Promise<ConceptList | undefined> {
+    return this.conceptLists.get(id);
+  }
+
+  async getAllConceptLists(): Promise<ConceptList[]> {
+    return Array.from(this.conceptLists.values());
+  }
+
+  async createConceptList(insertConceptList: InsertConceptList): Promise<ConceptList> {
+    const id = randomUUID();
+    const conceptList: ConceptList = {
+      ...insertConceptList,
+      id,
+      referenceImageUrl: insertConceptList.referenceImageUrl || null,
+      promptId: insertConceptList.promptId || null,
+      promptText: insertConceptList.promptText || null,
+      userId: insertConceptList.userId || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.conceptLists.set(id, conceptList);
+    return conceptList;
+  }
+
+  async updateConceptList(id: string, updates: Partial<InsertConceptList>): Promise<ConceptList | undefined> {
+    const conceptList = this.conceptLists.get(id);
+    if (!conceptList) return undefined;
+    
+    const updatedConceptList: ConceptList = {
+      ...conceptList,
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.conceptLists.set(id, updatedConceptList);
+    return updatedConceptList;
+  }
+
+  async deleteConceptList(id: string): Promise<boolean> {
+    return this.conceptLists.delete(id);
   }
 }
 
@@ -914,6 +964,68 @@ export class DatabaseStorage implements IStorage {
       return true;
     } catch (error) {
       console.error('Error deleting system prompt:', error);
+      return false;
+    }
+  }
+
+  async getConceptListById(id: string): Promise<ConceptList | undefined> {
+    try {
+      const [conceptList] = await db
+        .select()
+        .from(conceptLists)
+        .where(eq(conceptLists.id, id))
+        .limit(1);
+      return conceptList;
+    } catch (error) {
+      console.error('Error fetching concept list by id:', error);
+      return undefined;
+    }
+  }
+
+  async getAllConceptLists(): Promise<ConceptList[]> {
+    try {
+      return await db.select().from(conceptLists).orderBy(desc(conceptLists.createdAt));
+    } catch (error) {
+      console.error('Error fetching all concept lists:', error);
+      return [];
+    }
+  }
+
+  async createConceptList(conceptList: InsertConceptList): Promise<ConceptList> {
+    try {
+      const [created] = await db
+        .insert(conceptLists)
+        .values(conceptList)
+        .returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating concept list:', error);
+      throw new Error('Failed to create concept list');
+    }
+  }
+
+  async updateConceptList(id: string, updates: Partial<InsertConceptList>): Promise<ConceptList | undefined> {
+    try {
+      const [updated] = await db
+        .update(conceptLists)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(conceptLists.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating concept list:', error);
+      return undefined;
+    }
+  }
+
+  async deleteConceptList(id: string): Promise<boolean> {
+    try {
+      await db
+        .delete(conceptLists)
+        .where(eq(conceptLists.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting concept list:', error);
       return false;
     }
   }
