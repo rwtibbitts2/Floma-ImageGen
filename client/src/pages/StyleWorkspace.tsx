@@ -102,9 +102,18 @@ export default function StyleWorkspace() {
   // Style refinement mutation
   const refineMutation = useMutation({
     mutationFn: async (feedback: string) => {
+      // Get JWT token for authentication
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/refine-style', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           styleData: styleData || {},
           feedback: feedback,
@@ -118,9 +127,18 @@ export default function StyleWorkspace() {
   // Preview generation mutation
   const previewMutation = useMutation({
     mutationFn: async () => {
+      // Get JWT token for authentication
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/generate-style-preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           styleData: styleData || {},
           concept: generatedConcept,
