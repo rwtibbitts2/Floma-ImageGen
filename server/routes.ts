@@ -1465,16 +1465,32 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
     try {
       // Remove markdown code blocks if present
       let cleanedConcept = concept;
-      if (cleanedConcept.startsWith('```json')) {
-        cleanedConcept = cleanedConcept.replace(/^```json\s*/m, '').replace(/\s*```$/m, '');
-      } else if (cleanedConcept.startsWith('```')) {
-        cleanedConcept = cleanedConcept.replace(/^```\s*/m, '').replace(/\s*```$/m, '');
+      if (cleanedConcept.includes('```json')) {
+        cleanedConcept = cleanedConcept.replace(/```json\s*/g, '').replace(/```/g, '');
+      } else if (cleanedConcept.includes('```')) {
+        cleanedConcept = cleanedConcept.replace(/```\s*/g, '').replace(/```/g, '');
       }
       
-      // Try to parse as JSON and extract the Concept field
+      // Try to parse as JSON and extract the concept from various possible fields
       const parsedConcept = JSON.parse(cleanedConcept);
-      if (parsedConcept.Concept) {
-        concept = parsedConcept.Concept;
+      
+      // Check for common concept field names in order of preference
+      const conceptFields = [
+        'subject',      // Most descriptive for image generation
+        'metaphor',     // Also very descriptive
+        'concept',      // Generic concept field
+        'Concept',      // Capital C version
+        'title',        // Shorter but useful
+        'description',  // Fallback
+        'message'       // Last resort
+      ];
+      
+      for (const field of conceptFields) {
+        if (parsedConcept[field]) {
+          concept = parsedConcept[field];
+          console.log(`Extracted concept from field '${field}':`, concept);
+          break;
+        }
       }
     } catch (parseError) {
       // If not JSON, use the concept as-is
