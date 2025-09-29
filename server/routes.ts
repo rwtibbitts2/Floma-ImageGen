@@ -105,8 +105,7 @@ function buildImageParams(model: string, size: string, quality: string, prompt: 
   // Add transparency support (only gpt-image-1 supports true transparency)
   if (transparency) {
     if (model === 'gpt-image-1') {
-      params.background = 'transparent'; // Actually request transparent background
-      params.response_format = 'b64_json'; // Recommended for transparency
+      params.background = 'transparent'; // Request transparent background
     } else {
       // For models that don't support transparency, we can't fulfill the request
       console.warn(`Transparency requested but model ${model} does not support it. Use gpt-image-1 for transparency.`);
