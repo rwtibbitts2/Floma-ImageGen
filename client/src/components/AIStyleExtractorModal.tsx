@@ -150,9 +150,18 @@ export default function AIStyleExtractorModal({
         ? `${extractionPrompt}\n\nAdditional Instructions: ${instructions}`
         : extractionPrompt;
       
+      // Get JWT token for authentication
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/extract-style', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           imageUrl: referenceImageUrl,
           extractionPrompt: finalExtractionPrompt,
@@ -166,9 +175,18 @@ export default function AIStyleExtractorModal({
 
   const previewMutation = useMutation({
     mutationFn: async () => {
+      // Get JWT token for authentication
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/generate-style-preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           styleData: extractedStyleData,
           concept: generatedConcept,
