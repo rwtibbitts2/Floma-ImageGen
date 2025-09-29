@@ -1,5 +1,5 @@
 // API helper functions for image generation
-import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt } from '@shared/schema';
+import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt, ConceptList } from '@shared/schema';
 
 const API_BASE = '/api';
 
@@ -581,5 +581,86 @@ export const deleteSystemPrompt = async (id: string): Promise<void> => {
   });
   if (!response.ok) {
     throw new Error('Failed to delete system prompt');
+  }
+};
+
+// Concept List API
+
+export const getConceptLists = async (): Promise<ConceptList[]> => {
+  const response = await authenticatedFetch(`${API_BASE}/concept-lists`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch concept lists');
+  }
+  return response.json();
+};
+
+export const getConceptListById = async (id: string): Promise<ConceptList> => {
+  const response = await authenticatedFetch(`${API_BASE}/concept-lists/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch concept list');
+  }
+  return response.json();
+};
+
+export const generateConceptList = async (data: {
+  name?: string;
+  companyName: string;
+  referenceImageUrl?: string;
+  marketingContent: string;
+  promptId?: string;
+  promptText?: string;
+  quantity?: number;
+}): Promise<ConceptList> => {
+  const response = await authenticatedFetch(`${API_BASE}/generate-concept-list`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to generate concept list');
+  }
+  return response.json();
+};
+
+export const updateConceptList = async (id: string, updates: {
+  name?: string;
+  concepts?: string[];
+  marketingContent?: string;
+}): Promise<ConceptList> => {
+  const response = await authenticatedFetch(`${API_BASE}/concept-lists/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update concept list');
+  }
+  return response.json();
+};
+
+export const reviseConceptList = async (id: string, feedback: string): Promise<ConceptList> => {
+  const response = await authenticatedFetch(`${API_BASE}/concept-lists/${id}/revise`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ feedback }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to revise concept list');
+  }
+  return response.json();
+};
+
+export const deleteConceptList = async (id: string): Promise<void> => {
+  const response = await authenticatedFetch(`${API_BASE}/concept-lists/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete concept list');
   }
 };
