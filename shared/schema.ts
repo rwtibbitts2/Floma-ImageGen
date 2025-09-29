@@ -99,6 +99,21 @@ export const systemPrompts = pgTable("system_prompts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Concept Lists - AI-generated marketing concept lists
+export const conceptLists = pgTable("concept_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  companyName: text("company_name").notNull(),
+  referenceImageUrl: text("reference_image_url"),
+  marketingContent: text("marketing_content").notNull(),
+  promptId: varchar("prompt_id").references(() => systemPrompts.id),
+  promptText: text("prompt_text"),
+  concepts: jsonb("concepts").$type<string[]>().notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zod Schemas
 export const generationSettingsSchema = z.object({
   model: z.enum(["dall-e-2", "dall-e-3", "gpt-image-1"]).default("dall-e-3"),
@@ -118,12 +133,14 @@ export const insertGeneratedImageSchema = createInsertSchema(generatedImages).om
 export const insertProjectSessionSchema = createInsertSchema(projectSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSystemPromptSchema = createInsertSchema(systemPrompts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertConceptListSchema = createInsertSchema(conceptLists).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Relations - Updated for user authentication
 export const usersRelations = relations(users, ({ many, one }) => ({
   projectSessions: many(projectSessions),
   generationJobs: many(generationJobs), 
   generatedImages: many(generatedImages),
+  conceptLists: many(conceptLists),
   preferences: one(userPreferences),
 }));
 
@@ -189,10 +206,22 @@ export const userPreferencesRelations = relations(userPreferences, ({ one }) => 
   }),
 }));
 
-export const systemPromptsRelations = relations(systemPrompts, ({ one }) => ({
+export const systemPromptsRelations = relations(systemPrompts, ({ one, many }) => ({
   createdBy: one(users, {
     fields: [systemPrompts.createdBy],
     references: [users.id],
+  }),
+  conceptLists: many(conceptLists),
+}));
+
+export const conceptListsRelations = relations(conceptLists, ({ one }) => ({
+  user: one(users, {
+    fields: [conceptLists.userId],
+    references: [users.id],
+  }),
+  prompt: one(systemPrompts, {
+    fields: [conceptLists.promptId],
+    references: [systemPrompts.id],
   }),
 }));
 
@@ -212,3 +241,5 @@ export type UserPreferences = typeof userPreferences.$inferSelect;
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type SystemPrompt = typeof systemPrompts.$inferSelect;
 export type InsertSystemPrompt = z.infer<typeof insertSystemPromptSchema>;
+export type ConceptList = typeof conceptLists.$inferSelect;
+export type InsertConceptList = z.infer<typeof insertConceptListSchema>;
