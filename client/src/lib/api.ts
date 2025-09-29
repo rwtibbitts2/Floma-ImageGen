@@ -1,5 +1,5 @@
 // API helper functions for image generation
-import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession } from '@shared/schema';
+import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt } from '@shared/schema';
 
 const API_BASE = '/api';
 
@@ -498,4 +498,77 @@ export const updateUserPreferences = async (preferences: UpdatePreferencesReques
     throw new Error('Failed to update user preferences');
   }
   return response.json();
+};
+
+// System Prompts API
+export const getAllSystemPrompts = async (): Promise<SystemPrompt[]> => {
+  const response = await authenticatedFetch(`${API_BASE}/prompts`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch system prompts');
+  }
+  return response.json();
+};
+
+export const getSystemPromptsByCategory = async (category: 'style_extraction' | 'concept_generation'): Promise<SystemPrompt[]> => {
+  const response = await authenticatedFetch(`${API_BASE}/prompts?category=${category}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch system prompts by category');
+  }
+  return response.json();
+};
+
+export const getDefaultSystemPrompt = async (category: 'style_extraction' | 'concept_generation'): Promise<SystemPrompt | null> => {
+  const response = await authenticatedFetch(`${API_BASE}/prompts/default/${category}`);
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error('Failed to fetch default system prompt');
+  }
+  return response.json();
+};
+
+export const getSystemPromptById = async (id: string): Promise<SystemPrompt> => {
+  const response = await authenticatedFetch(`${API_BASE}/prompts/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch system prompt');
+  }
+  return response.json();
+};
+
+export const createSystemPrompt = async (prompt: { name: string; promptText: string; category: 'style_extraction' | 'concept_generation'; description?: string; isDefault?: boolean }): Promise<SystemPrompt> => {
+  const response = await authenticatedFetch(`${API_BASE}/prompts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(prompt),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create system prompt');
+  }
+  return response.json();
+};
+
+export const updateSystemPrompt = async (id: string, prompt: Partial<{ name: string; promptText: string; description?: string; isDefault?: boolean }>): Promise<SystemPrompt> => {
+  const response = await authenticatedFetch(`${API_BASE}/prompts/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(prompt),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update system prompt');
+  }
+  return response.json();
+};
+
+export const deleteSystemPrompt = async (id: string): Promise<void> => {
+  const response = await authenticatedFetch(`${API_BASE}/prompts/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete system prompt');
+  }
 };

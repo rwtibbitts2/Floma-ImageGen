@@ -1,4 +1,4 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, type SystemPrompt, type InsertSystemPrompt, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences, systemPrompts } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db, pool } from "./db";
 import { eq, desc, inArray, and, isNull } from "drizzle-orm";
@@ -60,6 +60,15 @@ export interface IStorage {
   // User Preferences management
   getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
   updateUserPreferences(userId: string, preferences: { defaultExtractionPrompt: string; defaultConceptPrompt: string }): Promise<UserPreferences>;
+  
+  // System Prompts management
+  getSystemPromptById(id: string): Promise<SystemPrompt | undefined>;
+  getAllSystemPrompts(): Promise<SystemPrompt[]>;
+  getSystemPromptsByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt[]>;
+  getDefaultSystemPromptByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt | undefined>;
+  createSystemPrompt(prompt: InsertSystemPrompt): Promise<SystemPrompt>;
+  updateSystemPrompt(id: string, updates: Partial<InsertSystemPrompt>): Promise<SystemPrompt | undefined>;
+  deleteSystemPrompt(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -69,6 +78,7 @@ export class MemStorage implements IStorage {
   private projectSessions: Map<string, ProjectSession>;
   private users: Map<string, User>;
   private userPreferences: Map<string, UserPreferences>;
+  private systemPrompts: Map<string, SystemPrompt>;
   sessionStore: SessionStore;
 
   constructor() {
@@ -78,6 +88,7 @@ export class MemStorage implements IStorage {
     this.projectSessions = new Map();
     this.users = new Map();
     this.userPreferences = new Map();
+    this.systemPrompts = new Map();
     
     // Initialize memory session store - From blueprint:javascript_auth_all_persistance
     const MemoryStore = createMemoryStore(session);
@@ -410,6 +421,55 @@ export class MemStorage implements IStorage {
       this.userPreferences.set(id, newPrefs);
       return newPrefs;
     }
+  }
+
+  // System Prompts methods
+  async getSystemPromptById(id: string): Promise<SystemPrompt | undefined> {
+    return this.systemPrompts.get(id);
+  }
+
+  async getAllSystemPrompts(): Promise<SystemPrompt[]> {
+    return Array.from(this.systemPrompts.values());
+  }
+
+  async getSystemPromptsByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt[]> {
+    return Array.from(this.systemPrompts.values()).filter(prompt => prompt.category === category);
+  }
+
+  async getDefaultSystemPromptByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt | undefined> {
+    return Array.from(this.systemPrompts.values()).find(prompt => prompt.category === category && prompt.isDefault);
+  }
+
+  async createSystemPrompt(insertPrompt: InsertSystemPrompt): Promise<SystemPrompt> {
+    const id = randomUUID();
+    const prompt: SystemPrompt = {
+      ...insertPrompt,
+      id,
+      description: insertPrompt.description || null,
+      isDefault: insertPrompt.isDefault || false,
+      createdBy: insertPrompt.createdBy || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.systemPrompts.set(id, prompt);
+    return prompt;
+  }
+
+  async updateSystemPrompt(id: string, updates: Partial<InsertSystemPrompt>): Promise<SystemPrompt | undefined> {
+    const prompt = this.systemPrompts.get(id);
+    if (!prompt) return undefined;
+
+    const updatedPrompt: SystemPrompt = {
+      ...prompt,
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.systemPrompts.set(id, updatedPrompt);
+    return updatedPrompt;
+  }
+
+  async deleteSystemPrompt(id: string): Promise<boolean> {
+    return this.systemPrompts.delete(id);
   }
 }
 
@@ -766,6 +826,95 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error updating user preferences:', error);
       throw new Error('Failed to update user preferences');
+    }
+  }
+
+  // System Prompts methods
+  async getSystemPromptById(id: string): Promise<SystemPrompt | undefined> {
+    try {
+      const [prompt] = await db
+        .select()
+        .from(systemPrompts)
+        .where(eq(systemPrompts.id, id))
+        .limit(1);
+      return prompt;
+    } catch (error) {
+      console.error('Error fetching system prompt:', error);
+      return undefined;
+    }
+  }
+
+  async getAllSystemPrompts(): Promise<SystemPrompt[]> {
+    try {
+      return await db.select().from(systemPrompts);
+    } catch (error) {
+      console.error('Error fetching all system prompts:', error);
+      return [];
+    }
+  }
+
+  async getSystemPromptsByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt[]> {
+    try {
+      return await db
+        .select()
+        .from(systemPrompts)
+        .where(eq(systemPrompts.category, category));
+    } catch (error) {
+      console.error('Error fetching system prompts by category:', error);
+      return [];
+    }
+  }
+
+  async getDefaultSystemPromptByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt | undefined> {
+    try {
+      const [prompt] = await db
+        .select()
+        .from(systemPrompts)
+        .where(and(eq(systemPrompts.category, category), eq(systemPrompts.isDefault, true)))
+        .limit(1);
+      return prompt;
+    } catch (error) {
+      console.error('Error fetching default system prompt:', error);
+      return undefined;
+    }
+  }
+
+  async createSystemPrompt(prompt: InsertSystemPrompt): Promise<SystemPrompt> {
+    try {
+      const [created] = await db
+        .insert(systemPrompts)
+        .values(prompt)
+        .returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating system prompt:', error);
+      throw new Error('Failed to create system prompt');
+    }
+  }
+
+  async updateSystemPrompt(id: string, updates: Partial<InsertSystemPrompt>): Promise<SystemPrompt | undefined> {
+    try {
+      const [updated] = await db
+        .update(systemPrompts)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(systemPrompts.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating system prompt:', error);
+      return undefined;
+    }
+  }
+
+  async deleteSystemPrompt(id: string): Promise<boolean> {
+    try {
+      const result = await db
+        .delete(systemPrompts)
+        .where(eq(systemPrompts.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting system prompt:', error);
+      return false;
     }
   }
 }

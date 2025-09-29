@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from 'express';
-import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, GenerationSettings, generationSettingsSchema } from '@shared/schema';
+import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, GenerationSettings, generationSettingsSchema } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI, { toFile } from 'openai';
@@ -1741,6 +1741,129 @@ router.put('/preferences', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error updating user preferences:', error);
     res.status(500).json({ error: 'Failed to update user preferences' });
+  }
+});
+
+// System Prompts Routes
+
+// GET /api/prompts - Get all system prompts (Protected)
+router.get('/prompts', requireAuth, async (req, res) => {
+  try {
+    const { category } = req.query;
+    
+    let prompts;
+    if (category && (category === 'style_extraction' || category === 'concept_generation')) {
+      prompts = await storage.getSystemPromptsByCategory(category);
+    } else {
+      prompts = await storage.getAllSystemPrompts();
+    }
+    
+    res.json(prompts);
+  } catch (error) {
+    console.error('Error fetching system prompts:', error);
+    res.status(500).json({ error: 'Failed to fetch system prompts' });
+  }
+});
+
+// GET /api/prompts/default/:category - Get default prompt for a category (Protected)
+router.get('/prompts/default/:category', requireAuth, async (req, res) => {
+  try {
+    const { category } = req.params;
+    
+    if (category !== 'style_extraction' && category !== 'concept_generation') {
+      return res.status(400).json({ error: 'Invalid category. Must be style_extraction or concept_generation' });
+    }
+    
+    const prompt = await storage.getDefaultSystemPromptByCategory(category as 'style_extraction' | 'concept_generation');
+    
+    if (!prompt) {
+      return res.status(404).json({ error: 'No default prompt found for this category' });
+    }
+    
+    res.json(prompt);
+  } catch (error) {
+    console.error('Error fetching default system prompt:', error);
+    res.status(500).json({ error: 'Failed to fetch default system prompt' });
+  }
+});
+
+// GET /api/prompts/:id - Get a specific system prompt by ID (Protected)
+router.get('/prompts/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const prompt = await storage.getSystemPromptById(id);
+    
+    if (!prompt) {
+      return res.status(404).json({ error: 'System prompt not found' });
+    }
+    
+    res.json(prompt);
+  } catch (error) {
+    console.error('Error fetching system prompt:', error);
+    res.status(500).json({ error: 'Failed to fetch system prompt' });
+  }
+});
+
+// POST /api/prompts - Create a new system prompt (Protected)
+router.post('/prompts', requireAuth, async (req, res) => {
+  try {
+    const validation = insertSystemPromptSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const prompt = await storage.createSystemPrompt({
+      ...validation.data,
+      createdBy: (req as any).user.id
+    });
+    res.status(201).json(prompt);
+  } catch (error) {
+    console.error('Error creating system prompt:', error);
+    res.status(500).json({ error: 'Failed to create system prompt' });
+  }
+});
+
+// PUT /api/prompts/:id - Update an existing system prompt (Protected)
+router.put('/prompts/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validation = insertSystemPromptSchema.partial().safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const prompt = await storage.updateSystemPrompt(id, validation.data);
+    if (!prompt) {
+      return res.status(404).json({ error: 'System prompt not found' });
+    }
+    
+    res.json(prompt);
+  } catch (error) {
+    console.error('Error updating system prompt:', error);
+    res.status(500).json({ error: 'Failed to update system prompt' });
+  }
+});
+
+// DELETE /api/prompts/:id - Delete a system prompt (Protected)
+router.delete('/prompts/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteSystemPrompt(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'System prompt not found' });
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting system prompt:', error);
+    res.status(500).json({ error: 'Failed to delete system prompt' });
   }
 });
 

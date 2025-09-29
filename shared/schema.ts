@@ -86,6 +86,19 @@ export const userPreferences = pgTable("user_preferences", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// System Prompts - reusable prompts for different purposes
+export const systemPrompts = pgTable("system_prompts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  promptText: text("prompt_text").notNull(),
+  category: text("category").$type<"style_extraction" | "concept_generation">().notNull(),
+  isDefault: boolean("is_default").default(false),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zod Schemas
 export const generationSettingsSchema = z.object({
   model: z.enum(["dall-e-2", "dall-e-3", "gpt-image-1"]).default("dall-e-3"),
@@ -104,6 +117,7 @@ export const insertGenerationJobSchema = createInsertSchema(generationJobs).omit
 export const insertGeneratedImageSchema = createInsertSchema(generatedImages).omit({ id: true, createdAt: true, status: true });
 export const insertProjectSessionSchema = createInsertSchema(projectSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSystemPromptSchema = createInsertSchema(systemPrompts).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Relations - Updated for user authentication
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -175,6 +189,13 @@ export const userPreferencesRelations = relations(userPreferences, ({ one }) => 
   }),
 }));
 
+export const systemPromptsRelations = relations(systemPrompts, ({ one }) => ({
+  createdBy: one(users, {
+    fields: [systemPrompts.createdBy],
+    references: [users.id],
+  }),
+}));
+
 // Types - From blueprint:javascript_auth_all_persistance
 export type GenerationSettings = z.infer<typeof generationSettingsSchema>;
 export type User = typeof users.$inferSelect;
@@ -189,3 +210,5 @@ export type ProjectSession = typeof projectSessions.$inferSelect;
 export type InsertProjectSession = z.infer<typeof insertProjectSessionSchema>;
 export type UserPreferences = typeof userPreferences.$inferSelect;
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+export type SystemPrompt = typeof systemPrompts.$inferSelect;
+export type InsertSystemPrompt = z.infer<typeof insertSystemPromptSchema>;
