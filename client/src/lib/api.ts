@@ -224,7 +224,18 @@ export const getImageStyle = async (id: string): Promise<ImageStyle> => {
   return response.json();
 };
 
-export const createImageStyle = async (style: { name: string; stylePrompt: string; description?: string }): Promise<ImageStyle> => {
+export const createImageStyle = async (style: { 
+  name: string; 
+  stylePrompt: string; 
+  description?: string;
+  isAiExtracted?: boolean;
+  referenceImageUrl?: string;
+  extractionPrompt?: string;
+  conceptPrompt?: string;
+  generatedConcept?: string;
+  aiStyleData?: any;
+  previewImageUrl?: string;
+}): Promise<ImageStyle> => {
   const response = await authenticatedFetch(`${API_BASE}/styles`, {
     method: 'POST',
     headers: {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,8 +11,27 @@ import {
   Image as ImageIcon, 
   Edit3, 
   Trash2,
-  Eye
+  Eye,
+  Upload,
+  ChevronDown
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +39,10 @@ import AIStyleExtractorModal from '@/components/AIStyleExtractorModal';
 
 export default function StyleManagement() {
   const [isExtractorModalOpen, setIsExtractorModalOpen] = useState(false);
+  const [isManualUploadOpen, setIsManualUploadOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ImageStyle | null>(null);
+  const [manualStyleName, setManualStyleName] = useState('');
+  const [manualStylePrompt, setManualStylePrompt] = useState('');
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -30,9 +52,15 @@ export default function StyleManagement() {
     queryFn: api.getImageStyles
   });
 
-  const handleCreateNewStyle = () => {
+  const handleCreateWithAI = () => {
     setEditingStyle(null);
     setIsExtractorModalOpen(true);
+  };
+
+  const handleManualUpload = () => {
+    setManualStyleName('');
+    setManualStylePrompt('');
+    setIsManualUploadOpen(true);
   };
 
   const handleEditStyle = (style: ImageStyle) => {
@@ -72,6 +100,46 @@ export default function StyleManagement() {
     });
   };
 
+  const createManualStyleMutation = useMutation({
+    mutationFn: async () => {
+      return api.createImageStyle({
+        name: manualStyleName,
+        stylePrompt: manualStylePrompt,
+        description: '',
+        isAiExtracted: false,
+      });
+    },
+    onSuccess: () => {
+      refetch();
+      setIsManualUploadOpen(false);
+      setManualStyleName('');
+      setManualStylePrompt('');
+      toast({
+        title: 'Style Created',
+        description: 'Your manual style has been successfully created.'
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to create the style. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  });
+
+  const handleSaveManualStyle = () => {
+    if (!manualStyleName.trim() || !manualStylePrompt.trim()) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please provide both a name and style definition.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    createManualStyleMutation.mutate();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -105,14 +173,25 @@ export default function StyleManagement() {
                 <p className="text-muted-foreground">Create and manage your image generation styles</p>
               </div>
             </div>
-            <Button
-              onClick={handleCreateNewStyle}
-              className="gap-2"
-              data-testid="button-create-new-style"
-            >
-              <Plus className="w-4 h-4" />
-              Create New Style
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2" data-testid="button-create-new-style">
+                  <Plus className="w-4 h-4" />
+                  Create New Style
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCreateWithAI} data-testid="menuitem-create-with-ai">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Create with AI
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleManualUpload} data-testid="menuitem-manual-upload">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Manual Upload
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -126,14 +205,25 @@ export default function StyleManagement() {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               Get started by creating your first style. Upload a reference image and let AI extract the visual style for you.
             </p>
-            <Button
-              onClick={handleCreateNewStyle}
-              className="gap-2"
-              data-testid="button-create-first-style"
-            >
-              <Sparkles className="w-4 h-4" />
-              Create Your First Style
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gap-2" data-testid="button-create-first-style">
+                  <Sparkles className="w-4 h-4" />
+                  Create Your First Style
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center">
+                <DropdownMenuItem onClick={handleCreateWithAI} data-testid="menuitem-create-first-with-ai">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Create with AI
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleManualUpload} data-testid="menuitem-create-first-manual">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Manual Upload
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -236,6 +326,68 @@ export default function StyleManagement() {
         onStyleSaved={handleStyleSaved}
         editingStyle={editingStyle}
       />
+
+      {/* Manual Style Upload Dialog */}
+      <Dialog open={isManualUploadOpen} onOpenChange={setIsManualUploadOpen}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-manual-upload">
+          <DialogHeader>
+            <DialogTitle>Manual Style Upload</DialogTitle>
+            <DialogDescription>
+              Create a style by manually entering a name and style definition (text or JSON)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="style-name">Style Name</Label>
+              <Input
+                id="style-name"
+                placeholder="e.g., Watercolor Portrait"
+                value={manualStyleName}
+                onChange={(e) => setManualStyleName(e.target.value)}
+                data-testid="input-manual-style-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="style-prompt">Style Definition</Label>
+              <Textarea
+                id="style-prompt"
+                placeholder={`Enter style description or JSON...
+
+Text example:
+'Soft watercolor painting with gentle brushstrokes and pastel colors'
+
+JSON example:
+{
+  "style": "watercolor",
+  "colors": ["pastel"],
+  "technique": "soft brushstrokes"
+}`}
+                value={manualStylePrompt}
+                onChange={(e) => setManualStylePrompt(e.target.value)}
+                rows={10}
+                className="resize-none font-mono text-sm"
+                data-testid="textarea-manual-style-prompt"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsManualUploadOpen(false)}
+              data-testid="button-cancel-manual-upload"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveManualStyle}
+              disabled={createManualStyleMutation.isPending}
+              data-testid="button-save-manual-style"
+            >
+              {createManualStyleMutation.isPending ? 'Creating...' : 'Create Style'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
