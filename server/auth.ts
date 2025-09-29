@@ -8,6 +8,7 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
+import cors from "cors";
 
 declare global {
   namespace Express {
@@ -36,6 +37,15 @@ export function setupAuth(app: Express) {
   if (!sessionSecret) {
     throw new Error('SESSION_SECRET environment variable is required for authentication');
   }
+
+  // Configure CORS to allow credentials (cookies)
+  app.use(cors({
+    origin: true, // Allow requests from any origin in development
+    credentials: true, // Allow cookies to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
+
 
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
