@@ -116,6 +116,59 @@ function buildImageParams(model: string, size: string, quality: string, prompt: 
   return params;
 }
 
+// Helper function to convert JSON concept to rich descriptive text
+function convertConceptJsonToText(conceptJson: string): string {
+  try {
+    const parsed = JSON.parse(conceptJson);
+    const parts: string[] = [];
+    
+    // Build a natural language description from the JSON fields
+    // Prioritize the most descriptive fields for image generation
+    if (parsed.subject) {
+      parts.push(parsed.subject);
+    } else if (parsed.description) {
+      parts.push(parsed.description);
+    }
+    
+    if (parsed.metaphor && !parsed.subject?.includes(parsed.metaphor)) {
+      parts.push(`Visual metaphor: ${parsed.metaphor}`);
+    }
+    
+    if (parsed.composition) {
+      const comp = parsed.composition;
+      const compParts: string[] = [];
+      if (comp.shot) compParts.push(comp.shot + ' shot');
+      if (comp.angle) compParts.push(comp.angle + ' angle');
+      if (comp.focal_point) compParts.push('focusing on ' + comp.focal_point);
+      if (compParts.length > 0) {
+        parts.push(compParts.join(', '));
+      }
+    }
+    
+    if (parsed.constraints) {
+      if (parsed.constraints.include && Array.isArray(parsed.constraints.include)) {
+        parts.push('Include: ' + parsed.constraints.include.join(', '));
+      }
+      if (parsed.constraints.avoid && Array.isArray(parsed.constraints.avoid)) {
+        parts.push('Avoid: ' + parsed.constraints.avoid.join(', '));
+      }
+    }
+    
+    if (parsed.title && parts.length === 0) {
+      parts.push(parsed.title);
+    }
+    
+    if (parsed.message && parts.length === 0) {
+      parts.push(parsed.message);
+    }
+    
+    return parts.length > 0 ? parts.join('. ') : conceptJson;
+  } catch (error) {
+    // If not valid JSON or parsing fails, return as-is
+    return conceptJson;
+  }
+}
+
 // Helper function to build style description from extracted style data
 function buildStyleDescription(styleData: any): string {
   const parts: string[] = [];
@@ -1484,9 +1537,13 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
       console.log('Concept not in JSON format, using raw text. Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
     }
 
+    // Convert concept to human-readable text for display and image generation
+    const conceptText = convertConceptJsonToText(concept);
+    
     res.json({
       styleData,
-      concept
+      concept: conceptText,        // Human-readable text for display and image generation
+      conceptJson: concept          // Original JSON for storage and future use
     });
   } catch (error) {
     console.error('Error extracting style:', error);
