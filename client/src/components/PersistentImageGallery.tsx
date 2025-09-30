@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Download, X, ZoomIn, Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImage } from '@shared/schema';
 
@@ -66,97 +65,94 @@ export default function PersistentImageGallery({
         </CardTitle>
       </CardHeader>
       <CardContent className="px-6">
-        {/* Horizontal scrolling container */}
-        <ScrollArea className="w-full whitespace-nowrap rounded-md" data-testid="session-gallery-outer">
-          <div className="inline-flex w-max gap-4 pb-2 flex-nowrap" data-testid="session-gallery-inner">
-            {sortedImages.map((image) => (
-              <div
-                key={image.id}
-                className="relative shrink-0 group"
-                onMouseEnter={() => setHoveredImage(image.id)}
-                onMouseLeave={() => setHoveredImage(null)}
-                data-testid={`image-gallery-${image.id}`}
-              >
-                {/* Image container */}
-                <div className="relative w-48 h-48 rounded-lg overflow-hidden bg-muted cursor-pointer hover-elevate">
-                  <img
-                    src={image.imageUrl}
-                    alt={image.visualConcept}
-                    className="w-full h-full object-cover"
-                    onClick={() => onImageClick?.(image)}
-                    loading="lazy"
-                  />
-                  
-                  {/* Overlay actions */}
-                  {hoveredImage === image.id && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-2 transition-opacity">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onImageClick?.(image);
-                        }}
-                        data-testid={`button-zoom-${image.id}`}
-                      >
-                        <ZoomIn className="w-4 h-4" />
-                      </Button>
-                      {onRegenerate && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRegenerate(image);
-                          }}
-                          data-testid={`button-regenerate-${image.id}`}
-                          title="Regenerate with modifications"
-                        >
-                          <Sparkles className="w-4 h-4" />
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDownload(image);
-                        }}
-                        data-testid={`button-download-${image.id}`}
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(image.id);
-                        }}
-                        data-testid={`button-delete-${image.id}`}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+        {/* Grid layout with multiple rows */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" data-testid="session-gallery-grid">
+          {sortedImages.map((image) => (
+            <div
+              key={image.id}
+              className="relative group"
+              onMouseEnter={() => setHoveredImage(image.id)}
+              onMouseLeave={() => setHoveredImage(null)}
+              data-testid={`image-gallery-${image.id}`}
+            >
+              {/* Image container */}
+              <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover-elevate">
+                <img
+                  src={image.imageUrl}
+                  alt={image.visualConcept}
+                  className="w-full h-full object-cover"
+                  onClick={() => onImageClick?.(image)}
+                  loading="lazy"
+                />
                 
-                {/* Image info */}
-                <div className="mt-2 space-y-1">
-                  <p className="text-xs text-muted-foreground line-clamp-2 max-w-48">
-                    {image.visualConcept}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="text-xs">
-                      {image.createdAt ? new Date(image.createdAt).toLocaleTimeString() : 'Just now'}
-                    </Badge>
+                {/* Overlay actions */}
+                {hoveredImage === image.id && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-2 transition-opacity">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onImageClick?.(image);
+                      }}
+                      data-testid={`button-zoom-${image.id}`}
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                    {onRegenerate && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRegenerate(image);
+                        }}
+                        data-testid={`button-regenerate-${image.id}`}
+                        title="Regenerate with modifications"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownload(image);
+                      }}
+                      data-testid={`button-download-${image.id}`}
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(image.id);
+                      }}
+                      data-testid={`button-delete-${image.id}`}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
+                )}
+              </div>
+              
+              {/* Image info */}
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {image.visualConcept}
+                </p>
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-xs">
+                    {image.createdAt ? new Date(image.createdAt).toLocaleTimeString() : 'Just now'}
+                  </Badge>
                 </div>
               </div>
-            ))}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+            </div>
+          ))}
+        </div>
         
         {/* Gallery actions */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t">
