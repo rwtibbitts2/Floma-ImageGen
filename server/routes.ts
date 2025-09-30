@@ -2033,32 +2033,14 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
     // Build the system prompt
     const systemPrompt = promptText || `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
     
-    // Build the user message with structured output requirement
+    // Build the user message - let the custom prompt define the structure
     let userMessage = `Company: ${companyName}\n\nMarketing Content:\n${marketingContent}\n\nGenerate ${quantity} distinct visual marketing concepts that would effectively communicate this message.`;
     
     if (referenceImageUrl) {
       userMessage += `\n\nConsider the visual style and elements from the provided reference image.`;
     }
     
-    userMessage += `\n\nReturn ONLY a valid JSON array of concept objects. Each concept must have this exact structure:
-{
-  "subject": "Brief subject/title (3-6 words)",
-  "description": "Detailed scene description (1-2 sentences)",
-  "visualElements": "Key visual elements to include",
-  "mood": "The emotional tone or atmosphere",
-  "composition": "Layout and composition details"
-}
-
-Example output (return raw JSON, no markdown):
-[
-  {
-    "subject": "Morning Coffee Ritual",
-    "description": "A warm, inviting scene of a hand holding a steaming cup of artisanal coffee in natural morning light.",
-    "visualElements": "Ceramic mug, steam wisps, wooden table, soft sunlight",
-    "mood": "Calm, warm, inviting, mindful",
-    "composition": "Close-up shot with shallow depth of field, rule of thirds"
-  }
-]`;
+    userMessage += `\n\nReturn ONLY a valid JSON array. Do not wrap it in markdown code blocks.`;
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -2087,32 +2069,21 @@ Example output (return raw JSON, no markdown):
     // Strip markdown code blocks if present
     responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse the JSON array of structured concepts
+    // Parse the JSON array - accept whatever structure the custom prompt returns
     let concepts: any[];
     try {
       concepts = JSON.parse(responseText);
       if (!Array.isArray(concepts)) {
         throw new Error('Response is not an array');
       }
-      // Validate concept structure
-      concepts = concepts.map(c => ({
-        subject: c.subject || 'Untitled Concept',
-        description: c.description || '',
-        visualElements: c.visualElements || c.visual_elements || '',
-        mood: c.mood || '',
-        composition: c.composition || ''
-      }));
+      // No validation or reshaping - use concepts as-is from the custom prompt
     } catch (parseError) {
       console.error('Failed to parse concepts JSON:', parseError);
-      // Fallback: create basic structured concepts from text
-      const lines = responseText.split('\n').filter(line => line.trim().length > 0 && !line.startsWith('#'));
-      concepts = lines.slice(0, quantity).map((line, i) => ({
-        subject: `Concept ${i + 1}`,
-        description: line.trim(),
-        visualElements: '',
-        mood: '',
-        composition: ''
-      }));
+      console.error('Response text:', responseText);
+      return res.status(500).json({ 
+        error: 'Failed to parse AI response as JSON array',
+        details: 'The AI did not return valid JSON. Please check your prompt format instructions.'
+      });
     }
 
     // Create the concept list in storage
@@ -2176,20 +2147,10 @@ router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
     // Call OpenAI API to revise concepts
     const systemPrompt = existingList.promptText || `You are a creative marketing concept generator. Revise visual concepts based on user feedback.`;
     
-    const conceptsFormatted = existingList.concepts.map((c: any, i: number) => 
-      `${i + 1}. ${c.subject}: ${c.description}`
-    ).join('\n');
+    // Format current concepts as JSON for context
+    const conceptsFormatted = JSON.stringify(existingList.concepts, null, 2);
     
-    const userMessage = `Company: ${existingList.companyName}\n\nMarketing Content:\n${existingList.marketingContent}\n\nCurrent Concepts:\n${conceptsFormatted}\n\nUser Feedback:\n${feedback}\n\nRevise ALL concepts based on this feedback. Return a JSON array of ${existingList.concepts.length} concept objects with this structure:
-{
-  "subject": "Brief subject/title",
-  "description": "Detailed scene description",
-  "visualElements": "Key visual elements",
-  "mood": "Emotional tone",
-  "composition": "Layout details"
-}
-
-Return only raw JSON, no markdown.`;
+    const userMessage = `Company: ${existingList.companyName}\n\nMarketing Content:\n${existingList.marketingContent}\n\nCurrent Concepts:\n${conceptsFormatted}\n\nUser Feedback:\n${feedback}\n\nRevise ALL ${existingList.concepts.length} concepts based on this feedback. Maintain the same JSON structure and field names as the current concepts. Return only a valid JSON array, no markdown.`;
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -2218,23 +2179,17 @@ Return only raw JSON, no markdown.`;
     // Strip markdown code blocks if present
     responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse the JSON array of structured concepts
+    // Parse the JSON array - accept whatever structure matches the original
     let concepts: any[];
     try {
       concepts = JSON.parse(responseText);
       if (!Array.isArray(concepts)) {
         throw new Error('Response is not an array');
       }
-      // Validate concept structure
-      concepts = concepts.map(c => ({
-        subject: c.subject || 'Untitled Concept',
-        description: c.description || '',
-        visualElements: c.visualElements || c.visual_elements || '',
-        mood: c.mood || '',
-        composition: c.composition || ''
-      }));
+      // No validation or reshaping - use concepts as-is
     } catch (parseError) {
       console.error('Failed to parse revised concepts JSON:', parseError);
+      console.error('Response text:', responseText);
       // Fallback: keep original concepts
       concepts = existingList.concepts;
     }

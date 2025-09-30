@@ -58,6 +58,11 @@ function ConceptCard({ concept, conceptIndex, listId, onUpdate, onDelete }: Conc
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
 
+  // Get all field keys from the concept
+  const fields = Object.keys(concept);
+  const titleField = fields[0] || 'concept';
+  const detailFields = fields.slice(1);
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       const conceptList = await api.getConceptListById(listId);
@@ -107,15 +112,29 @@ function ConceptCard({ concept, conceptIndex, listId, onUpdate, onDelete }: Conc
   });
 
   const handleSave = () => {
-    const validation = conceptSchema.safeParse(editedConcept);
-    if (!validation.success) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please fill in all required fields.',
-        variant: 'destructive',
-      });
-      return;
+    // Validate that all complex fields are valid JSON
+    for (const fieldName of fields) {
+      const originalValue = concept[fieldName];
+      const editedValue = editedConcept[fieldName];
+      
+      // If original was object/array, ensure edited value is still valid structured data
+      if (typeof originalValue === 'object' && originalValue !== null) {
+        if (typeof editedValue === 'string') {
+          // Try to parse it as JSON
+          try {
+            JSON.parse(editedValue);
+          } catch (e) {
+            toast({
+              title: 'Invalid JSON',
+              description: `Field "${formatFieldName(fieldName)}" contains invalid JSON syntax. Please fix it before saving.`,
+              variant: 'destructive',
+            });
+            return;
+          }
+        }
+      }
     }
+    
     updateMutation.mutate();
   };
 
@@ -129,26 +148,66 @@ function ConceptCard({ concept, conceptIndex, listId, onUpdate, onDelete }: Conc
     setShowDeleteDialog(false);
   };
 
+  const handleFieldChange = (fieldName: string, textValue: string) => {
+    // Try to parse as JSON if it looks like JSON, otherwise keep as string
+    let parsedValue: any = textValue;
+    
+    // Check if original value was an object/array
+    const originalValue = concept[fieldName];
+    if (typeof originalValue === 'object' && originalValue !== null) {
+      // Try to parse the edited text back to JSON
+      try {
+        parsedValue = JSON.parse(textValue);
+      } catch (e) {
+        // If parsing fails, keep as string (user might still be typing)
+        parsedValue = textValue;
+      }
+    }
+    
+    setEditedConcept({ ...editedConcept, [fieldName]: parsedValue });
+  };
+
+  // Helper to render field value based on type
+  const renderFieldValue = (value: any): string => {
+    if (typeof value === 'object' && value !== null) {
+      return JSON.stringify(value, null, 2);
+    }
+    return String(value);
+  };
+  
+  // Helper to determine if a field contains a complex value (object/array)
+  const isComplexValue = (value: any): boolean => {
+    return typeof value === 'object' && value !== null;
+  };
+
+  // Helper to format field name for display
+  const formatFieldName = (fieldName: string): string => {
+    return fieldName
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
+  };
+
   return (
     <>
       <Card className="relative">
         <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-3">
           <div className="flex-1">
             {isEditing ? (
-              <Input
-                data-testid={`input-subject-${conceptIndex}`}
-                value={editedConcept.subject}
-                onChange={(e) =>
-                  setEditedConcept({ ...editedConcept, subject: e.target.value })
-                }
-                className="text-lg font-semibold"
+              <Textarea
+                data-testid={`input-title-${conceptIndex}`}
+                value={renderFieldValue(editedConcept[titleField])}
+                onChange={(e) => handleFieldChange(titleField, e.target.value)}
+                className="text-lg font-semibold min-h-[2.5rem]"
+                rows={1}
               />
             ) : (
               <h3
                 className="text-lg font-semibold"
-                data-testid={`text-subject-${conceptIndex}`}
+                data-testid={`text-title-${conceptIndex}`}
               >
-                {concept.subject}
+                {renderFieldValue(concept[titleField])}
               </h3>
             )}
           </div>
@@ -205,98 +264,29 @@ function ConceptCard({ concept, conceptIndex, listId, onUpdate, onDelete }: Conc
                 <span className="text-sm text-muted-foreground">View Details</span>
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pt-2">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Description
-                  </label>
-                  {isEditing ? (
-                    <Textarea
-                      data-testid={`textarea-description-${conceptIndex}`}
-                      value={editedConcept.description}
-                      onChange={(e) =>
-                        setEditedConcept({ ...editedConcept, description: e.target.value })
-                      }
-                      className="mt-1"
-                      rows={3}
-                    />
-                  ) : (
-                    <p
-                      className="mt-1 text-sm"
-                      data-testid={`text-description-${conceptIndex}`}
-                    >
-                      {concept.description}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Visual Elements
-                  </label>
-                  {isEditing ? (
-                    <Textarea
-                      data-testid={`textarea-visual-elements-${conceptIndex}`}
-                      value={editedConcept.visualElements}
-                      onChange={(e) =>
-                        setEditedConcept({
-                          ...editedConcept,
-                          visualElements: e.target.value,
-                        })
-                      }
-                      className="mt-1"
-                      rows={2}
-                    />
-                  ) : (
-                    <p
-                      className="mt-1 text-sm"
-                      data-testid={`text-visual-elements-${conceptIndex}`}
-                    >
-                      {concept.visualElements}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Mood</label>
-                  {isEditing ? (
-                    <Input
-                      data-testid={`input-mood-${conceptIndex}`}
-                      value={editedConcept.mood}
-                      onChange={(e) =>
-                        setEditedConcept({ ...editedConcept, mood: e.target.value })
-                      }
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="mt-1 text-sm" data-testid={`text-mood-${conceptIndex}`}>
-                      {concept.mood}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Composition
-                  </label>
-                  {isEditing ? (
-                    <Textarea
-                      data-testid={`textarea-composition-${conceptIndex}`}
-                      value={editedConcept.composition}
-                      onChange={(e) =>
-                        setEditedConcept({ ...editedConcept, composition: e.target.value })
-                      }
-                      className="mt-1"
-                      rows={2}
-                    />
-                  ) : (
-                    <p
-                      className="mt-1 text-sm"
-                      data-testid={`text-composition-${conceptIndex}`}
-                    >
-                      {concept.composition}
-                    </p>
-                  )}
-                </div>
+                {detailFields.map((fieldName) => (
+                  <div key={fieldName}>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      {formatFieldName(fieldName)}
+                    </label>
+                    {isEditing ? (
+                      <Textarea
+                        data-testid={`textarea-${fieldName}-${conceptIndex}`}
+                        value={renderFieldValue(editedConcept[fieldName])}
+                        onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+                        className="mt-1"
+                        rows={3}
+                      />
+                    ) : (
+                      <p
+                        className="mt-1 text-sm whitespace-pre-wrap"
+                        data-testid={`text-${fieldName}-${conceptIndex}`}
+                      >
+                        {renderFieldValue(concept[fieldName])}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </AccordionContent>
             </AccordionItem>
           </Accordion>

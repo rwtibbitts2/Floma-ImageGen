@@ -152,15 +152,42 @@ export default function ConceptManagement() {
                 <CardContent className="space-y-3">
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-muted-foreground">Preview:</p>
-                    {conceptList.concepts.slice(0, 3).map((concept, index) => (
-                      <div 
-                        key={index} 
-                        className="text-sm text-foreground/80 truncate"
-                        data-testid={`text-preview-concept-${conceptList.id}-${index}`}
-                      >
-                        • {concept.subject}
-                      </div>
-                    ))}
+                    {conceptList.concepts.slice(0, 3).map((concept, index) => {
+                      // Find first primitive (string/number) field for preview
+                      let previewText = 'Untitled';
+                      for (const key of Object.keys(concept)) {
+                        const value = concept[key];
+                        if (typeof value === 'string' || typeof value === 'number') {
+                          previewText = String(value);
+                          break;
+                        }
+                      }
+                      // If no primitive found, use compact JSON of first field
+                      if (previewText === 'Untitled') {
+                        const firstKey = Object.keys(concept)[0];
+                        if (firstKey) {
+                          const value = concept[firstKey];
+                          if (typeof value === 'object') {
+                            const jsonStr = JSON.stringify(value);
+                            previewText = jsonStr.length > 50 
+                              ? jsonStr.substring(0, 50) + '...'
+                              : jsonStr;
+                          } else {
+                            previewText = String(value);
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <div 
+                          key={index} 
+                          className="text-sm text-foreground/80 truncate"
+                          data-testid={`text-preview-concept-${conceptList.id}-${index}`}
+                        >
+                          • {previewText}
+                        </div>
+                      );
+                    })}
                     {conceptList.concepts.length > 3 && (
                       <p className="text-xs text-muted-foreground">
                         +{conceptList.concepts.length - 3} more

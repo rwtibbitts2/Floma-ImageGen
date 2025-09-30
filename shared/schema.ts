@@ -99,16 +99,10 @@ export const systemPrompts = pgTable("system_prompts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Concept object structure
-export const conceptSchema = z.object({
-  subject: z.string(),
-  description: z.string(),
-  visualElements: z.string(),
-  mood: z.string(),
-  composition: z.string(),
-});
+// Concept object structure - flexible to support custom prompt formats
+export const conceptSchema = z.record(z.any());
 
-export type Concept = z.infer<typeof conceptSchema>;
+export type Concept = Record<string, any>;
 
 // Concept Lists - AI-generated marketing concept lists
 export const conceptLists = pgTable("concept_lists", {
