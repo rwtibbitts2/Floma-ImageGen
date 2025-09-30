@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImage, GenerationSettings, generationSettingsSchema } from '@shared/schema';
@@ -296,7 +297,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
           </div>
         )}
 
-        <DialogFooter className="flex items-center">
+        <DialogFooter className="flex items-center gap-4">
           {/* Use Original as Reference Checkbox */}
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -310,6 +311,22 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
               Use original image as reference
+            </Label>
+          </div>
+          
+          {/* Transparency Support Switch */}
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="transparency"
+              checked={settings.transparency}
+              onCheckedChange={(checked) => updateSetting('transparency', checked)}
+              data-testid="switch-transparency"
+            />
+            <Label
+              htmlFor="transparency"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Transparency
             </Label>
           </div>
           
