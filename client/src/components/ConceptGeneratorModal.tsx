@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,7 @@ export default function ConceptGeneratorModal({
   onClose,
   onConceptListSaved,
 }: ConceptGeneratorModalProps) {
-  const [step, setStep] = useState<'upload' | 'form' | 'generating' | 'review'>('upload');
+  const [step, setStep] = useState<'upload' | 'form' | 'generating'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [referenceImageUrl, setReferenceImageUrl] = useState<string>('');
@@ -59,6 +60,7 @@ export default function ConceptGeneratorModal({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Reset all state when modal closes
   const handleClose = () => {
@@ -164,9 +166,14 @@ export default function ConceptGeneratorModal({
       return result;
     },
     onSuccess: (data) => {
-      setGeneratedConcepts(data.concepts);
-      setConceptListName(data.name);
-      setStep('review');
+      queryClient.invalidateQueries({ queryKey: ['conceptLists'] });
+      toast({
+        title: 'Concepts Generated',
+        description: 'Your concept list has been created successfully.',
+      });
+      onConceptListSaved();
+      handleClose();
+      setLocation(`/concepts/${data.id}`);
     },
     onError: () => {
       toast({
@@ -178,38 +185,6 @@ export default function ConceptGeneratorModal({
     },
   });
 
-  // Save concept list mutation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      // The concept list is already created, we just need to update the name if changed
-      const lists = await api.getConceptLists();
-      const latestList = lists[0]; // Get the most recent one
-      
-      if (latestList && latestList.name !== conceptListName) {
-        await api.updateConceptList(latestList.id, {
-          name: conceptListName,
-        });
-      }
-      
-      return latestList;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conceptLists'] });
-      toast({
-        title: 'Concept List Saved',
-        description: 'Your concept list has been saved successfully.',
-      });
-      onConceptListSaved();
-      handleClose();
-    },
-    onError: () => {
-      toast({
-        title: 'Save Failed',
-        description: 'Failed to save the concept list. Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
 
   const handleUploadAndContinue = () => {
     if (selectedFile) {
@@ -241,29 +216,9 @@ export default function ConceptGeneratorModal({
     generateMutation.mutate();
   };
 
-  const handleGenerateAgain = () => {
-    setStep('form');
-    setGeneratedConcepts([]);
-    setConceptListName('');
-  };
-
   const handlePromptSelect = (prompt: SystemPrompt) => {
     setSelectedPromptId(prompt.id);
     setPromptText(prompt.promptText);
-  };
-
-  const handleConceptChange = (index: number, value: string) => {
-    const updated = [...generatedConcepts];
-    updated[index] = value;
-    setGeneratedConcepts(updated);
-  };
-
-  const handleAddConcept = () => {
-    setGeneratedConcepts([...generatedConcepts, '']);
-  };
-
-  const handleRemoveConcept = (index: number) => {
-    setGeneratedConcepts(generatedConcepts.filter((_, i) => i !== index));
   };
 
   return (
@@ -274,8 +229,7 @@ export default function ConceptGeneratorModal({
           <DialogDescription>
             {step === 'upload' && 'Upload a reference image (optional) or skip to proceed'}
             {step === 'form' && 'Provide company details and marketing content'}
-            {step === 'generating' && 'Generating your marketing concepts...'}
-            {step === 'review' && 'Review and save your generated concepts'}
+            {step === 'generating' && 'Generating your concepts...'}
           </DialogDescription>
         </DialogHeader>
 
@@ -447,87 +401,6 @@ export default function ConceptGeneratorModal({
           </div>
         )}
 
-        {/* Step 4: Review */}
-        {step === 'review' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="list-name">Concept List Name</Label>
-              <Input
-                id="list-name"
-                value={conceptListName}
-                onChange={(e) => setConceptListName(e.target.value)}
-                placeholder="Enter a name for this concept list"
-                data-testid="input-list-name"
-              />
-            </div>
-
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              <div className="flex items-center justify-between">
-                <Label>Generated Concepts ({generatedConcepts.length})</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddConcept}
-                  data-testid="button-add-concept"
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Add
-                </Button>
-              </div>
-              
-              {generatedConcepts.map((concept, index) => (
-                <Card key={index} data-testid={`card-concept-${index}`}>
-                  <CardContent className="pt-4">
-                    <div className="flex gap-2">
-                      <Input
-                        value={concept}
-                        onChange={(e) => handleConceptChange(index, e.target.value)}
-                        placeholder={`Concept ${index + 1}`}
-                        data-testid={`input-concept-${index}`}
-                      />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleRemoveConcept(index)}
-                        data-testid={`button-remove-concept-${index}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <div className="flex gap-2 justify-between">
-              <Button
-                variant="outline"
-                onClick={handleGenerateAgain}
-                data-testid="button-generate-again"
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate Again
-              </Button>
-              <Button
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending || !conceptListName.trim()}
-                data-testid="button-save"
-              >
-                {saveMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Concept List
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

@@ -1,5 +1,5 @@
 // API helper functions for image generation
-import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt, ConceptList } from '@shared/schema';
+import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt, ConceptList, Concept } from '@shared/schema';
 
 const API_BASE = '/api';
 
@@ -626,7 +626,7 @@ export const generateConceptList = async (data: {
 
 export const updateConceptList = async (id: string, updates: {
   name?: string;
-  concepts?: string[];
+  concepts?: Concept[];
   marketingContent?: string;
 }): Promise<ConceptList> => {
   const response = await authenticatedFetch(`${API_BASE}/concept-lists/${id}`, {

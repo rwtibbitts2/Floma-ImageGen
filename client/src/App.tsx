@@ -12,6 +12,7 @@ import StyleManagement from "@/pages/StyleManagement";
 import StyleWorkspace from "@/pages/StyleWorkspace";
 import PromptManagement from "@/pages/PromptManagement";
 import ConceptManagement from "@/pages/ConceptManagement";
+import ConceptWorkspace from "@/pages/ConceptWorkspace";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 import LoginForm from "@/components/LoginForm";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/styles" component={StyleManagement} />
       <Route path="/prompts" component={PromptManagement} />
       <Route path="/concepts" component={ConceptManagement} />
+      <Route path="/concepts/:id" component={ConceptWorkspace} />
       <Route path="/workspace" component={StyleWorkspace} />
       <Route path="/admin" component={AdminPanel} />
       {/* Fallback to 404 */}
