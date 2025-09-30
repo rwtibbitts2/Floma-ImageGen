@@ -483,92 +483,92 @@ export default function ImageGenerator() {
   const handleRegenerationStarted = (jobId: string) => {
     setActiveRegenerationJobs(prev => new Set(prev).add(jobId));
     
-    // Start polling for this job
-    const pollJob = async () => {
+    // Polling function that closes over jobId - will recursively call itself
+    const pollRegenerationJob = async (): Promise<void> => {
       try {
-        const jobResponse = await fetch(`/api/jobs/${jobId}`, {
-          credentials: 'include'
-        });
+        // Fetch job status using authenticated API
+        const job = await api.getGenerationJob(jobId);
         
-        if (jobResponse.ok) {
-          const job = await jobResponse.json();
+        if (job.status === 'completed' || job.status === 'failed') {
+          // Job finished - remove from active jobs set
+          setActiveRegenerationJobs(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(jobId);
+            return newSet;
+          });
           
-          if (job.status === 'completed' || job.status === 'failed') {
-            // Job finished - remove from active jobs
-            setActiveRegenerationJobs(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(jobId);
-              return newSet;
-            });
-            
-            if (job.status === 'completed') {
-              // Fetch the regenerated images for this job
-              let completedImagesCount = 0;
-              try {
-                const imagesResponse = await fetch(`/api/jobs/${jobId}/images`, {
-                  credentials: 'include'
-                });
-                
-                if (imagesResponse.ok) {
-                  const images = await imagesResponse.json();
-                  const completedImages = images.filter((img: any) => img.status === 'completed');
-                  completedImagesCount = completedImages.length;
-                  
-                  // Add new regenerated images to session gallery (same pattern as regular generation)
-                  setSessionImages(prev => {
-                    const newImages = completedImages.filter((img: any) => 
-                      !prev.some(existing => existing.id === img.id)
-                    );
-                    return [...prev, ...newImages];
-                  });
-                  
-                  console.log('Added', completedImages.length, 'regenerated images to session gallery');
-                }
-              } catch (imagesError) {
-                console.error('Failed to fetch regenerated images:', imagesError);
-              }
+          if (job.status === 'completed') {
+            // Fetch the regenerated images for this job
+            let completedImagesCount = 0;
+            try {
+              const images = await api.getGeneratedImages(jobId);
+              const completedImages = images.filter((img: any) => img.status === 'completed');
+              completedImagesCount = completedImages.length;
               
-              // Show success only if at least one image was successfully regenerated
-              if (completedImagesCount > 0) {
-                toast({
-                  title: 'Regeneration Complete',
-                  description: 'Your regenerated image is now available in the gallery.',
-                });
-              } else {
-                toast({
-                  title: 'Regeneration Failed',
-                  description: 'The image regeneration was unsuccessful. Please try again.',
-                  variant: 'destructive'
-                });
-              }
+              // Add new regenerated images to session gallery (same pattern as regular generation)
+              setSessionImages(prev => {
+                const newImages = completedImages.filter((img: any) => 
+                  !prev.some(existing => existing.id === img.id)
+                );
+                return [...prev, ...newImages];
+              });
+              
+              console.log('Added', completedImages.length, 'regenerated images to session gallery');
+            } catch (imagesError) {
+              console.error('Failed to fetch regenerated images:', imagesError);
+            }
+            
+            // Show success only if at least one image was successfully regenerated
+            if (completedImagesCount > 0) {
+              toast({
+                title: 'Regeneration Complete',
+                description: 'Your regenerated image is now available in the gallery.',
+              });
             } else {
               toast({
                 title: 'Regeneration Failed',
-                description: 'The image regeneration was unsuccessful.',
+                description: 'The image regeneration was unsuccessful. Please try again.',
                 variant: 'destructive'
               });
             }
-            
-            return; // Stop polling
+          } else {
+            // Job failed
+            toast({
+              title: 'Regeneration Failed',
+              description: 'The image regeneration was unsuccessful.',
+              variant: 'destructive'
+            });
           }
+          
+          // Stop polling - job is complete
+          return;
         }
         
-        // Continue polling if job is still running
-        setTimeout(pollJob, 2000);
+        // Job is still running - schedule next poll in 2 seconds
+        // pollRegenerationJob captures jobId via closure, so it will poll the same job
+        setTimeout(pollRegenerationJob, 2000);
         
       } catch (error) {
         console.error('Error polling regeneration job:', error);
-        // Remove from active jobs on error
+        
+        // Remove from active jobs on error to prevent stuck state
         setActiveRegenerationJobs(prev => {
           const newSet = new Set(prev);
           newSet.delete(jobId);
           return newSet;
         });
+        
+        // Show error toast
+        toast({
+          title: 'Regeneration Error',
+          description: 'Failed to check regeneration status. Please try again.',
+          variant: 'destructive'
+        });
       }
     };
     
-    // Start polling after a short delay
-    setTimeout(pollJob, 1000);
+    // Start polling after initial 1 second delay
+    setTimeout(pollRegenerationJob, 1000);
   };
 
 
