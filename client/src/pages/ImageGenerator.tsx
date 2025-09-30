@@ -691,7 +691,7 @@ export default function ImageGenerator() {
           </header>
 
           {/* Main Layout */}
-          <main className="flex-1 overflow-y-auto p-6 min-w-0">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 min-w-0">
             <div className="flex flex-col space-y-3">
               {/* Responsive Layout */}
               {isNarrowViewport ? (
@@ -779,7 +779,7 @@ export default function ImageGenerator() {
             </div>
             
             {/* Persistent Session Gallery - Always at bottom, full width */}
-            <div className="w-full mt-6">
+            <div className="w-full max-w-full mt-6">
               <PersistentImageGallery
                 images={sessionImages}
                 onDownload={handleDownloadImage}
