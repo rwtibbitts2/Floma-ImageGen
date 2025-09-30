@@ -48,7 +48,7 @@ export default function PersistentImageGallery({
   }
 
   return (
-    <Card className="w-full">
+    <Card className="w-full max-w-full overflow-hidden">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-medium flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -67,7 +67,7 @@ export default function PersistentImageGallery({
       </CardHeader>
       <CardContent className="px-6">
         {/* Horizontal scrolling container */}
-        <ScrollArea className="w-full whitespace-nowrap" data-testid="session-gallery-outer">
+        <ScrollArea className="w-full whitespace-nowrap rounded-md" data-testid="session-gallery-outer">
           <div className="inline-flex w-max gap-4 pb-2 flex-nowrap" data-testid="session-gallery-inner">
             {sortedImages.map((image) => (
               <div
