@@ -99,6 +99,17 @@ export const systemPrompts = pgTable("system_prompts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Concept object structure
+export const conceptSchema = z.object({
+  subject: z.string(),
+  description: z.string(),
+  visualElements: z.string(),
+  mood: z.string(),
+  composition: z.string(),
+});
+
+export type Concept = z.infer<typeof conceptSchema>;
+
 // Concept Lists - AI-generated marketing concept lists
 export const conceptLists = pgTable("concept_lists", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -108,7 +119,7 @@ export const conceptLists = pgTable("concept_lists", {
   marketingContent: text("marketing_content").notNull(),
   promptId: varchar("prompt_id").references(() => systemPrompts.id),
   promptText: text("prompt_text"),
-  concepts: jsonb("concepts").$type<string[]>().notNull(),
+  concepts: jsonb("concepts").$type<Concept[]>().notNull(),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
