@@ -2186,12 +2186,25 @@ router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
       if (!Array.isArray(concepts)) {
         throw new Error('Response is not an array');
       }
-      // No validation or reshaping - use concepts as-is
+      
+      // Validate that we got concepts back
+      if (concepts.length === 0) {
+        console.error('OpenAI returned empty array. Response text:', responseText);
+        throw new Error('Empty concepts array returned');
+      }
+      
+      // Warn if count doesn't match but allow it (user might want fewer)
+      if (concepts.length !== existingList.concepts.length) {
+        console.warn(`Concept count changed from ${existingList.concepts.length} to ${concepts.length}`);
+      }
+      
+      // No further validation or reshaping - use concepts as-is
     } catch (parseError) {
       console.error('Failed to parse revised concepts JSON:', parseError);
       console.error('Response text:', responseText);
       // Fallback: keep original concepts
       concepts = existingList.concepts;
+      console.log('Using original concepts as fallback');
     }
 
     // Update the concept list with revised concepts
