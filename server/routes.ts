@@ -2029,7 +2029,6 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
     }
 
     // Call OpenAI API to generate concepts
-    const openai = (req as any).openai;
     
     // Build the system prompt
     const systemPrompt = promptText || `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
@@ -2139,8 +2138,6 @@ router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
     }
 
     // Call OpenAI API to revise concepts
-    const openai = (req as any).openai;
-    
     const systemPrompt = existingList.promptText || `You are a creative marketing concept generator. Revise visual concepts based on user feedback.`;
     
     const userMessage = `Company: ${existingList.companyName}\n\nMarketing Content:\n${existingList.marketingContent}\n\nCurrent Concepts:\n${existingList.concepts.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nUser Feedback:\n${feedback}\n\nRevise ALL the concepts based on this feedback. Return ONLY a JSON array of the revised concept strings, nothing else. Maintain the same number of concepts (${existingList.concepts.length}).`;
