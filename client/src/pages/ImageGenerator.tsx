@@ -692,11 +692,11 @@ export default function ImageGenerator() {
 
           {/* Main Layout */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 min-w-0">
-            <div className="flex flex-col space-y-3">
+            <div className="flex flex-col space-y-3 w-full max-w-full">
               {/* Responsive Layout */}
               {isNarrowViewport ? (
                 /* Mobile Layout - Single column */
-                <div className="space-y-6">
+                <div className="space-y-6 w-full max-w-full">
                   {/* Visual Concepts and Progress take full width */}
                   <div className="w-full">
                     {/* Show progress tracker during active generation states, otherwise show visual concepts input */}
@@ -734,7 +734,7 @@ export default function ImageGenerator() {
                 </div>
               ) : (
                 /* Desktop Layout - Two columns */
-                <div className="grid grid-cols-12 gap-6">
+                <div className="grid grid-cols-12 gap-6 w-full max-w-full">
                   {/* Left Column (33%) - Style + Settings */}
                   <div className="col-span-4 space-y-6 min-w-0">
                     <StyleAndSettings />
