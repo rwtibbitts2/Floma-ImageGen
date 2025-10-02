@@ -52,7 +52,7 @@ export default function StyleWorkspace() {
   
   // Generation settings state
   const [generationSettings, setGenerationSettings] = useState({
-    model: 'dall-e-3',
+    model: 'gpt-image-1',
     quality: 'standard',
     size: '1024x1024',
     transparency: false

@@ -62,7 +62,7 @@ export default function ImageGenerator() {
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>();
   const [concepts, setConcepts] = useState<string[]>([]);
   const [settings, setSettings] = useState<GenerationSettingsType>({
-    model: 'dall-e-3',
+    model: 'gpt-image-1',
     quality: 'standard',
     size: '1024x1024',
     transparency: false,

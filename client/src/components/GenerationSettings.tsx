@@ -39,7 +39,7 @@ const modelCapabilities = {
 } as const;
 
 export default function GenerationSettingsComponent({ settings, onSettingsChange }: GenerationSettingsProps) {
-  const currentModel = settings.model || 'dall-e-3';
+  const currentModel = settings.model || 'gpt-image-1';
   const capabilities = modelCapabilities[currentModel];
 
   const updateSetting = <K extends keyof GenerationSettings>(
