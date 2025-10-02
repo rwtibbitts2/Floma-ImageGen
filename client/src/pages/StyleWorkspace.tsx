@@ -26,6 +26,7 @@ import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
+import { buildStyleDescription } from '@shared/utils';
 
 interface StyleWorkspaceProps {
   styleId?: string;
@@ -92,7 +93,7 @@ export default function StyleWorkspace() {
       const updateData = {
         name: styleName,
         description,
-        stylePrompt: styleData?.style_name ? `${styleData.style_name}: ${styleData.description}` : styleData?.description || 'AI-extracted style',
+        stylePrompt: styleData ? buildStyleDescription(styleData) : 'AI-extracted style',
         aiStyleData: styleData,
         previewImageUrl,
         referenceImageUrl,
