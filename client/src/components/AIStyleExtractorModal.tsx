@@ -73,30 +73,38 @@ export default function AIStyleExtractorModal({
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  // Load user preferences for default prompts
-  const { data: userPreferences, isLoading: preferencesLoading, error: preferencesError } = useQuery({
-    queryKey: ['/api/preferences'],
-    queryFn: getUserPreferences,
-    enabled: isOpen, // Only load when modal is open
+  // Load system prompts
+  const { data: extractionPrompts = [] } = useQuery({
+    queryKey: ['systemPrompts', 'style_extraction'],
+    queryFn: () => api.getSystemPromptsByCategory('style_extraction'),
+    enabled: isOpen,
   });
 
-  // Update prompts when user preferences are loaded (only once per session)
+  const { data: conceptPrompts = [] } = useQuery({
+    queryKey: ['systemPrompts', 'concept_generation'],
+    queryFn: () => api.getSystemPromptsByCategory('concept_generation'),
+    enabled: isOpen,
+  });
+
+  // Auto-select default prompts when modal opens (only for new styles, not editing)
   useEffect(() => {
-    if (userPreferences && !editingStyle && isOpen && !preferencesInitialized) {
-      // Only use user preferences if not editing an existing style and not already initialized
-      if (userPreferences.defaultExtractionPrompt) {
-        setExtractionPrompt(userPreferences.defaultExtractionPrompt);
-        setSelectedExtractionPromptId(undefined); // Clear selection since we're using custom text
+    if (!editingStyle && isOpen && !preferencesInitialized) {
+      const defaultExtractionPrompt = extractionPrompts.find(p => p.isDefault);
+      const defaultConceptPrompt = conceptPrompts.find(p => p.isDefault);
+      
+      if (defaultExtractionPrompt) {
+        setSelectedExtractionPromptId(defaultExtractionPrompt.id);
+        setExtractionPrompt(defaultExtractionPrompt.promptText);
       }
-      if (userPreferences.defaultConceptPrompt) {
-        setConceptPrompt(userPreferences.defaultConceptPrompt);
-        setSelectedConceptPromptId(undefined); // Clear selection since we're using custom text
+      if (defaultConceptPrompt) {
+        setSelectedConceptPromptId(defaultConceptPrompt.id);
+        setConceptPrompt(defaultConceptPrompt.promptText);
       }
       setPreferencesInitialized(true);
     }
-  }, [userPreferences, editingStyle, isOpen, preferencesInitialized]);
+  }, [extractionPrompts, conceptPrompts, editingStyle, isOpen, preferencesInitialized]);
 
-  // Reset initialization flag when modal closes or switches between edit/create modes
+  // Reset initialization flag when modal closes
   useEffect(() => {
     if (!isOpen) {
       setPreferencesInitialized(false);
@@ -465,9 +473,6 @@ export default function AIStyleExtractorModal({
             <div className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="text-sm font-medium">Advanced Prompt Settings</span>
-              {preferencesLoading && (
-                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-              )}
             </div>
             <ChevronDown 
               className={`h-4 w-4 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} 
@@ -482,23 +487,9 @@ export default function AIStyleExtractorModal({
               setSelectedExtractionPromptId(prompt.id);
               setExtractionPrompt(prompt.promptText);
             }}
-            description="Select a template for analyzing and extracting visual style characteristics"
+            label="Style Extraction Prompt"
+            description="Template for analyzing and extracting visual style characteristics"
           />
-
-          <div className="space-y-2">
-            <Label htmlFor="extraction-prompt">Style Extraction Prompt (Editable)</Label>
-            <Textarea
-              id="extraction-prompt"
-              value={extractionPrompt}
-              onChange={(e) => {
-                setExtractionPrompt(e.target.value);
-                setSelectedExtractionPromptId(undefined); // Clear selection on manual edit
-              }}
-              rows={6}
-              className="resize-none"
-              data-testid="textarea-extraction-prompt"
-            />
-          </div>
 
           <PromptSelector
             category="concept_generation"
@@ -507,23 +498,9 @@ export default function AIStyleExtractorModal({
               setSelectedConceptPromptId(prompt.id);
               setConceptPrompt(prompt.promptText);
             }}
-            description="Select a template for generating creative visual concepts"
+            label="Concept Generation Prompt"
+            description="Template for generating creative visual concepts"
           />
-
-          <div className="space-y-2">
-            <Label htmlFor="concept-prompt">Concept Generation Prompt (Editable)</Label>
-            <Textarea
-              id="concept-prompt"
-              value={conceptPrompt}
-              onChange={(e) => {
-                setConceptPrompt(e.target.value);
-                setSelectedConceptPromptId(undefined); // Clear selection on manual edit
-              }}
-              rows={4}
-              className="resize-none"
-              data-testid="textarea-concept-prompt"
-            />
-          </div>
         </CollapsibleContent>
       </Collapsible>
 

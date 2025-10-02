@@ -66,9 +66,8 @@ export default function PromptSelector({
         <p className="text-sm text-muted-foreground">{description}</p>
       )}
       <Select
-        value={selectedPrompt?.id || "custom"}
+        value={selectedPrompt?.id || defaultPrompt?.id || ""}
         onValueChange={(promptId) => {
-          if (promptId === "custom") return; // Don't change anything for custom
           const prompt = prompts.find(p => p.id === promptId);
           if (prompt) onPromptSelect(prompt);
         }}
@@ -80,11 +79,6 @@ export default function PromptSelector({
           <SelectValue placeholder="Select a prompt template" />
         </SelectTrigger>
         <SelectContent>
-          {!selectedPrompt && (
-            <SelectItem value="custom" disabled>
-              Custom prompt (edited)
-            </SelectItem>
-          )}
           {prompts.map((prompt) => (
             <SelectItem 
               key={prompt.id} 

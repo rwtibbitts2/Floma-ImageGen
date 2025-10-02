@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
@@ -54,6 +54,7 @@ export default function ConceptGeneratorModal({
   const [quantity, setQuantity] = useState(5);
   const [selectedPromptId, setSelectedPromptId] = useState<string | undefined>(undefined);
   const [promptText, setPromptText] = useState('');
+  const [promptInitialized, setPromptInitialized] = useState(false);
   
   // Style control sliders
   const [temperature, setTemperature] = useState(0.7);
@@ -68,6 +69,25 @@ export default function ConceptGeneratorModal({
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
+  // Load system prompts
+  const { data: conceptPrompts = [] } = useQuery({
+    queryKey: ['systemPrompts', 'concept_generation'],
+    queryFn: () => api.getSystemPromptsByCategory('concept_generation'),
+    enabled: isOpen,
+  });
+
+  // Auto-select default prompt when modal opens
+  useEffect(() => {
+    if (isOpen && !promptInitialized && conceptPrompts.length > 0) {
+      const defaultPrompt = conceptPrompts.find(p => p.isDefault);
+      if (defaultPrompt) {
+        setSelectedPromptId(defaultPrompt.id);
+        setPromptText(defaultPrompt.promptText);
+      }
+      setPromptInitialized(true);
+    }
+  }, [isOpen, promptInitialized, conceptPrompts]);
+
   // Reset all state when modal closes
   const handleClose = () => {
     setStep('upload');
@@ -79,6 +99,7 @@ export default function ConceptGeneratorModal({
     setQuantity(5);
     setSelectedPromptId(undefined);
     setPromptText('');
+    setPromptInitialized(false);
     setTemperature(0.7);
     setLiteralMetaphorical(0);
     setSimpleComplex(0);
