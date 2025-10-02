@@ -16,7 +16,8 @@ import {
   MessageSquare,
   Send,
   Image as ImageIcon,
-  Settings
+  Settings,
+  Undo
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -43,6 +44,7 @@ export default function StyleWorkspace() {
   const [styleName, setStyleName] = useState('');
   const [description, setDescription] = useState('');
   const [styleData, setStyleData] = useState<any>(null);
+  const [previousStyleData, setPreviousStyleData] = useState<any>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [chatMessage, setChatMessage] = useState('');
@@ -180,6 +182,9 @@ export default function StyleWorkspace() {
     }
 
     try {
+      // Save current state before refining
+      setPreviousStyleData(styleData);
+      
       const result = await refineMutation.mutateAsync(chatMessage);
       setStyleData(result.refinedStyleData);
       setChatMessage('');
@@ -192,6 +197,17 @@ export default function StyleWorkspace() {
         title: 'Refinement Failed',
         description: 'Failed to refine the style definition. Please try again.',
         variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUndo = () => {
+    if (previousStyleData) {
+      setStyleData(previousStyleData);
+      setPreviousStyleData(null);
+      toast({
+        title: 'Changes Reverted',
+        description: 'Style has been restored to the previous state.'
       });
     }
   };
@@ -313,6 +329,17 @@ export default function StyleWorkspace() {
             </div>
           </div>
           <div className="flex gap-2">
+            {previousStyleData && (
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={handleUndo}
+                data-testid="button-undo"
+              >
+                <Undo className="w-4 h-4" />
+                Undo
+              </Button>
+            )}
             <Button variant="outline" className="gap-2">
               <RefreshCw className="w-4 h-4" />
               Reset
