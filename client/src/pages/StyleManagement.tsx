@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,28 +21,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import AIStyleExtractorModal from '@/components/AIStyleExtractorModal';
+import AddStyleModal from '@/components/AddStyleModal';
 
 export default function StyleManagement() {
   const [isExtractorModalOpen, setIsExtractorModalOpen] = useState(false);
-  const [isManualUploadOpen, setIsManualUploadOpen] = useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<ImageStyle | null>(null);
-  const [manualStyleName, setManualStyleName] = useState('');
-  const [manualStylePrompt, setManualStylePrompt] = useState('');
+  const [editingAiStyle, setEditingAiStyle] = useState<ImageStyle | null>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -53,14 +42,13 @@ export default function StyleManagement() {
   });
 
   const handleCreateWithAI = () => {
-    setEditingStyle(null);
+    setEditingAiStyle(null);
     setIsExtractorModalOpen(true);
   };
 
   const handleManualUpload = () => {
-    setManualStyleName('');
-    setManualStylePrompt('');
-    setIsManualUploadOpen(true);
+    setEditingStyle(null);
+    setIsManualModalOpen(true);
   };
 
   const handleEditStyle = (style: ImageStyle) => {
@@ -68,9 +56,9 @@ export default function StyleManagement() {
       // Navigate to workspace for AI-extracted styles
       setLocation(`/workspace?id=${style.id}`);
     } else {
-      // Use modal for manually created styles
+      // Use AddStyleModal for manually created styles
       setEditingStyle(style);
-      setIsExtractorModalOpen(true);
+      setIsManualModalOpen(true);
     }
   };
 
@@ -94,50 +82,11 @@ export default function StyleManagement() {
   const handleStyleSaved = () => {
     refetch();
     setIsExtractorModalOpen(false);
+    setIsManualModalOpen(false);
     toast({
       title: 'Style Saved',
       description: 'Your style has been successfully saved and is ready to use.'
     });
-  };
-
-  const createManualStyleMutation = useMutation({
-    mutationFn: async () => {
-      return api.createImageStyle({
-        name: manualStyleName,
-        stylePrompt: manualStylePrompt,
-        description: '',
-        isAiExtracted: false,
-      });
-    },
-    onSuccess: () => {
-      refetch();
-      setIsManualUploadOpen(false);
-      setManualStyleName('');
-      setManualStylePrompt('');
-      toast({
-        title: 'Style Created',
-        description: 'Your manual style has been successfully created.'
-      });
-    },
-    onError: () => {
-      toast({
-        title: 'Error',
-        description: 'Failed to create the style. Please try again.',
-        variant: 'destructive'
-      });
-    }
-  });
-
-  const handleSaveManualStyle = () => {
-    if (!manualStyleName.trim() || !manualStylePrompt.trim()) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please provide both a name and style definition.',
-        variant: 'destructive'
-      });
-      return;
-    }
-    createManualStyleMutation.mutate();
   };
 
   if (isLoading) {
@@ -324,70 +273,15 @@ export default function StyleManagement() {
         isOpen={isExtractorModalOpen}
         onClose={() => setIsExtractorModalOpen(false)}
         onStyleSaved={handleStyleSaved}
-        editingStyle={editingStyle}
+        editingStyle={editingAiStyle}
       />
 
-      {/* Manual Style Upload Dialog */}
-      <Dialog open={isManualUploadOpen} onOpenChange={setIsManualUploadOpen}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-manual-upload">
-          <DialogHeader>
-            <DialogTitle>Manual Style Upload</DialogTitle>
-            <DialogDescription>
-              Create a style by manually entering a name and style definition (text or JSON)
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="style-name">Style Name</Label>
-              <Input
-                id="style-name"
-                placeholder="e.g., Watercolor Portrait"
-                value={manualStyleName}
-                onChange={(e) => setManualStyleName(e.target.value)}
-                data-testid="input-manual-style-name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="style-prompt">Style Definition</Label>
-              <Textarea
-                id="style-prompt"
-                placeholder={`Enter style description or JSON...
-
-Text example:
-'Soft watercolor painting with gentle brushstrokes and pastel colors'
-
-JSON example:
-{
-  "style": "watercolor",
-  "colors": ["pastel"],
-  "technique": "soft brushstrokes"
-}`}
-                value={manualStylePrompt}
-                onChange={(e) => setManualStylePrompt(e.target.value)}
-                rows={10}
-                className="resize-none font-mono text-sm"
-                data-testid="textarea-manual-style-prompt"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsManualUploadOpen(false)}
-              data-testid="button-cancel-manual-upload"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveManualStyle}
-              disabled={createManualStyleMutation.isPending}
-              data-testid="button-save-manual-style"
-            >
-              {createManualStyleMutation.isPending ? 'Creating...' : 'Create Style'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Manual Style Modal */}
+      <AddStyleModal
+        open={isManualModalOpen}
+        onOpenChange={setIsManualModalOpen}
+        editingStyle={editingStyle || undefined}
+      />
     </div>
   );
 }
