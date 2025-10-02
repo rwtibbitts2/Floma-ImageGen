@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Slider } from '@/components/ui/slider';
 import {
   Upload,
   X,
@@ -54,6 +55,11 @@ export default function ConceptGeneratorModal({
   const [selectedPromptId, setSelectedPromptId] = useState<string | undefined>(undefined);
   const [promptText, setPromptText] = useState('');
   
+  // Style control sliders
+  const [temperature, setTemperature] = useState(0.7);
+  const [literalMetaphorical, setLiteralMetaphorical] = useState(0);
+  const [simpleComplex, setSimpleComplex] = useState(0);
+  
   // Generated data
   const [generatedConcepts, setGeneratedConcepts] = useState<string[]>([]);
   const [conceptListName, setConceptListName] = useState('');
@@ -73,6 +79,9 @@ export default function ConceptGeneratorModal({
     setQuantity(5);
     setSelectedPromptId(undefined);
     setPromptText('');
+    setTemperature(0.7);
+    setLiteralMetaphorical(0);
+    setSimpleComplex(0);
     setGeneratedConcepts([]);
     setConceptListName('');
     onClose();
@@ -162,6 +171,9 @@ export default function ConceptGeneratorModal({
         promptId: selectedPromptId,
         promptText: promptText || undefined,
         quantity,
+        temperature,
+        literalMetaphorical,
+        simpleComplex,
       });
       return result;
     },
@@ -366,6 +378,80 @@ export default function ConceptGeneratorModal({
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 5)}
                 data-testid="input-quantity"
               />
+            </div>
+
+            {/* Style Control Sliders */}
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="temperature">
+                    Temperature
+                  </Label>
+                  <span className="text-sm text-muted-foreground" data-testid="text-temperature-value">
+                    {temperature.toFixed(2)}
+                  </span>
+                </div>
+                <Slider
+                  id="temperature"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={[temperature]}
+                  onValueChange={(values) => setTemperature(values[0])}
+                  data-testid="slider-temperature"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Lower values produce more consistent, focused results. Higher values increase creativity and variation.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="literal-metaphorical">
+                    Style Spectrum
+                  </Label>
+                  <span className="text-sm text-muted-foreground" data-testid="text-literal-metaphorical-value">
+                    {literalMetaphorical < -0.3 ? 'Literal' : literalMetaphorical > 0.3 ? 'Metaphorical' : 'Balanced'}
+                  </span>
+                </div>
+                <Slider
+                  id="literal-metaphorical"
+                  min={-1}
+                  max={1}
+                  step={0.1}
+                  value={[literalMetaphorical]}
+                  onValueChange={(values) => setLiteralMetaphorical(values[0])}
+                  data-testid="slider-literal-metaphorical"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Literal, concrete descriptions</span>
+                  <span>Metaphorical, abstract imagery</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="simple-complex">
+                    Subject Complexity
+                  </Label>
+                  <span className="text-sm text-muted-foreground" data-testid="text-simple-complex-value">
+                    {simpleComplex < -0.3 ? 'Simple' : simpleComplex > 0.3 ? 'Complex' : 'Moderate'}
+                  </span>
+                </div>
+                <Slider
+                  id="simple-complex"
+                  min={-1}
+                  max={1}
+                  step={0.1}
+                  value={[simpleComplex]}
+                  onValueChange={(values) => setSimpleComplex(values[0])}
+                  data-testid="slider-simple-complex"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Single, clear subjects</span>
+                  <span>Multi-layered compositions</span>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-2 justify-between">

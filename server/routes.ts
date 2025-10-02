@@ -2021,11 +2021,25 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
       marketingContent, 
       promptId,
       promptText,
-      quantity = 5
+      quantity = 5,
+      temperature = 0.7,
+      literalMetaphorical = 0,
+      simpleComplex = 0
     } = req.body;
 
     if (!companyName || !marketingContent) {
       return res.status(400).json({ error: 'Company name and marketing content are required' });
+    }
+
+    // Validate parameter ranges
+    if (temperature < 0 || temperature > 1) {
+      return res.status(400).json({ error: 'Temperature must be between 0 and 1' });
+    }
+    if (literalMetaphorical < -1 || literalMetaphorical > 1) {
+      return res.status(400).json({ error: 'Literal/Metaphorical value must be between -1 and 1' });
+    }
+    if (simpleComplex < -1 || simpleComplex > 1) {
+      return res.status(400).json({ error: 'Simple/Complex value must be between -1 and 1' });
     }
 
     // Call OpenAI API to generate concepts
@@ -2033,7 +2047,24 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
     // Build the system prompt with hard-coded output instructions for reliability
     const baseSystemPrompt = promptText || `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
     
-    const systemPrompt = `${baseSystemPrompt}
+    // Generate style guidance based on slider values
+    let styleGuidance = '';
+    
+    // Literal <-> Metaphorical guidance
+    if (literalMetaphorical < -0.3) {
+      styleGuidance += '\n\nSTYLE: Use concrete, specific, literal descriptions. Focus on tangible visual elements and clear subjects. Avoid metaphors and abstract imagery.';
+    } else if (literalMetaphorical > 0.3) {
+      styleGuidance += '\n\nSTYLE: Use creative metaphors, symbolic imagery, and abstract representations. Embrace poetic and conceptual language.';
+    }
+    
+    // Simple <-> Complex guidance
+    if (simpleComplex < -0.3) {
+      styleGuidance += '\n\nCOMPOSITION: Keep subjects simple and focused. Use single, clear focal points. Minimize elements and maintain visual clarity.';
+    } else if (simpleComplex > 0.3) {
+      styleGuidance += '\n\nCOMPOSITION: Create multi-layered compositions with multiple elements. Combine various visual components to create rich, detailed scenes.';
+    }
+    
+    const systemPrompt = `${baseSystemPrompt}${styleGuidance}
 
 IMPORTANT OUTPUT FORMAT:
 Return ONLY a JSON array of strings. Each string should be a complete concept description.
@@ -2066,7 +2097,7 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages,
-      temperature: 0.8,
+      temperature: temperature,
     });
 
     let responseText = completion.choices[0]?.message?.content || '[]';
@@ -2124,6 +2155,9 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
       marketingContent,
       promptId: promptId || null,
       promptText: promptText || null,
+      temperature,
+      literalMetaphorical,
+      simpleComplex,
       concepts,
       userId
     });

@@ -141,7 +141,7 @@ export const insertGeneratedImageSchema = createInsertSchema(generatedImages).om
 export const insertProjectSessionSchema = createInsertSchema(projectSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSystemPromptSchema = createInsertSchema(systemPrompts).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertConceptListSchema = createInsertSchema(conceptLists).omit({ id: true, createdAt: true, updatedAt: true, temperature: true, literalMetaphorical: true, simpleComplex: true });
+export const insertConceptListSchema = createInsertSchema(conceptLists).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Relations - Updated for user authentication
 export const usersRelations = relations(users, ({ many, one }) => ({

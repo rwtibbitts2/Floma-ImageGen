@@ -610,6 +610,9 @@ export const generateConceptList = async (data: {
   promptId?: string;
   promptText?: string;
   quantity?: number;
+  temperature?: number;
+  literalMetaphorical?: number;
+  simpleComplex?: number;
 }): Promise<ConceptList> => {
   const response = await authenticatedFetch(`${API_BASE}/generate-concept-list`, {
     method: 'POST',
