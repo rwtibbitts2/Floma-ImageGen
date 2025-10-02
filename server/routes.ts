@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from 'express';
-import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, InsertConceptList, GenerationSettings, generationSettingsSchema } from '@shared/schema';
+import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, InsertConceptList, GenerationSettings, generationSettingsSchema, Concept } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI, { toFile } from 'openai';
@@ -2030,17 +2030,22 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
 
     // Call OpenAI API to generate concepts
     
-    // Build the system prompt
-    const systemPrompt = promptText || `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
+    // Build the system prompt with hard-coded output instructions for reliability
+    const baseSystemPrompt = promptText || `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
     
-    // Build the user message - let the custom prompt define the structure
+    const systemPrompt = `${baseSystemPrompt}
+
+IMPORTANT OUTPUT FORMAT:
+Return ONLY a JSON array of strings. Each string should be a complete concept description.
+Example format: ["Concept 1 description...", "Concept 2 description...", "Concept 3 description..."]
+Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
+    
+    // Build the user message
     let userMessage = `Company: ${companyName}\n\nMarketing Content:\n${marketingContent}\n\nGenerate ${quantity} distinct visual marketing concepts that would effectively communicate this message.`;
     
     if (referenceImageUrl) {
       userMessage += `\n\nConsider the visual style and elements from the provided reference image.`;
     }
-    
-    userMessage += `\n\nReturn ONLY a valid JSON array. Do not wrap it in markdown code blocks.`;
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -2069,19 +2074,34 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
     // Strip markdown code blocks if present
     responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse the JSON - accept both direct array or object with "concepts" key
-    let concepts: any[];
+    // Parse and normalize concepts to simple, consistent format
+    let concepts: Concept[];
     try {
       const parsed = JSON.parse(responseText);
       
+      let rawConcepts: any[];
+      
       // Handle two formats: direct array or object with "concepts" key
       if (Array.isArray(parsed)) {
-        concepts = parsed;
+        rawConcepts = parsed;
       } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concepts)) {
-        concepts = parsed.concepts;
+        rawConcepts = parsed.concepts;
       } else {
         throw new Error('Response must be an array or an object with a "concepts" array property');
       }
+      
+      // Normalize all concepts to simple objects with a "concept" field
+      concepts = rawConcepts.map((concept, index) => {
+        if (typeof concept === 'string') {
+          // Wrap simple string in object for consistent storage
+          return { concept: concept };
+        } else if (typeof concept === 'object' && concept !== null) {
+          // Keep object as-is (supports custom structures)
+          return concept;
+        } else {
+          return { concept: `Concept ${index + 1}` };
+        }
+      });
       
       // Validate we have at least some concepts
       if (concepts.length === 0) {
@@ -2092,7 +2112,7 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
       console.error('Response text:', responseText);
       return res.status(500).json({ 
         error: 'Failed to parse AI response',
-        details: 'The AI response must be a JSON array or an object with a "concepts" array. Please check your prompt format instructions.'
+        details: 'The AI must return a JSON array of concept strings or objects.'
       });
     }
 
@@ -2155,12 +2175,19 @@ router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
     }
 
     // Call OpenAI API to revise concepts
-    const systemPrompt = existingList.promptText || `You are a creative marketing concept generator. Revise visual concepts based on user feedback.`;
+    const baseSystemPrompt = existingList.promptText || `You are a creative marketing concept generator. Revise visual concepts based on user feedback.`;
+    
+    const systemPrompt = `${baseSystemPrompt}
+
+IMPORTANT OUTPUT FORMAT:
+Return ONLY a JSON array of strings. Each string should be a complete concept description.
+Example format: ["Concept 1 description...", "Concept 2 description...", "Concept 3 description..."]
+Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
     
     // Format current concepts as JSON for context
     const conceptsFormatted = JSON.stringify(existingList.concepts, null, 2);
     
-    const userMessage = `Company: ${existingList.companyName}\n\nMarketing Content:\n${existingList.marketingContent}\n\nCurrent Concepts:\n${conceptsFormatted}\n\nUser Feedback:\n${feedback}\n\nRevise ALL ${existingList.concepts.length} concepts based on this feedback. Maintain the same JSON structure and field names as the current concepts. Return only a valid JSON array, no markdown.`;
+    const userMessage = `Company: ${existingList.companyName}\n\nMarketing Content:\n${existingList.marketingContent}\n\nCurrent Concepts:\n${conceptsFormatted}\n\nUser Feedback:\n${feedback}\n\nRevise ALL ${existingList.concepts.length} concepts based on this feedback. Return only a valid JSON array of strings, no markdown.`;
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -2189,19 +2216,32 @@ router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
     // Strip markdown code blocks if present
     responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse the JSON - accept both direct array or object with "concepts" key
-    let concepts: any[];
+    // Parse and normalize revised concepts
+    let concepts: Concept[];
     try {
       const parsed = JSON.parse(responseText);
       
+      let rawConcepts: any[];
+      
       // Handle two formats: direct array or object with "concepts" key
       if (Array.isArray(parsed)) {
-        concepts = parsed;
+        rawConcepts = parsed;
       } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concepts)) {
-        concepts = parsed.concepts;
+        rawConcepts = parsed.concepts;
       } else {
         throw new Error('Response must be an array or an object with a "concepts" array property');
       }
+      
+      // Normalize all concepts to simple objects
+      concepts = rawConcepts.map((concept, index) => {
+        if (typeof concept === 'string') {
+          return { concept: concept };
+        } else if (typeof concept === 'object' && concept !== null) {
+          return concept;
+        } else {
+          return { concept: `Concept ${index + 1}` };
+        }
+      });
       
       // Validate that we got concepts back
       if (concepts.length === 0) {
@@ -2213,8 +2253,6 @@ router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
       if (concepts.length !== existingList.concepts.length) {
         console.warn(`Concept count changed from ${existingList.concepts.length} to ${concepts.length}`);
       }
-      
-      // No further validation or reshaping - use concepts as-is
     } catch (parseError) {
       console.error('Failed to parse revised concepts JSON:', parseError);
       console.error('Response text:', responseText);
