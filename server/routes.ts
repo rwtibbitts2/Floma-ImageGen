@@ -2069,20 +2069,30 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
     // Strip markdown code blocks if present
     responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse the JSON array - accept whatever structure the custom prompt returns
+    // Parse the JSON - accept both direct array or object with "concepts" key
     let concepts: any[];
     try {
-      concepts = JSON.parse(responseText);
-      if (!Array.isArray(concepts)) {
-        throw new Error('Response is not an array');
+      const parsed = JSON.parse(responseText);
+      
+      // Handle two formats: direct array or object with "concepts" key
+      if (Array.isArray(parsed)) {
+        concepts = parsed;
+      } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concepts)) {
+        concepts = parsed.concepts;
+      } else {
+        throw new Error('Response must be an array or an object with a "concepts" array property');
       }
-      // No validation or reshaping - use concepts as-is from the custom prompt
+      
+      // Validate we have at least some concepts
+      if (concepts.length === 0) {
+        throw new Error('Concepts array is empty');
+      }
     } catch (parseError) {
       console.error('Failed to parse concepts JSON:', parseError);
       console.error('Response text:', responseText);
       return res.status(500).json({ 
-        error: 'Failed to parse AI response as JSON array',
-        details: 'The AI did not return valid JSON. Please check your prompt format instructions.'
+        error: 'Failed to parse AI response',
+        details: 'The AI response must be a JSON array or an object with a "concepts" array. Please check your prompt format instructions.'
       });
     }
 
@@ -2179,12 +2189,18 @@ router.post('/concept-lists/:id/revise', requireAuth, async (req, res) => {
     // Strip markdown code blocks if present
     responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse the JSON array - accept whatever structure matches the original
+    // Parse the JSON - accept both direct array or object with "concepts" key
     let concepts: any[];
     try {
-      concepts = JSON.parse(responseText);
-      if (!Array.isArray(concepts)) {
-        throw new Error('Response is not an array');
+      const parsed = JSON.parse(responseText);
+      
+      // Handle two formats: direct array or object with "concepts" key
+      if (Array.isArray(parsed)) {
+        concepts = parsed;
+      } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concepts)) {
+        concepts = parsed.concepts;
+      } else {
+        throw new Error('Response must be an array or an object with a "concepts" array property');
       }
       
       // Validate that we got concepts back
