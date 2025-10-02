@@ -10,6 +10,29 @@ The application provides a comprehensive workflow for managing image styles, inp
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### October 2, 2025
+
+**Style Consistency Fix** - Resolved issue where images generated in the image generator differed from style extractor previews:
+- Created shared `buildStyleDescription()` utility in `shared/utils.ts` to ensure consistent style description generation across frontend and backend
+- Updated `StyleWorkspace.tsx` to use the shared utility when saving styles, preserving all extracted style attributes (colors, techniques, composition, lighting, mood, etc.)
+- Previously, saved styles only included style name and description, losing detailed attributes
+- Now saved styles include comprehensive style data, ensuring generated images match preview quality
+
+**Transparency Support Fix** - Fixed transparency toggle not working consistently:
+- Root cause: The transparency setting from generation settings was never being passed to the image generation function
+- Additionally, prompts didn't explicitly instruct the AI to create transparent backgrounds
+- Fixed `generateImagesAsync` to pass `settings.transparency` parameter to `buildImageParams`
+- Added explicit transparency instruction to prompts when enabled: "Background: Transparent, no background, isolated subject"
+- Applied fix to both main image generation and style preview endpoints
+- Transparency now works reliably when using the gpt-image-1 model with the toggle enabled
+
+**Cache Invalidation Fix** - Fixed issue where saved styles reverted to original state:
+- Added proper `queryClient.invalidateQueries()` calls in save mutation's `onSuccess` callback
+- Ensured cache invalidation uses both the returned data ID and current styleId for reliability
+- Included `generatedConcept` field in update payload to preserve AI-generated concepts
+
 ## System Architecture
 
 **Frontend Architecture**
