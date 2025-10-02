@@ -54,12 +54,12 @@ const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   },
   'dall-e-3': {
     supportsQuality: true, 
-    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportedSizes: ['1024x1024', '1536x1024', '1024x1536'],
     supportsEditing: false
   },
   'gpt-image-1': {
     supportsQuality: true,
-    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportedSizes: ['1024x1024', '1536x1024', '1024x1536'],
     supportsEditing: true
   }
 };
@@ -529,7 +529,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       settings: z.object({
         model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']).default('dall-e-3'),
         quality: z.enum(['standard', 'hd']),
-        size: z.enum(['1024x1024', '1792x1024', '1024x1792']),
+        size: z.enum(['1024x1024', '1536x1024', '1024x1536']),
         variations: z.number().min(1).max(10),
         transparency: z.boolean().optional()
       }),
@@ -1226,7 +1226,7 @@ router.post('/sessions', requireAuth, async (req, res) => {
       settings: z.object({
         model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']),
         quality: z.enum(['standard', 'hd']),
-        size: z.enum(['1024x1024', '1792x1024', '1024x1792']),
+        size: z.enum(['1024x1024', '1536x1024', '1024x1536']),
         transparency: z.boolean(),
         variations: z.number().min(1).max(4)
       }),
@@ -1264,7 +1264,7 @@ router.put('/sessions/:id', requireAuth, async (req, res) => {
       settings: z.object({
         model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']),
         quality: z.enum(['standard', 'hd']),
-        size: z.enum(['1024x1024', '1792x1024', '1024x1792']),
+        size: z.enum(['1024x1024', '1536x1024', '1024x1536']),
         transparency: z.boolean(),
         variations: z.number().min(1).max(4)
       }).optional(),

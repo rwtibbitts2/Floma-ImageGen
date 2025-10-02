@@ -24,14 +24,14 @@ const modelCapabilities = {
   },
   'dall-e-3': {
     supportsQuality: true,
-    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportedSizes: ['1024x1024', '1536x1024', '1024x1536'],
     supportsRegeneration: false,
     name: 'DALL-E 3',
     description: 'High quality, no regeneration'
   },
   'gpt-image-1': {
     supportsQuality: true,
-    supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+    supportedSizes: ['1024x1024', '1536x1024', '1024x1536'],
     supportsRegeneration: true,
     name: 'GPT Image 1',
     description: 'Full features, highest cost'
@@ -193,7 +193,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
                   <Label className="text-sm font-medium">Image Size</Label>
                   <Select
                     value={settings.size}
-                    onValueChange={(value: "1024x1024" | "1792x1024" | "1024x1792") => updateSetting('size', value)}
+                    onValueChange={(value: "1024x1024" | "1536x1024" | "1024x1536") => updateSetting('size', value)}
                   >
                     <SelectTrigger data-testid="select-size">
                       <SelectValue />
@@ -205,11 +205,11 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
                           <Badge variant="secondary" className="ml-2 text-xs">Recommended</Badge>
                         </SelectItem>
                       )}
-                      {(capabilities.supportedSizes as readonly string[]).includes('1792x1024') && (
-                        <SelectItem value="1792x1024">Landscape (1792×1024)</SelectItem>
+                      {(capabilities.supportedSizes as readonly string[]).includes('1536x1024') && (
+                        <SelectItem value="1536x1024">Landscape (1536×1024)</SelectItem>
                       )}
-                      {(capabilities.supportedSizes as readonly string[]).includes('1024x1792') && (
-                        <SelectItem value="1024x1792">Portrait (1024×1792)</SelectItem>
+                      {(capabilities.supportedSizes as readonly string[]).includes('1024x1536') && (
+                        <SelectItem value="1024x1536">Portrait (1024×1536)</SelectItem>
                       )}
                     </SelectContent>
                   </Select>

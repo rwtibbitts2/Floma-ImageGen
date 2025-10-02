@@ -123,7 +123,7 @@ export const conceptLists = pgTable("concept_lists", {
 export const generationSettingsSchema = z.object({
   model: z.enum(["dall-e-2", "dall-e-3", "gpt-image-1"]).default("dall-e-3"),
   quality: z.enum(["standard", "hd"]).default("standard"),
-  size: z.enum(["1024x1024", "1792x1024", "1024x1792"]).default("1024x1024"),
+  size: z.enum(["1024x1024", "1536x1024", "1024x1536"]).default("1024x1024"),
   transparency: z.boolean().default(false),
   variations: z.number().min(1).max(4).default(1),
 });

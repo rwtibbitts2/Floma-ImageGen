@@ -98,12 +98,12 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
     },
     'dall-e-3': {
       supportsQuality: true,
-      supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+      supportedSizes: ['1024x1024', '1536x1024', '1024x1536'],
       supportsRegeneration: false
     },
     'gpt-image-1': {
       supportsQuality: true,
-      supportedSizes: ['1024x1024', '1792x1024', '1024x1792'],
+      supportedSizes: ['1024x1024', '1536x1024', '1024x1536'],
       supportsRegeneration: true
     }
   } as const;
@@ -257,7 +257,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
                 <Label className="text-xs font-medium">Size</Label>
                 <Select
                   value={settings.size}
-                  onValueChange={(value: "1024x1024" | "1792x1024" | "1024x1792") => updateSetting('size', value)}
+                  onValueChange={(value: "1024x1024" | "1536x1024" | "1024x1536") => updateSetting('size', value)}
                 >
                   <SelectTrigger className="h-8" data-testid="select-size">
                     <SelectValue />
@@ -266,11 +266,11 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
                     {capabilities.supportedSizes.includes('1024x1024') && (
                       <SelectItem value="1024x1024">Square</SelectItem>
                     )}
-                    {(capabilities.supportedSizes as readonly string[]).includes('1792x1024') && (
-                      <SelectItem value="1792x1024">Landscape</SelectItem>
+                    {(capabilities.supportedSizes as readonly string[]).includes('1536x1024') && (
+                      <SelectItem value="1536x1024">Landscape</SelectItem>
                     )}
-                    {(capabilities.supportedSizes as readonly string[]).includes('1024x1792') && (
-                      <SelectItem value="1024x1792">Portrait</SelectItem>
+                    {(capabilities.supportedSizes as readonly string[]).includes('1024x1536') && (
+                      <SelectItem value="1024x1536">Portrait</SelectItem>
                     )}
                   </SelectContent>
                 </Select>

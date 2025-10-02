@@ -655,8 +655,8 @@ export default function StyleWorkspace() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="1024x1024">Square</SelectItem>
-                            <SelectItem value="1024x1792">Portrait</SelectItem>
-                            <SelectItem value="1792x1024">Landscape</SelectItem>
+                            <SelectItem value="1024x1536">Portrait</SelectItem>
+                            <SelectItem value="1536x1024">Landscape</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
