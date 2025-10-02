@@ -743,16 +743,21 @@ async function generateImagesAsync(
           }
           
           // Construct professional structured prompt with clear labeling
-          const fullPrompt = `Generate a clean, professional digital asset:
+          let fullPrompt = `Generate a clean, professional digital asset:
 Style: ${truncatedStylePrompt}
 Subject: ${concept}`;
+          
+          // Add transparent background instruction when transparency is enabled
+          if (settings.transparency && settings.model === 'gpt-image-1') {
+            fullPrompt += `\nBackground: Transparent, no background, isolated subject`;
+          }
           
           console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}" (${fullPrompt.length} chars)`);
 
           const model = settings.model || "gpt-image-1";
           
-          // Build request params with model-specific validation
-          const requestParams = buildImageParams(model, settings.size, settings.quality, fullPrompt);
+          // Build request params with model-specific validation and transparency setting
+          const requestParams = buildImageParams(model, settings.size, settings.quality, fullPrompt, settings.transparency);
           
           // Generate image using OpenAI
           const response = await openai.images.generate(requestParams);
@@ -1552,7 +1557,12 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
     const styleDescription = buildStyleDescription(styleData);
     
     // Build prompt combining concept and full style description
-    const fullPrompt = `${concept}. Style: ${styleDescription}`;
+    let fullPrompt = `${concept}. Style: ${styleDescription}`;
+    
+    // Add transparent background instruction when transparency is enabled
+    if (transparency && model === 'gpt-image-1') {
+      fullPrompt += `. Background: Transparent, no background, isolated subject`;
+    }
     
     // Use configurable settings for preview generation
     const requestParams = buildImageParams(model, size, quality, fullPrompt, transparency);
