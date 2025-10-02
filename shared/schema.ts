@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
-import { pgTable, text, varchar, jsonb, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, jsonb, timestamp, integer, boolean, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -113,6 +113,9 @@ export const conceptLists = pgTable("concept_lists", {
   marketingContent: text("marketing_content").notNull(),
   promptId: varchar("prompt_id").references(() => systemPrompts.id),
   promptText: text("prompt_text"),
+  temperature: real("temperature").default(0.7),
+  literalMetaphorical: real("literal_metaphorical").default(0),
+  simpleComplex: real("simple_complex").default(0),
   concepts: jsonb("concepts").$type<Concept[]>().notNull(),
   userId: varchar("user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -138,7 +141,7 @@ export const insertGeneratedImageSchema = createInsertSchema(generatedImages).om
 export const insertProjectSessionSchema = createInsertSchema(projectSessions).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSystemPromptSchema = createInsertSchema(systemPrompts).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertConceptListSchema = createInsertSchema(conceptLists).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertConceptListSchema = createInsertSchema(conceptLists).omit({ id: true, createdAt: true, updatedAt: true, temperature: true, literalMetaphorical: true, simpleComplex: true });
 
 // Relations - Updated for user authentication
 export const usersRelations = relations(users, ({ many, one }) => ({
