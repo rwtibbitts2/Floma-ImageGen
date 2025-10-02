@@ -527,7 +527,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       styleId: z.string(),
       concepts: z.array(z.string()).min(1),
       settings: z.object({
-        model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']).default('dall-e-3'),
+        model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']).default('gpt-image-1'),
         quality: z.enum(['standard', 'hd']),
         size: z.enum(['1024x1024', '1536x1024', '1024x1536']),
         variations: z.number().min(1).max(10),
@@ -827,7 +827,7 @@ Subject: ${concept}`;
           
           console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}" (${fullPrompt.length} chars)`);
 
-          const model = settings.model || "dall-e-3";
+          const model = settings.model || "gpt-image-1";
           
           // Build request params with model-specific validation
           const requestParams = buildImageParams(model, settings.size, settings.quality, fullPrompt);
@@ -1114,7 +1114,7 @@ router.get('/sessions/working', requireAuth, async (req, res) => {
       displayName: 'Working Session',
       visualConcepts: [],
       settings: {
-        model: 'dall-e-3',
+        model: 'gpt-image-1',
         quality: 'standard',
         size: '1024x1024',
         transparency: false,
@@ -1610,7 +1610,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
     const schema = z.object({
       styleData: z.record(z.any()), // Accept the full extracted style data object
       concept: z.string().min(1),
-      model: z.string().optional().default('dall-e-3'),
+      model: z.string().optional().default('gpt-image-1'),
       size: z.string().optional().default('1024x1024'),
       quality: z.string().optional().default('standard'),
       transparency: z.boolean().optional().default(false),
