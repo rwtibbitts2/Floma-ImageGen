@@ -25,6 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { queryClient } from '@/lib/queryClient';
 
 interface StyleWorkspaceProps {
   styleId?: string;
@@ -86,7 +87,7 @@ export default function StyleWorkspace() {
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!styleId) return;
+      if (!styleId) throw new Error('No style ID provided');
       
       const updateData = {
         name: styleName,
@@ -95,9 +96,23 @@ export default function StyleWorkspace() {
         aiStyleData: styleData,
         previewImageUrl,
         referenceImageUrl,
+        generatedConcept,
       };
       
       return api.updateImageStyle(styleId, updateData);
+    },
+    onSuccess: (data) => {
+      // Invalidate the style query cache to ensure fresh data is fetched
+      // Use the returned data's ID to ensure we invalidate the correct cache entry
+      if (data?.id) {
+        queryClient.invalidateQueries({ queryKey: ['imageStyle', data.id] });
+      }
+      // Also invalidate by the current styleId to be safe
+      if (styleId) {
+        queryClient.invalidateQueries({ queryKey: ['imageStyle', styleId] });
+      }
+      // Invalidate the list of all styles
+      queryClient.invalidateQueries({ queryKey: ['imageStyles'] });
     },
   });
 
