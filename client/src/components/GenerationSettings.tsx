@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -41,6 +42,7 @@ const modelCapabilities = {
 export default function GenerationSettingsComponent({ settings, onSettingsChange }: GenerationSettingsProps) {
   const currentModel = settings.model || 'gpt-image-1';
   const capabilities = modelCapabilities[currentModel];
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(undefined);
 
   const updateSetting = <K extends keyof GenerationSettings>(
     key: K, 
@@ -99,7 +101,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
         </div>
 
         {/* Advanced Settings Accordion */}
-        <Accordion type="single" collapsible className="w-full" data-testid="accordion-advanced-settings">
+        <Accordion type="single" collapsible className="w-full" data-testid="accordion-advanced-settings" value={accordionValue} onValueChange={setAccordionValue}>
           <AccordionItem value="advanced-settings">
             <AccordionTrigger className="text-sm font-medium" data-testid="accordion-trigger-advanced">
               Advanced Settings
