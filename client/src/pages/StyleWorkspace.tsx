@@ -445,29 +445,16 @@ export default function StyleWorkspace() {
         {/* Center - Style Definition */}
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={renderText}
-                  onCheckedChange={(checked) => setRenderText(checked as boolean)}
-                  id="render-text"
-                  data-testid="checkbox-render-text"
-                />
-                <Label htmlFor="render-text" className="text-sm font-medium cursor-pointer">
-                  Render text
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={generationSettings.transparency}
-                  onCheckedChange={(checked) => updateGenerationSetting('transparency', checked as boolean)}
-                  id="transparent-bg"
-                  data-testid="checkbox-transparent-background"
-                />
-                <Label htmlFor="transparent-bg" className="text-sm cursor-pointer text-muted-foreground">
-                  Transparent background
-                </Label>
-              </div>
+            <div className="flex items-center gap-2 mb-6">
+              <Checkbox
+                checked={renderText}
+                onCheckedChange={(checked) => setRenderText(checked as boolean)}
+                id="render-text"
+                data-testid="checkbox-render-text"
+              />
+              <Label htmlFor="render-text" className="text-sm font-medium cursor-pointer">
+                Render text
+              </Label>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
