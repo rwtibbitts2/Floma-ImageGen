@@ -441,6 +441,31 @@ router.delete('/styles/:id', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/styles/:id/duplicate - Duplicate an image style (Protected)
+router.post('/styles/:id/duplicate', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.id;
+    
+    // Check if original style exists
+    const originalStyle = await storage.getImageStyleById(id);
+    if (!originalStyle) {
+      return res.status(404).json({ error: 'Style not found' });
+    }
+    
+    // Duplicate the style
+    const duplicatedStyle = await storage.duplicateImageStyle(id, userId);
+    if (!duplicatedStyle) {
+      return res.status(500).json({ error: 'Failed to duplicate style' });
+    }
+    
+    res.status(201).json(duplicatedStyle);
+  } catch (error) {
+    console.error('Error duplicating style:', error);
+    res.status(500).json({ error: 'Failed to duplicate style' });
+  }
+});
+
 // POST /api/generate - Start image generation job (Protected)
 router.post('/generate', requireAuth, async (req, res) => {
   try {

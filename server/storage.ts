@@ -31,6 +31,7 @@ export interface IStorage {
   createImageStyle(style: InsertImageStyle): Promise<ImageStyle>;
   updateImageStyle(id: string, updates: Partial<InsertImageStyle>): Promise<ImageStyle | undefined>;
   deleteImageStyle(id: string): Promise<boolean>;
+  duplicateImageStyle(id: string, userId: string): Promise<ImageStyle | undefined>;
   
   // Generation Job management
   getGenerationJobById(id: string): Promise<GenerationJob | undefined>;
@@ -231,6 +232,22 @@ export class MemStorage implements IStorage {
 
   async deleteImageStyle(id: string): Promise<boolean> {
     return this.imageStyles.delete(id);
+  }
+
+  async duplicateImageStyle(id: string, userId: string): Promise<ImageStyle | undefined> {
+    const originalStyle = this.imageStyles.get(id);
+    if (!originalStyle) return undefined;
+
+    const newStyle: ImageStyle = {
+      ...originalStyle,
+      id: randomUUID(),
+      name: `${originalStyle.name} (Copy)`,
+      createdBy: userId,
+      createdAt: new Date()
+    };
+
+    this.imageStyles.set(newStyle.id, newStyle);
+    return newStyle;
   }
   
   // User authentication methods - From blueprint:javascript_auth_all_persistance
@@ -618,6 +635,22 @@ export class DatabaseStorage implements IStorage {
   async deleteImageStyle(id: string): Promise<boolean> {
     const result = await db.delete(imageStyles).where(eq(imageStyles.id, id));
     return (result.rowCount || 0) > 0;
+  }
+
+  async duplicateImageStyle(id: string, userId: string): Promise<ImageStyle | undefined> {
+    const [originalStyle] = await db.select().from(imageStyles).where(eq(imageStyles.id, id));
+    if (!originalStyle) return undefined;
+
+    const newStyle = {
+      ...originalStyle,
+      id: randomUUID(),
+      name: `${originalStyle.name} (Copy)`,
+      createdBy: userId,
+      createdAt: new Date()
+    };
+
+    const [insertedStyle] = await db.insert(imageStyles).values(newStyle).returning();
+    return insertedStyle;
   }
 
   async getGenerationJobById(id: string): Promise<GenerationJob | undefined> {

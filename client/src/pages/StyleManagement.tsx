@@ -13,7 +13,8 @@ import {
   Trash2,
   Eye,
   Upload,
-  ChevronDown
+  ChevronDown,
+  Copy
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -74,6 +75,23 @@ export default function StyleManagement() {
       toast({
         title: 'Error',
         description: 'Failed to delete the style. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDuplicateStyle = async (styleId: string) => {
+    try {
+      await api.duplicateImageStyle(styleId);
+      await refetch();
+      toast({
+        title: 'Style Duplicated',
+        description: 'The style has been successfully duplicated.'
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to duplicate the style. Please try again.',
         variant: 'destructive'
       });
     }
@@ -238,6 +256,15 @@ export default function StyleManagement() {
                     >
                       <Edit3 className="w-3 h-3" />
                       Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDuplicateStyle(style.id)}
+                      className="gap-1"
+                      data-testid={`button-duplicate-${style.id}`}
+                    >
+                      <Copy className="w-3 h-3" />
                     </Button>
                     <Button
                       variant="outline"

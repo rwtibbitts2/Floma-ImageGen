@@ -272,6 +272,16 @@ export const deleteImageStyle = async (id: string): Promise<void> => {
   }
 };
 
+export const duplicateImageStyle = async (id: string): Promise<ImageStyle> => {
+  const response = await authenticatedFetch(`${API_BASE}/styles/${id}/duplicate`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to duplicate image style');
+  }
+  return response.json();
+};
+
 // Generation Job API
 export const startGeneration = async (request: GenerationRequest): Promise<GenerationResponse> => {
   const response = await authenticatedFetch(`${API_BASE}/generate`, {
