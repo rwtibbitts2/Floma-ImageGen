@@ -367,9 +367,16 @@ export default function ImageGenerator() {
           
         } catch (error) {
           console.error('Failed to load session:', error);
+          
+          // Try to extract more detailed error message
+          let errorMessage = 'Failed to load the selected session.';
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+          
           toast({
             title: 'Load Failed',
-            description: 'Failed to load the selected session.',
+            description: errorMessage,
             variant: 'destructive'
           });
         } finally {

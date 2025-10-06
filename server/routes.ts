@@ -1098,20 +1098,29 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
   try {
     const session = await storage.getProjectSessionById(req.params.id);
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+      console.error(`Session not found: ${req.params.id}`);
+      return res.status(404).json({ error: 'Session not found', sessionId: req.params.id });
     }
     
     // Verify ownership (user owns session or is admin)
     const userId = (req as any).user.id;
     const isAdmin = (req as any).user.role === 'admin';
+    
+    // Log detailed ownership information for debugging
+    console.log(`Session access check: sessionId=${req.params.id}, sessionUserId=${session.userId}, requestUserId=${userId}, isAdmin=${isAdmin}`);
+    
     if (!isAdmin && session.userId !== userId) {
-      return res.status(403).json({ error: 'Access denied: not your session' });
+      console.error(`Access denied: User ${userId} attempted to access session ${req.params.id} owned by ${session.userId}`);
+      return res.status(403).json({ 
+        error: 'Access denied: not your session',
+        details: session.userId === null ? 'This session has no owner assigned' : 'Session belongs to another user'
+      });
     }
     
     res.json(session);
   } catch (error) {
     console.error('Error fetching session:', error);
-    res.status(500).json({ error: 'Failed to fetch session' });
+    res.status(500).json({ error: 'Failed to fetch session', details: error instanceof Error ? error.message : String(error) });
   }
 });
 

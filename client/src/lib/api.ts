@@ -361,7 +361,15 @@ export const getAllProjectSessions = async () => {
 export const getProjectSessionById = async (id: string) => {
   const response = await authenticatedFetch(`/api/sessions/${id}`);
   if (!response.ok) {
-    throw new Error('Failed to fetch session');
+    // Try to extract detailed error from response
+    let errorMessage = 'Failed to fetch session';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.details || errorData.error || errorMessage;
+    } catch (parseError) {
+      // JSON parsing failed, use generic message
+    }
+    throw new Error(errorMessage);
   }
   return response.json();
 };
@@ -430,7 +438,15 @@ export const clearTemporarySessions = async () => {
 export const getGeneratedImagesBySessionId = async (sessionId: string): Promise<GeneratedImage[]> => {
   const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}/images`);
   if (!response.ok) {
-    throw new Error('Failed to fetch session images');
+    // Try to extract detailed error from response
+    let errorMessage = 'Failed to fetch session images';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.details || errorData.error || errorMessage;
+    } catch (parseError) {
+      // JSON parsing failed, use generic message
+    }
+    throw new Error(errorMessage);
   }
   return response.json();
 };
