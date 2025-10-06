@@ -817,7 +817,7 @@ export default function ImageGenerator() {
 
         {/* Image Zoom Modal */}
         <Dialog open={!!zoomedImage} onOpenChange={() => setZoomedImage(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{zoomedImage?.visualConcept}</DialogTitle>
             </DialogHeader>
