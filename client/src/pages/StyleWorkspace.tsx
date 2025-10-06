@@ -683,9 +683,9 @@ export default function StyleWorkspace() {
                         </Select>
                       </div>
 
-                      {/* Transparency Support */}
+                      {/* Transparent Background */}
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">Transparency support</Label>
+                        <Label className="text-xs text-muted-foreground">Transparent background</Label>
                         <Switch
                           checked={generationSettings.transparency}
                           onCheckedChange={(checked) => updateGenerationSetting('transparency', checked)}

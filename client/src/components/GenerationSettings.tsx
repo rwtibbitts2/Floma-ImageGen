@@ -225,7 +225,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
                 {/* Transparency Setting */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Transparency Support</Label>
+                    <Label className="text-sm font-medium">Transparent Background</Label>
                     <Switch
                       checked={settings.transparency}
                       onCheckedChange={(checked) => updateSetting('transparency', checked)}
@@ -233,7 +233,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Enable transparency support for PNG format images
+                    Render only the image subject on a transparent background (PNG format)
                   </p>
                 </div>
 

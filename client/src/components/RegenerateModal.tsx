@@ -314,7 +314,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
             </Label>
           </div>
           
-          {/* Transparency Support Switch */}
+          {/* Transparent Background Switch */}
           <div className="flex items-center space-x-2">
             <Switch
               id="transparency"
@@ -326,7 +326,7 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               htmlFor="transparency"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
-              Transparency
+              Transparent background
             </Label>
           </div>
           
