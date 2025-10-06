@@ -192,12 +192,12 @@ export default function ResultsGallery({ images, onDownload, onDownloadAll, onDe
 
       {/* Image Detail Modal */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] !grid-cols-1 !grid-rows-[auto_1fr] overflow-hidden p-0">
+          <DialogHeader className="p-6 pb-0">
             <DialogTitle>{selectedImage?.visualConcept}</DialogTitle>
           </DialogHeader>
           {selectedImage && (
-            <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
+            <div className="space-y-4 overflow-y-auto p-6 pt-4">
               <div className="flex justify-center bg-muted rounded-lg overflow-hidden max-h-[60vh]">
                 <img
                   src={selectedImage.imageUrl}
