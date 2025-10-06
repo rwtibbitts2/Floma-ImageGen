@@ -106,7 +106,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
               Advanced Settings
             </AccordionTrigger>
             <AccordionContent>
-              <div className="space-y-6 pt-2">
+              <div className="space-y-6 pt-2" onPointerDownCapture={(e) => e.stopPropagation()}>
                 {/* Model Setting */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Model</Label>
