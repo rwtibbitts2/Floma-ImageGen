@@ -749,7 +749,7 @@ Subject: ${concept}`;
           
           // Add transparent background instruction when transparency is enabled
           if (settings.transparency && settings.model === 'gpt-image-1') {
-            fullPrompt += `\nBackground: Transparent, no background, isolated subject`;
+            fullPrompt += `\nRender only the image subject on a transparent background`;
           }
           
           console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}" (${fullPrompt.length} chars)`);
@@ -895,6 +895,11 @@ async function generateRegeneratedImagesAsync(
           console.log(`Enhancing image ${completedImages + 1}/${totalImages} with improved settings (no instruction)`);
           enhancedPrompt = 'Enhance image quality and clarity while keeping all details, composition, and style exactly the same';
         }
+        
+        // Add transparent background instruction when transparency is enabled
+        if (settings.transparency && settings.model === 'gpt-image-1') {
+          enhancedPrompt += `. Render only the image subject on a transparent background`;
+        }
 
         // Validate model supports editing
         const capability = MODEL_CAPABILITIES[settings.model];
@@ -928,6 +933,11 @@ async function generateRegeneratedImagesAsync(
               requestParams.quality = 'medium'; // GPT Image 1 uses 'medium' instead of 'standard'
             }
           }
+        }
+        
+        // Add transparency support (only gpt-image-1 supports true transparency)
+        if (settings.transparency && settings.model === 'gpt-image-1') {
+          requestParams.background = 'transparent'; // Request transparent background
         }
         
         const response = await openai.images.edit(requestParams);
@@ -1562,7 +1572,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
     
     // Add transparent background instruction when transparency is enabled
     if (transparency && model === 'gpt-image-1') {
-      fullPrompt += `. Background: Transparent, no background, isolated subject`;
+      fullPrompt += `. Render only the image subject on a transparent background`;
     }
     
     // Add "NO TEXT" instruction when renderText is disabled
