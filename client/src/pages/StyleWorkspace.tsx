@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
@@ -51,6 +52,7 @@ export default function StyleWorkspace() {
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [chatMessage, setChatMessage] = useState('');
   const [generatedConcept, setGeneratedConcept] = useState('');
+  const [renderText, setRenderText] = useState(true);
   
   // Generation settings state
   const [generationSettings, setGenerationSettings] = useState({
@@ -75,6 +77,8 @@ export default function StyleWorkspace() {
       setStyleData(style.aiStyleData || {});
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
+      // Set renderText from saved style data (default to true if not set)
+      setRenderText((style.aiStyleData as any)?.renderText !== undefined ? (style.aiStyleData as any).renderText : true);
       // Set generated concept from AI extraction, or create one from style data
       if (style.generatedConcept) {
         setGeneratedConcept(style.generatedConcept);
@@ -94,7 +98,7 @@ export default function StyleWorkspace() {
         name: styleName,
         description,
         stylePrompt: styleData ? buildStyleDescription(styleData) : 'AI-extracted style',
-        aiStyleData: styleData,
+        aiStyleData: { ...styleData, renderText },
         previewImageUrl,
         referenceImageUrl,
         generatedConcept,
@@ -164,6 +168,7 @@ export default function StyleWorkspace() {
           quality: generationSettings.quality,
           size: generationSettings.size,
           transparency: generationSettings.transparency,
+          renderText: renderText,
         }),
       });
       if (!response.ok) throw new Error('Preview generation failed');
@@ -441,13 +446,27 @@ export default function StyleWorkspace() {
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center gap-3 mb-6">
-              <div className="flex items-center gap-2 text-blue-600">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                <span className="text-sm font-medium">Render text</span>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={renderText}
+                  onCheckedChange={(checked) => setRenderText(checked as boolean)}
+                  id="render-text"
+                  data-testid="checkbox-render-text"
+                />
+                <Label htmlFor="render-text" className="text-sm font-medium cursor-pointer">
+                  Render text
+                </Label>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <input type="checkbox" className="rounded" />
-                <span className="text-sm">Transparent background</span>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={generationSettings.transparency}
+                  onCheckedChange={(checked) => updateGenerationSetting('transparency', checked as boolean)}
+                  id="transparent-bg"
+                  data-testid="checkbox-transparent-background"
+                />
+                <Label htmlFor="transparent-bg" className="text-sm cursor-pointer text-muted-foreground">
+                  Transparent background
+                </Label>
               </div>
             </div>
 

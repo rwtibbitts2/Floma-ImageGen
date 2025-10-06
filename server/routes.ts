@@ -1541,6 +1541,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       size: z.string().optional().default('1024x1024'),
       quality: z.string().optional().default('standard'),
       transparency: z.boolean().optional().default(false),
+      renderText: z.boolean().optional().default(true),
     });
 
     const validation = schema.safeParse(req.body);
@@ -1551,7 +1552,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       });
     }
 
-    const { styleData, concept, model, size, quality, transparency } = validation.data;
+    const { styleData, concept, model, size, quality, transparency, renderText } = validation.data;
     
     // Build a comprehensive style description from the extracted style data
     const styleDescription = buildStyleDescription(styleData);
@@ -1562,6 +1563,11 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
     // Add transparent background instruction when transparency is enabled
     if (transparency && model === 'gpt-image-1') {
       fullPrompt += `. Background: Transparent, no background, isolated subject`;
+    }
+    
+    // Add "NO TEXT" instruction when renderText is disabled
+    if (!renderText) {
+      fullPrompt += `. NO TEXT`;
     }
     
     // Use configurable settings for preview generation
