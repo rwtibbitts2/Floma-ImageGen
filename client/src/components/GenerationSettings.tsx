@@ -42,7 +42,6 @@ const modelCapabilities = {
 export default function GenerationSettingsComponent({ settings, onSettingsChange }: GenerationSettingsProps) {
   const currentModel = settings.model || 'gpt-image-1';
   const capabilities = modelCapabilities[currentModel];
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(undefined);
 
   const updateSetting = <K extends keyof GenerationSettings>(
     key: K, 
@@ -101,7 +100,7 @@ export default function GenerationSettingsComponent({ settings, onSettingsChange
         </div>
 
         {/* Advanced Settings Accordion */}
-        <Accordion type="single" collapsible className="w-full" data-testid="accordion-advanced-settings" value={accordionValue} onValueChange={setAccordionValue}>
+        <Accordion type="single" collapsible className="w-full" data-testid="accordion-advanced-settings">
           <AccordionItem value="advanced-settings">
             <AccordionTrigger className="text-sm font-medium" data-testid="accordion-trigger-advanced">
               Advanced Settings
