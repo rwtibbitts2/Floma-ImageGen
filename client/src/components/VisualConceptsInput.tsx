@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Upload } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Upload, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { visualConceptsSchema } from '@shared/schema';
 
@@ -38,6 +38,11 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
         setValidationError('Must be an array of non-empty strings');
       }
     }
+  };
+
+  const deleteConcept = (indexToDelete: number) => {
+    const updatedConcepts = concepts.filter((_, index) => index !== indexToDelete);
+    onConceptsChange(updatedConcepts);
   };
 
   const isValid = !validationError && concepts.length > 0;
@@ -108,8 +113,22 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
             <h4 className="text-sm font-medium">Preview:</h4>
             <div className="flex flex-wrap gap-2">
               {concepts.map((concept, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  {concept.length > 30 ? `${concept.substring(0, 30)}...` : concept}
+                <Badge 
+                  key={index} 
+                  variant="outline" 
+                  className="text-xs flex items-center gap-1 pr-1"
+                  data-testid={`badge-concept-${index}`}
+                >
+                  <span>{concept.length > 30 ? `${concept.substring(0, 30)}...` : concept}</span>
+                  <button
+                    type="button"
+                    onClick={() => deleteConcept(index)}
+                    className="hover-elevate active-elevate-2 rounded-sm p-0.5 transition-colors"
+                    data-testid={`button-delete-concept-${index}`}
+                    aria-label="Delete concept"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </Badge>
               ))}
             </div>
