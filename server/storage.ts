@@ -184,9 +184,9 @@ export class MemStorage implements IStorage {
     // Get all jobIds for this session
     const jobIds = new Set(sessionJobs.map(job => job.id));
     
-    // Return all images that belong to any of these jobs
+    // Return only completed images that belong to any of these jobs
     return Array.from(this.generatedImages.values()).filter(
-      (image) => jobIds.has(image.jobId)
+      (image) => jobIds.has(image.jobId) && image.status === 'completed'
     );
   }
 
@@ -705,9 +705,14 @@ export class DatabaseStorage implements IStorage {
         })
         .from(generatedImages)
         .innerJoin(generationJobs, eq(generatedImages.jobId, generationJobs.id))
-        .where(eq(generationJobs.sessionId, sessionId));
+        .where(
+          and(
+            eq(generationJobs.sessionId, sessionId),
+            eq(generatedImages.status, 'completed')
+          )
+        );
       
-      console.log(`Retrieved ${images.length} images for session ${sessionId} using JOIN`);
+      console.log(`Retrieved ${images.length} completed images for session ${sessionId} using JOIN`);
       return images;
     } catch (error) {
       console.error(`Error in getGeneratedImagesBySessionId for session ${sessionId}:`, error);
