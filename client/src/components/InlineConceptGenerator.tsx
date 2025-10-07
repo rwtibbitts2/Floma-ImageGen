@@ -39,6 +39,9 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
   const [generatedConcepts, setGeneratedConcepts] = useState<string[]>([]);
   const [feedbackText, setFeedbackText] = useState('');
   
+  // Conversation history for refinements
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -138,7 +141,24 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
       });
     },
     onSuccess: (data) => {
-      setGeneratedConcepts(data.concepts.map(c => c.concept || (typeof c === 'string' ? c : '')));
+      const concepts = data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
+      setGeneratedConcepts(concepts);
+      
+      // Initialize conversation history with the original request and response
+      const initialHistory = [
+        {
+          role: 'user' as const,
+          content: userInstruction 
+            ? `${marketingContent}\n\nAdditional Instructions: ${userInstruction}`
+            : marketingContent
+        },
+        {
+          role: 'assistant' as const,
+          content: concepts.join('\n')
+        }
+      ];
+      setConversationHistory(initialHistory);
+      
       setMode('results');
       toast({
         title: 'Concepts Generated',
@@ -161,8 +181,12 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
         throw new Error('Please provide feedback for refinement');
       }
 
-      // Append feedback as user instruction
-      const fullContent = `${marketingContent}\n\nCurrent concepts: ${generatedConcepts.join(', ')}\n\nRefinement feedback: ${feedbackText}`;
+      // Build conversation context with full history
+      const conversationContext = conversationHistory.map(msg => 
+        `${msg.role === 'user' ? 'USER' : 'ASSISTANT'}: ${msg.content}`
+      ).join('\n\n');
+      
+      const fullContent = `${conversationContext}\n\nUSER: ${feedbackText}`;
 
       return api.generateConceptList({
         companyName: 'Visual Concept Generation',
@@ -177,7 +201,16 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
       });
     },
     onSuccess: (data) => {
-      setGeneratedConcepts(data.concepts.map(c => c.concept || (typeof c === 'string' ? c : '')));
+      const concepts = data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
+      setGeneratedConcepts(concepts);
+      
+      // Update conversation history with the refinement exchange
+      setConversationHistory(prev => [
+        ...prev,
+        { role: 'user', content: feedbackText },
+        { role: 'assistant', content: concepts.join('\n') }
+      ]);
+      
       setFeedbackText('');
       toast({
         title: 'Concepts Refined',
@@ -221,6 +254,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
     setMode('input');
     setGeneratedConcepts([]);
     setFeedbackText('');
+    setConversationHistory([]);
   };
 
   if (mode === 'results') {
@@ -346,9 +380,16 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
 
         {/* Conversational Feedback */}
         <div className="space-y-2">
-          <Label htmlFor="feedback-input" className="text-sm font-medium">
-            Refine these concepts (optional)
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="feedback-input" className="text-sm font-medium">
+              Refine these concepts (optional)
+            </Label>
+            {conversationHistory.length > 2 && (
+              <span className="text-xs text-muted-foreground">
+                {(conversationHistory.length - 2) / 2} refinement{(conversationHistory.length - 2) / 2 !== 1 ? 's' : ''} applied
+              </span>
+            )}
+          </div>
           <Textarea
             id="feedback-input"
             value={feedbackText}
