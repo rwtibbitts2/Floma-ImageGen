@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, X, Sparkles, Loader2, RefreshCw, Check, Undo } from 'lucide-react';
+import { Upload, X, Sparkles, Loader2, RefreshCw, Check, Undo, Plus } from 'lucide-react';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import PromptSelector from '@/components/PromptSelector';
@@ -283,6 +283,91 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
     setPreviousState(null);
   };
 
+  const handleDeleteConcept = (indexToDelete: number) => {
+    const deletedConcept = generatedConcepts[indexToDelete];
+    const updatedConcepts = generatedConcepts.filter((_, index) => index !== indexToDelete);
+    setGeneratedConcepts(updatedConcepts);
+    
+    // Remove the deleted concept from all assistant messages in conversation history
+    // This maintains the alternating structure while ensuring deleted concepts don't reappear
+    setConversationHistory(prev => {
+      // Guard against empty history
+      if (prev.length === 0) return prev;
+      
+      return prev.map(msg => {
+        if (msg.role === 'assistant') {
+          // Parse the assistant message into concept lines
+          const concepts = msg.content.split('\n').filter(line => line.trim());
+          // Remove the deleted concept if it appears
+          const filteredConcepts = concepts.filter(concept => concept.trim() !== deletedConcept.trim());
+          // Return updated message with filtered concepts
+          return {
+            ...msg,
+            content: filteredConcepts.join('\n')
+          };
+        }
+        return msg;
+      });
+    });
+    
+    toast({
+      title: 'Concept Removed',
+      description: `Concept removed from list`,
+    });
+  };
+
+  const generateMoreMutation = useMutation({
+    mutationFn: async () => {
+      // Build conversation context with full history
+      const conversationContext = conversationHistory.map(msg => 
+        `${msg.role === 'user' ? 'USER' : 'ASSISTANT'}: ${msg.content}`
+      ).join('\n\n');
+      
+      // Add the "generate more" instruction
+      const generateMoreInstruction = 'Generate 3 additional unique concepts different from the ones above.';
+      const fullContent = conversationContext 
+        ? `${conversationContext}\n\nUSER: ${generateMoreInstruction}`
+        : `${marketingContent}\n\n${userInstruction ? `Additional Instructions: ${userInstruction}\n\n` : ''}${generateMoreInstruction}`;
+      
+      return api.generateConceptList({
+        companyName: 'Visual Concept Generation',
+        marketingContent: fullContent,
+        referenceImageUrl,
+        promptId: selectedPromptId,
+        promptText: promptText,
+        quantity: 3, // Generate 3 new concepts to add
+        temperature,
+        literalMetaphorical,
+        simpleComplex,
+      });
+    },
+    onSuccess: (data) => {
+      const newConcepts = data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
+      const allConcepts = [...generatedConcepts, ...newConcepts];
+      setGeneratedConcepts(allConcepts);
+      
+      // Append a new user + assistant exchange to conversation history
+      // This preserves the chronological structure for refinements and undo
+      setConversationHistory(prev => [
+        ...prev,
+        { role: 'user', content: 'Generate 3 additional unique concepts different from the ones above.' },
+        { role: 'assistant', content: newConcepts.join('\n') }
+      ]);
+      
+      toast({
+        title: 'Concepts Added',
+        description: `${newConcepts.length} new concepts added to list`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Generation Failed',
+        description: error instanceof Error ? error.message : 'Failed to generate concepts',
+        variant: 'destructive',
+      });
+    },
+  });
+
   if (mode === 'results') {
     return (
       <div className="space-y-4">
@@ -318,13 +403,47 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
           {generatedConcepts.map((concept, index) => (
             <div
               key={index}
-              className="text-sm leading-relaxed border-l-2 border-primary/30 pl-3 py-1"
+              className="flex items-start gap-2 group"
               data-testid={`concept-result-${index}`}
             >
-              {concept}
+              <div className="text-sm leading-relaxed border-l-2 border-primary/30 pl-3 py-1 flex-1">
+                {concept}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => handleDeleteConcept(index)}
+                data-testid={`button-delete-concept-${index}`}
+              >
+                <X className="w-3 h-3" />
+              </Button>
             </div>
           ))}
         </div>
+
+        {/* Generate More Button */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => generateMoreMutation.mutate()}
+          disabled={generateMoreMutation.isPending}
+          className="w-full"
+          data-testid="button-generate-more"
+        >
+          {generateMoreMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4 mr-2" />
+              Generate More Concepts
+            </>
+          )}
+        </Button>
 
         {/* Advanced Settings for Regeneration */}
         <Accordion type="single" collapsible className="w-full">
