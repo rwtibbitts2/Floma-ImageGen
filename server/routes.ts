@@ -1127,24 +1127,38 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
 // GET /api/sessions/:id/images - Get all images for a project session (Protected)
 router.get('/sessions/:id/images', requireAuth, async (req, res) => {
   try {
+    console.log(`Fetching images for session: ${req.params.id}`);
+    
     const session = await storage.getProjectSessionById(req.params.id);
     if (!session) {
+      console.error(`Session not found: ${req.params.id}`);
       return res.status(404).json({ error: 'Session not found' });
     }
     
     // Verify ownership (user owns session or is admin)
     const userId = (req as any).user.id;
     const isAdmin = (req as any).user.role === 'admin';
+    console.log(`Access check for session ${req.params.id}: userId=${userId}, sessionUserId=${session.userId}, isAdmin=${isAdmin}`);
+    
     if (!isAdmin && session.userId !== userId) {
+      console.error(`Access denied for session ${req.params.id}: user ${userId} does not own session`);
       return res.status(403).json({ error: 'Access denied: not your session' });
     }
     
     // Get all images for this session
+    console.log(`Calling storage.getGeneratedImagesBySessionId for session: ${req.params.id}`);
     const images = await storage.getGeneratedImagesBySessionId(req.params.id);
+    console.log(`Successfully fetched ${images.length} images for session ${req.params.id}`);
+    
     res.json(images);
   } catch (error) {
-    console.error('Error fetching session images:', error);
-    res.status(500).json({ error: 'Failed to fetch session images' });
+    console.error(`Error fetching session images for ${req.params.id}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ 
+      error: 'Failed to fetch session images',
+      details: errorMessage,
+      sessionId: req.params.id
+    });
   }
 });
 

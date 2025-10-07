@@ -688,21 +688,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGeneratedImagesBySessionId(sessionId: string): Promise<GeneratedImage[]> {
-    // First get all jobs for this session
-    const sessionJobIds = await db
-      .select({ id: generationJobs.id })
-      .from(generationJobs)
-      .where(eq(generationJobs.sessionId, sessionId));
-    
-    if (sessionJobIds.length === 0) {
-      return [];
+    try {
+      // First get all jobs for this session
+      const sessionJobIds = await db
+        .select({ id: generationJobs.id })
+        .from(generationJobs)
+        .where(eq(generationJobs.sessionId, sessionId));
+      
+      if (sessionJobIds.length === 0) {
+        console.log(`No jobs found for session ${sessionId}, returning empty array`);
+        return [];
+      }
+      
+      // Then get all images for these jobs
+      const jobIds = sessionJobIds.map(job => job.id);
+      console.log(`Found ${jobIds.length} jobs for session ${sessionId}, fetching images...`);
+      
+      const images = await db.select().from(generatedImages).where(
+        inArray(generatedImages.jobId, jobIds)
+      );
+      
+      console.log(`Retrieved ${images.length} images for session ${sessionId}`);
+      return images;
+    } catch (error) {
+      console.error(`Error in getGeneratedImagesBySessionId for session ${sessionId}:`, error);
+      throw error;
     }
-    
-    // Then get all images for these jobs
-    const jobIds = sessionJobIds.map(job => job.id);
-    return await db.select().from(generatedImages).where(
-      inArray(generatedImages.jobId, jobIds)
-    );
   }
 
   async createGeneratedImage(insertImage: InsertGeneratedImage): Promise<GeneratedImage> {
