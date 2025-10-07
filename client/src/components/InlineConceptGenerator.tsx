@@ -253,6 +253,97 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
           ))}
         </div>
 
+        {/* Advanced Settings for Regeneration */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="advanced" className="border-none">
+            <AccordionTrigger className="text-sm py-2" data-testid="accordion-advanced-settings">
+              Adjust Settings & Regenerate
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4 pt-2">
+              {/* Temperature Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm">Creativity</Label>
+                  <span className="text-xs text-muted-foreground">{temperature.toFixed(1)}</span>
+                </div>
+                <Slider
+                  value={[temperature]}
+                  onValueChange={(value) => setTemperature(value[0])}
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  data-testid="slider-temperature-results"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Lower = More focused, Higher = More creative
+                </p>
+              </div>
+
+              {/* Literal/Metaphorical Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm">Style Spectrum</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {literalMetaphorical < -0.3 ? 'Literal' : literalMetaphorical > 0.3 ? 'Metaphorical' : 'Balanced'}
+                  </span>
+                </div>
+                <Slider
+                  value={[literalMetaphorical]}
+                  onValueChange={(value) => setLiteralMetaphorical(value[0])}
+                  min={-1}
+                  max={1}
+                  step={0.1}
+                  data-testid="slider-literal-metaphorical-results"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Literal ← → Metaphorical
+                </p>
+              </div>
+
+              {/* Simple/Complex Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-sm">Subject Complexity</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {simpleComplex < -0.3 ? 'Simple' : simpleComplex > 0.3 ? 'Complex' : 'Moderate'}
+                  </span>
+                </div>
+                <Slider
+                  value={[simpleComplex]}
+                  onValueChange={(value) => setSimpleComplex(value[0])}
+                  min={-1}
+                  max={1}
+                  step={0.1}
+                  data-testid="slider-simple-complex-results"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Simple ← → Complex composition
+                </p>
+              </div>
+
+              {/* Regenerate Button */}
+              <Button
+                onClick={() => generateMutation.mutate()}
+                disabled={generateMutation.isPending}
+                className="w-full"
+                data-testid="button-regenerate"
+              >
+                {generateMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Regenerate with New Settings
+                  </>
+                )}
+              </Button>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
         {/* Conversational Feedback */}
         <div className="space-y-2">
           <Label htmlFor="feedback-input" className="text-sm font-medium">
