@@ -330,17 +330,17 @@ export default function ImageGenerator() {
       
       const loadSession = async () => {
         setIsLoadingSession(true);
+        setSessionImages([]); // Clear old images immediately
+        
         try {
-          // Load session, styles, and images in parallel
-          const [session, styles, sessionImages] = await Promise.all([
+          // Load session and styles first (fast operations)
+          const [session, styles] = await Promise.all([
             api.getProjectSessionById(sessionId),
-            api.getImageStyles(),
-            api.getGeneratedImagesBySessionId(sessionId)
+            api.getImageStyles()
           ]);
           
           console.log('Session loaded:', session);
           console.log('Available styles:', styles);
-          console.log('Session images loaded:', sessionImages);
           
           // Set session ID and session data first to avoid re-triggering
           setCurrentSessionId(sessionId);
@@ -357,13 +357,23 @@ export default function ImageGenerator() {
           setConcepts(session.visualConcepts || []);
           setSettings(session.settings || settings);
           
-          // Load associated images into session gallery
-          setSessionImages(sessionImages);
+          setIsLoadingSession(false);
           
-          toast({
-            title: 'Session Loaded',
-            description: `Loaded "${session.displayName}" with ${sessionImages.length} saved images`,
-          });
+          // Load images in the background (non-blocking)
+          api.getGeneratedImagesBySessionId(sessionId)
+            .then(sessionImages => {
+              console.log('Session images loaded:', sessionImages);
+              setSessionImages(sessionImages);
+              toast({
+                title: 'Session Loaded',
+                description: `Loaded "${session.displayName}" with ${sessionImages.length} saved images`,
+              });
+            })
+            .catch(error => {
+              console.error('Failed to load session images:', error);
+              // Don't show error toast - session is already loaded
+              setSessionImages([]);
+            });
           
         } catch (error) {
           console.error('Failed to load session:', error);
@@ -379,7 +389,6 @@ export default function ImageGenerator() {
             description: errorMessage,
             variant: 'destructive'
           });
-        } finally {
           setIsLoadingSession(false);
         }
       };
@@ -391,6 +400,8 @@ export default function ImageGenerator() {
       
       const loadWorkingSession = async () => {
         setIsLoadingSession(true);
+        setSessionImages([]); // Clear old images immediately
+        
         try {
           const [workingSession, styles] = await Promise.all([
             api.getWorkingSession(),
@@ -413,11 +424,18 @@ export default function ImageGenerator() {
           setConcepts(workingSession.visualConcepts || []);
           setSettings(workingSession.settings || settings);
           
-          // Load associated images into session gallery
-          const sessionImages = await api.getGeneratedImagesBySessionId(workingSession.id);
-          setSessionImages(sessionImages);
+          setIsLoadingSession(false);
           
-          console.log('Working session ready with', sessionImages.length, 'images');
+          // Load images in the background (non-blocking)
+          api.getGeneratedImagesBySessionId(workingSession.id)
+            .then(sessionImages => {
+              console.log('Working session ready with', sessionImages.length, 'images');
+              setSessionImages(sessionImages);
+            })
+            .catch(error => {
+              console.error('Failed to load session images:', error);
+              setSessionImages([]);
+            });
           
         } catch (error) {
           console.error('Failed to load working session:', error);
@@ -426,7 +444,6 @@ export default function ImageGenerator() {
             description: 'Failed to initialize your workspace.',
             variant: 'destructive'
           });
-        } finally {
           setIsLoadingSession(false);
         }
       };

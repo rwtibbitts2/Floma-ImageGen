@@ -1,0 +1,68 @@
+index-DXc94SoA.js:422 Loading session: 547b693e-775b-4057-8550-9805d0cb01c7
+content.js:3 Returning a Promise is the preferred way to send a reply from an onMessage/onMessageExternal listener, as the sendResponse will be removed from the specs (See https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/onMessage) Error
+    at o (chrome-extension://jmjbgcjbgmcfgbgikmbdioggjlhjegpp/insides/content/content.js:3:378065)
+    at chrome-extension://jmjbgcjbgmcfgbgikmbdioggjlhjegpp/insides/content/content.js:362:300985
+    at chrome-extension://jmjbgcjbgmcfgbgikmbdioggjlhjegpp/insides/content/content.js:3:378108
+o @ content.js:3
+(anonymous) @ content.js:362
+(anonymous) @ content.js:3
+index-DXc94SoA.js:338  GET https://floma-image-gen.replit.app/api/sessions/547b693e-775b-4057-8550-9805d0cb01c7/images 500 (Internal Server Error)
+nt @ index-DXc94SoA.js:338
+kx @ index-DXc94SoA.js:338
+(anonymous) @ index-DXc94SoA.js:422
+(anonymous) @ index-DXc94SoA.js:422
+Fd @ index-DXc94SoA.js:40
+_i @ index-DXc94SoA.js:40
+Gy @ index-DXc94SoA.js:40
+so @ index-DXc94SoA.js:38
+tM @ index-DXc94SoA.js:40
+fo @ index-DXc94SoA.js:40
+hN @ index-DXc94SoA.js:40
+N @ index-DXc94SoA.js:25
+D @ index-DXc94SoA.js:25
+index-DXc94SoA.js:422 Failed to load session: Error: Failed to fetch session images
+    at kx (index-DXc94SoA.js:338:62816)
+    at async Promise.all (/index 2)
+    at async index-DXc94SoA.js:422:15391
+(anonymous) @ index-DXc94SoA.js:422
+await in (anonymous)
+(anonymous) @ index-DXc94SoA.js:422
+Fd @ index-DXc94SoA.js:40
+_i @ index-DXc94SoA.js:40
+Gy @ index-DXc94SoA.js:40
+so @ index-DXc94SoA.js:38
+tM @ index-DXc94SoA.js:40
+fo @ index-DXc94SoA.js:40
+hN @ index-DXc94SoA.js:40
+N @ index-DXc94SoA.js:25
+D @ index-DXc94SoA.js:25
+generate?session=547…8550-9805d0cb01c7:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+generate?session=547…8550-9805d0cb01c7:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+generate?session=547…8550-9805d0cb01c7:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+index-DXc94SoA.js:422 Loading session: 547b693e-775b-4057-8550-9805d0cb01c7
+index-DXc94SoA.js:338  GET https://floma-image-gen.replit.app/api/sessions/547b693e-775b-4057-8550-9805d0cb01c7/images 500 (Internal Server Error)
+nt @ index-DXc94SoA.js:338
+kx @ index-DXc94SoA.js:338
+(anonymous) @ index-DXc94SoA.js:422
+(anonymous) @ index-DXc94SoA.js:422
+Fd @ index-DXc94SoA.js:40
+_i @ index-DXc94SoA.js:40
+tM @ index-DXc94SoA.js:40
+fo @ index-DXc94SoA.js:40
+Gy @ index-DXc94SoA.js:40
+so @ index-DXc94SoA.js:38
+(anonymous) @ index-DXc94SoA.js:40
+index-DXc94SoA.js:422 Failed to load session: Error: Failed to fetch session images
+    at kx (index-DXc94SoA.js:338:62816)
+    at async Promise.all (/index 2)
+    at async index-DXc94SoA.js:422:15391
+(anonymous) @ index-DXc94SoA.js:422
+await in (anonymous)
+(anonymous) @ index-DXc94SoA.js:422
+Fd @ index-DXc94SoA.js:40
+_i @ index-DXc94SoA.js:40
+tM @ index-DXc94SoA.js:40
+fo @ index-DXc94SoA.js:40
+Gy @ index-DXc94SoA.js:40
+so @ index-DXc94SoA.js:38
+(anonymous) @ index-DXc94SoA.js:40
