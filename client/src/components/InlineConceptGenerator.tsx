@@ -259,7 +259,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
     onConceptsGenerated(generatedConcepts);
     toast({
       title: 'Concepts Applied',
-      description: `${generatedConcepts.length} concepts ready for generation`,
+      description: `Continue refining or switch to Manual Input to close`,
     });
   };
 

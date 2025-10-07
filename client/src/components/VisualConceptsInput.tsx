@@ -49,7 +49,7 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
 
   const handleConceptsGenerated = (generatedConcepts: string[]) => {
     onConceptsChange(generatedConcepts);
-    setMode('manual');
+    // Keep the generator open so user can continue refining
   };
 
   const handleCancelGeneration = () => {
