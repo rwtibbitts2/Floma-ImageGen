@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, X, Sparkles, Loader2, RefreshCw, Check } from 'lucide-react';
+import { Upload, X, Sparkles, Loader2, RefreshCw, Check, Undo } from 'lucide-react';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import PromptSelector from '@/components/PromptSelector';
@@ -41,6 +41,12 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
   
   // Conversation history for refinements
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
+  
+  // Previous state for undo
+  const [previousState, setPreviousState] = useState<{
+    concepts: string[];
+    history: Array<{ role: 'user' | 'assistant', content: string }>;
+  } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -202,6 +208,13 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
     },
     onSuccess: (data) => {
       const concepts = data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
+      
+      // Save current state for undo
+      setPreviousState({
+        concepts: generatedConcepts,
+        history: conversationHistory
+      });
+      
       setGeneratedConcepts(concepts);
       
       // Update conversation history with the refinement exchange
@@ -250,11 +263,24 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
     });
   };
 
+  const handleUndo = () => {
+    if (previousState) {
+      setGeneratedConcepts(previousState.concepts);
+      setConversationHistory(previousState.history);
+      setPreviousState(null);
+      toast({
+        title: 'Refinement Undone',
+        description: 'Reverted to previous concepts',
+      });
+    }
+  };
+
   const handleStartOver = () => {
     setMode('input');
     setGeneratedConcepts([]);
     setFeedbackText('');
     setConversationHistory([]);
+    setPreviousState(null);
   };
 
   if (mode === 'results') {
@@ -263,15 +289,28 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
         {/* Results Header */}
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Generated Concepts</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleStartOver}
-            data-testid="button-start-over"
-          >
-            <X className="w-4 h-4 mr-1" />
-            Start Over
-          </Button>
+          <div className="flex gap-2">
+            {previousState && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUndo}
+                data-testid="button-undo"
+              >
+                <Undo className="w-4 h-4 mr-1" />
+                Undo
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartOver}
+              data-testid="button-start-over"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Start Over
+            </Button>
+          </div>
         </div>
 
         {/* Plain Text Concepts */}
