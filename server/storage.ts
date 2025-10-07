@@ -689,26 +689,25 @@ export class DatabaseStorage implements IStorage {
 
   async getGeneratedImagesBySessionId(sessionId: string): Promise<GeneratedImage[]> {
     try {
-      // First get all jobs for this session
-      const sessionJobIds = await db
-        .select({ id: generationJobs.id })
-        .from(generationJobs)
+      // Use JOIN to fetch images directly - much faster than fetching jobs first
+      const images = await db
+        .select({
+          id: generatedImages.id,
+          userId: generatedImages.userId,
+          jobId: generatedImages.jobId,
+          sourceImageId: generatedImages.sourceImageId,
+          visualConcept: generatedImages.visualConcept,
+          imageUrl: generatedImages.imageUrl,
+          prompt: generatedImages.prompt,
+          regenerationInstruction: generatedImages.regenerationInstruction,
+          status: generatedImages.status,
+          createdAt: generatedImages.createdAt
+        })
+        .from(generatedImages)
+        .innerJoin(generationJobs, eq(generatedImages.jobId, generationJobs.id))
         .where(eq(generationJobs.sessionId, sessionId));
       
-      if (sessionJobIds.length === 0) {
-        console.log(`No jobs found for session ${sessionId}, returning empty array`);
-        return [];
-      }
-      
-      // Then get all images for these jobs
-      const jobIds = sessionJobIds.map(job => job.id);
-      console.log(`Found ${jobIds.length} jobs for session ${sessionId}, fetching images...`);
-      
-      const images = await db.select().from(generatedImages).where(
-        inArray(generatedImages.jobId, jobIds)
-      );
-      
-      console.log(`Retrieved ${images.length} images for session ${sessionId}`);
+      console.log(`Retrieved ${images.length} images for session ${sessionId} using JOIN`);
       return images;
     } catch (error) {
       console.error(`Error in getGeneratedImagesBySessionId for session ${sessionId}:`, error);
