@@ -138,7 +138,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
       });
     },
     onSuccess: (data) => {
-      setGeneratedConcepts(data.concepts.map(c => c.text));
+      setGeneratedConcepts(data.concepts.map(c => c.concept || (typeof c === 'string' ? c : '')));
       setMode('results');
       toast({
         title: 'Concepts Generated',
@@ -177,7 +177,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
       });
     },
     onSuccess: (data) => {
-      setGeneratedConcepts(data.concepts.map(c => c.text));
+      setGeneratedConcepts(data.concepts.map(c => c.concept || (typeof c === 'string' ? c : '')));
       setFeedbackText('');
       toast({
         title: 'Concepts Refined',
