@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Upload, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, X, Sparkles, Edit3 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { visualConceptsSchema } from '@shared/schema';
+import InlineConceptGenerator from '@/components/InlineConceptGenerator';
 
 interface VisualConceptsInputProps {
   concepts: string[];
@@ -14,6 +15,7 @@ interface VisualConceptsInputProps {
 }
 
 export default function VisualConceptsInput({ concepts, onConceptsChange, onUploadFile }: VisualConceptsInputProps) {
+  const [mode, setMode] = useState<'manual' | 'generate'>('manual');
   const [jsonInput, setJsonInput] = useState(JSON.stringify(concepts, null, 2));
   const [validationError, setValidationError] = useState<string>();
 
@@ -45,6 +47,15 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
     onConceptsChange(updatedConcepts);
   };
 
+  const handleConceptsGenerated = (generatedConcepts: string[]) => {
+    onConceptsChange(generatedConcepts);
+    setMode('manual');
+  };
+
+  const handleCancelGeneration = () => {
+    setMode('manual');
+  };
+
   const isValid = !validationError && concepts.length > 0;
 
   return (
@@ -55,18 +66,36 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={onUploadFile}
-            data-testid="button-upload-concepts"
+            onClick={() => setMode(mode === 'manual' ? 'generate' : 'manual')}
+            data-testid="button-toggle-concept-mode"
           >
-            <Upload className="w-4 h-4 mr-2" />
-            Upload JSON
+            {mode === 'manual' ? (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate Concepts
+              </>
+            ) : (
+              <>
+                <Edit3 className="w-4 h-4 mr-2" />
+                Manual Input
+              </>
+            )}
           </Button>
         </div>
         <CardDescription>
-          Enter visual concepts as a JSON array. Each concept will generate a separate image.
+          {mode === 'manual' 
+            ? 'Enter visual concepts as a JSON array. Each concept will generate a separate image.'
+            : 'Use AI to generate visual concepts from your marketing content'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {mode === 'generate' ? (
+          <InlineConceptGenerator 
+            onConceptsGenerated={handleConceptsGenerated}
+            onCancel={handleCancelGeneration}
+          />
+        ) : (
+          <>
         <div className="space-y-2">
           <Textarea
             value={jsonInput}
@@ -133,6 +162,8 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
               ))}
             </div>
           </div>
+        )}
+          </>
         )}
       </CardContent>
     </Card>
