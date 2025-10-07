@@ -1,0 +1,84 @@
+2025-10-07 15:22:04.85
+2f2973e4
+User
+Retrieved 62 images for session 232bf49d-bf0c-412a-9d83-a92ccc448216 using JOIN
+2025-10-07 15:22:04.85
+2f2973e4
+User
+Successfully fetched 62 images for session 232bf49d-bf0c-412a-9d83-a92ccc448216
+2025-10-07 15:22:15.82
+2f2973e4
+User
+9:22:15 PM [express] GET /api/sessions/232bf49d-bf0c-412a-9d83-a92ccc448216/images 200 in 8201ms :: …
+2025-10-07 15:22:17.75
+2f2973e4
+User
+9:22:17 PM [express] GET /api/sessions/working 200 in 173ms :: {"id":"5dfaa278-c5e8-4bf5-82ea-5d0485…
+2025-10-07 15:22:19.13
+2f2973e4
+User
+Session access check: sessionId=547b693e-775b-4057-8550-9805d0cb01c7, sessionUserId=fa2019e3-5ebf-4f36-80e1-42e1a45ad0ea, requestUserId=fa2019e3-5ebf-4f36-80e1-42e1a45ad0ea, isAdmin=true
+2025-10-07 15:22:19.13
+2f2973e4
+User
+9:22:19 PM [express] GET /api/sessions/547b693e-775b-4057-8550-9805d0cb01c7 200 in 65ms :: {"id":"54…
+2025-10-07 15:22:19.27
+2f2973e4
+User
+9:22:19 PM [express] GET /api/styles 304 in 1655ms :: [{"id":"b8841333-b9d8-471c-88c4-69994ee6bdcf",…
+2025-10-07 15:22:19.35
+2f2973e4
+User
+Fetching images for session: 5dfaa278-c5e8-4bf5-82ea-5d0485184da6
+2025-10-07 15:22:19.38
+2f2973e4
+User
+Access check for session 5dfaa278-c5e8-4bf5-82ea-5d0485184da6: userId=fa2019e3-5ebf-4f36-80e1-42e1a45ad0ea, sessionUserId=fa2019e3-5ebf-4f36-80e1-42e1a45ad0ea, isAdmin=true
+2025-10-07 15:22:19.38
+2f2973e4
+User
+Calling storage.getGeneratedImagesBySessionId for session: 5dfaa278-c5e8-4bf5-82ea-5d0485184da6
+2025-10-07 15:22:19.42
+2f2973e4
+User
+Retrieved 0 images for session 5dfaa278-c5e8-4bf5-82ea-5d0485184da6 using JOIN
+2025-10-07 15:22:19.42
+2f2973e4
+User
+Successfully fetched 0 images for session 5dfaa278-c5e8-4bf5-82ea-5d0485184da6
+2025-10-07 15:22:19.43
+2f2973e4
+User
+9:22:19 PM [express] GET /api/sessions/5dfaa278-c5e8-4bf5-82ea-5d0485184da6/images 200 in 105ms :: []
+2025-10-07 15:22:19.86
+2f2973e4
+User
+9:22:19 PM [express] GET /api/styles 304 in 529ms :: [{"id":"b8841333-b9d8-471c-88c4-69994ee6bdcf","…
+2025-10-07 15:22:19.94
+2f2973e4
+User
+Fetching images for session: 547b693e-775b-4057-8550-9805d0cb01c7
+2025-10-07 15:22:19.97
+2f2973e4
+User
+Access check for session 547b693e-775b-4057-8550-9805d0cb01c7: userId=fa2019e3-5ebf-4f36-80e1-42e1a45ad0ea, sessionUserId=fa2019e3-5ebf-4f36-80e1-42e1a45ad0ea, isAdmin=true
+2025-10-07 15:22:19.97
+2f2973e4
+User
+Calling storage.getGeneratedImagesBySessionId for session: 547b693e-775b-4057-8550-9805d0cb01c7
+2025-10-07 15:22:20.81
+2f2973e4
+User
+Retrieved 14 images for session 547b693e-775b-4057-8550-9805d0cb01c7 using JOIN
+2025-10-07 15:22:20.81
+2f2973e4
+User
+Successfully fetched 14 images for session 547b693e-775b-4057-8550-9805d0cb01c7
+2025-10-07 15:22:21.22
+2f2973e4
+User
+9:22:21 PM [express] PUT /api/sessions/547b693e-775b-4057-8550-9805d0cb01c7 200 in 74ms :: {"id":"54…
+2025-10-07 15:22:21.48
+2f2973e4
+User
+9:22:21 PM [express] GET /api/sessions/547b693e-775b-4057-8550-9805d0cb01c7/images 200 in 1360ms :: …
