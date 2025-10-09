@@ -1777,43 +1777,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
 router.post('/refine-style', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
-      styleData: z.object({
-        style_name: z.string().optional(),
-        description: z.string().optional(),
-        color_palette: z.array(z.string()).optional(),
-        color_usage: z.string().optional(),
-        lighting: z.string().optional(),
-        shadow_style: z.string().optional(),
-        shapes: z.string().optional(),
-        shape_edges: z.string().optional(),
-        symmetry_balance: z.string().optional(),
-        line_quality: z.string().optional(),
-        line_color_treatment: z.string().optional(),
-        texture: z.string().optional(),
-        material_suggestion: z.string().optional(),
-        rendering_style: z.string().optional(),
-        detail_level: z.string().optional(),
-        perspective: z.string().optional(),
-        scale_relationships: z.string().optional(),
-        composition: z.string().optional(),
-        visual_hierarchy: z.string().optional(),
-        typography: z.object({
-          font_styles: z.string().optional(),
-          font_weights: z.string().optional(),
-          case_usage: z.string().optional(),
-          alignment: z.string().optional(),
-          letter_spacing: z.string().optional(),
-          text_treatment: z.string().optional(),
-        }).optional(),
-        ui_elements: z.object({
-          corner_radius: z.string().optional(),
-          icon_style: z.string().optional(),
-          button_style: z.string().optional(),
-          spacing_rhythm: z.string().optional(),
-        }).optional(),
-        motion_or_interaction: z.string().optional(),
-        notable_visual_effects: z.string().optional(),
-      }),
+      styleData: z.record(z.any()), // Accept any dynamic style structure
       feedback: z.string().min(1),
     });
 
@@ -1828,49 +1792,21 @@ router.post('/refine-style', requireAuth, async (req, res) => {
     const { styleData, feedback } = validation.data;
 
     // System message for style refinement
-    const systemMessage = `You are a professional visual style analyst. The user will provide you with a current style definition and feedback for improvement. 
+    const systemMessage = `You are a professional visual style analyst. The user will provide you with a current style definition (in JSON format) and feedback for improvement. 
 
-Your task is to refine the style definition based on the feedback while maintaining the exact JSON structure. You MUST respond with ONLY valid JSON that matches this exact structure:
+Your task is to:
+1. Carefully read the current style definition structure
+2. Apply the user's feedback to refine and improve the style definition
+3. Maintain the EXACT SAME JSON structure and field names as the input
+4. Only modify field VALUES based on the feedback - do not add or remove fields
+5. Keep all nested objects and their structures intact
 
-{
-  "style_name": "string - short descriptive name",
-  "description": "string - detailed style analysis",
-  "color_palette": ["#RRGGBB", "#RRGGBB", ...],
-  "color_usage": "string - how colors are used",
-  "lighting": "string - lighting characteristics", 
-  "shadow_style": "string - shadow treatment",
-  "shapes": "string - shape characteristics",
-  "shape_edges": "string - edge treatment",
-  "symmetry_balance": "string - balance and symmetry",
-  "line_quality": "string - line characteristics",
-  "line_color_treatment": "string - line color approach",
-  "texture": "string - texture details",
-  "material_suggestion": "string - material qualities",
-  "rendering_style": "string - rendering approach",
-  "detail_level": "string - level of detail",
-  "perspective": "string - perspective characteristics",
-  "scale_relationships": "string - scale and proportions",
-  "composition": "string - compositional elements",
-  "visual_hierarchy": "string - hierarchy approach",
-  "typography": {
-    "font_styles": "string - font characteristics",
-    "font_weights": "string - weight usage",
-    "case_usage": "string - case treatment",
-    "alignment": "string - text alignment",
-    "letter_spacing": "string - spacing approach",
-    "text_treatment": "string - text effects"
-  },
-  "ui_elements": {
-    "corner_radius": "string - corner treatment",
-    "icon_style": "string - icon characteristics", 
-    "button_style": "string - button treatment",
-    "spacing_rhythm": "string - spacing patterns"
-  },
-  "motion_or_interaction": "string - motion qualities",
-  "notable_visual_effects": "string - special effects"
-}
-
-Apply the user's feedback to improve and refine the style definition. Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
+Rules:
+- Respond with ONLY valid JSON (no markdown, no code blocks, no explanations)
+- Match the exact structure of the input styleData
+- Apply the feedback thoughtfully to improve the style description
+- Maintain consistency across all related fields
+- Keep the same level of detail and specificity`;
 
     const userMessage = `Current style definition:
 ${JSON.stringify(styleData, null, 2)}
