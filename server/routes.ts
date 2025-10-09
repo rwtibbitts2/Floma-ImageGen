@@ -1608,6 +1608,101 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
   }
 });
 
+// POST /api/generate-new-concept - Generate a new random concept for an existing style (Protected)
+router.post('/generate-new-concept', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      styleId: z.string().min(1),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { styleId } = validation.data;
+
+    // Fetch the style to get conceptPrompt and referenceImageUrl
+    const style = await storage.getImageStyleById(styleId);
+    if (!style) {
+      return res.status(404).json({ error: 'Style not found' });
+    }
+
+    if (!style.conceptPrompt) {
+      return res.status(400).json({ error: 'Style does not have a concept prompt' });
+    }
+
+    if (!style.referenceImageUrl) {
+      return res.status(400).json({ error: 'Style does not have a reference image' });
+    }
+
+    // Generate new concept using the same model and prompt
+    const conceptResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: style.conceptPrompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: style.referenceImageUrl
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 300,
+    });
+
+    let concept = conceptResponse.choices[0]?.message?.content?.trim();
+    if (!concept) {
+      throw new Error('No concept generated from OpenAI');
+    }
+
+    console.log('Raw new concept response:', concept);
+
+    // Parse JSON response to validate and clean
+    try {
+      // Remove markdown code blocks if present
+      let cleanedConcept = concept;
+      if (cleanedConcept.includes('```json')) {
+        cleanedConcept = cleanedConcept.replace(/```json\s*/g, '').replace(/```/g, '');
+      } else if (cleanedConcept.includes('```')) {
+        cleanedConcept = cleanedConcept.replace(/```\s*/g, '').replace(/```/g, '');
+      }
+      
+      cleanedConcept = cleanedConcept.trim();
+      
+      // Try to parse as JSON - if successful, use the cleaned JSON string
+      JSON.parse(cleanedConcept); // Just validate it's valid JSON
+      concept = cleanedConcept; // Use the full cleaned JSON string
+      console.log('✓ Using full concept JSON (parsed and validated)');
+    } catch (parseError) {
+      // If not JSON, use the concept as-is
+      console.log('Concept not in JSON format, using raw text');
+    }
+
+    // Convert concept to human-readable text for display
+    const conceptText = convertConceptJsonToText(concept);
+    
+    res.json({
+      concept: conceptText,
+      conceptJson: concept
+    });
+  } catch (error) {
+    console.error('Error generating new concept:', error);
+    res.status(500).json({ error: 'Failed to generate new concept' });
+  }
+});
+
 // POST /api/generate-style-preview - Generate preview image using extracted style (Protected)
 router.post('/generate-style-preview', requireAuth, async (req, res) => {
   try {

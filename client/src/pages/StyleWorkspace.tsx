@@ -176,6 +176,30 @@ export default function StyleWorkspace() {
     },
   });
 
+  // New concept generation mutation
+  const newConceptMutation = useMutation({
+    mutationFn: async () => {
+      // Get JWT token for authentication
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch('/api/generate-new-concept', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          styleId: styleId,
+        }),
+      });
+      if (!response.ok) throw new Error('Concept generation failed');
+      return response.json();
+    },
+  });
+
   const handleSave = async () => {
     try {
       await saveMutation.mutateAsync();
@@ -255,6 +279,24 @@ export default function StyleWorkspace() {
       toast({
         title: 'Preview Failed',
         description: 'Failed to generate preview. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleGenerateNewConcept = async () => {
+    try {
+      const result = await newConceptMutation.mutateAsync();
+      setGeneratedConcept(result.concept);
+      
+      toast({
+        title: 'New Concept Generated',
+        description: 'A new random concept has been generated using the same prompt.'
+      });
+    } catch (error) {
+      toast({
+        title: 'Concept Generation Failed',
+        description: 'Failed to generate new concept. Please try again.',
         variant: 'destructive'
       });
     }
@@ -625,12 +667,12 @@ export default function StyleWorkspace() {
                 variant="outline" 
                 size="sm" 
                 className="gap-2"
-                onClick={handleGeneratePreview}
-                disabled={previewMutation.isPending}
-                data-testid="button-regenerate-preview"
+                onClick={handleGenerateNewConcept}
+                disabled={newConceptMutation.isPending}
+                data-testid="button-new-concept"
               >
-                <RefreshCw className={`w-3 h-3 ${previewMutation.isPending ? 'animate-spin' : ''}`} />
-                Regenerate
+                <Sparkles className={`w-3 h-3 ${newConceptMutation.isPending ? 'animate-pulse' : ''}`} />
+                {newConceptMutation.isPending ? 'Generating...' : 'New prompt'}
               </Button>
             </div>
             
