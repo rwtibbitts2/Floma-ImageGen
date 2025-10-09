@@ -232,6 +232,13 @@ export default function StyleWorkspace() {
       
       const result = await refineMutation.mutateAsync(chatMessage);
       setStyleData(result.refinedStyleData);
+      
+      // CRITICAL: Also update the top-level description from the refined style data
+      // This ensures the description field in the form reflects the AI-refined description
+      if (result.refinedStyleData?.description) {
+        setDescription(result.refinedStyleData.description);
+      }
+      
       setChatMessage('');
       toast({
         title: 'Style Refined',
@@ -249,6 +256,10 @@ export default function StyleWorkspace() {
   const handleUndo = () => {
     if (previousStyleData) {
       setStyleData(previousStyleData);
+      // Also restore the description field from the previous style data
+      if (previousStyleData?.description) {
+        setDescription(previousStyleData.description);
+      }
       setPreviousStyleData(null);
       toast({
         title: 'Changes Reverted',
