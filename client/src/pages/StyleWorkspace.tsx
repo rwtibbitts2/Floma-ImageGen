@@ -45,7 +45,6 @@ export default function StyleWorkspace() {
   
   // State for style data
   const [styleName, setStyleName] = useState('');
-  const [description, setDescription] = useState('');
   const [styleData, setStyleData] = useState<any>(null);
   const [previousStyleData, setPreviousStyleData] = useState<any>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState('');
@@ -73,7 +72,6 @@ export default function StyleWorkspace() {
   useEffect(() => {
     if (style) {
       setStyleName(style.name);
-      setDescription(style.description || '');
       setStyleData(style.aiStyleData || {});
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
@@ -96,7 +94,6 @@ export default function StyleWorkspace() {
       
       const updateData = {
         name: styleName,
-        description,
         stylePrompt: styleData ? buildStyleDescription(styleData) : 'AI-extracted style',
         aiStyleData: { ...styleData, renderText },
         previewImageUrl,
@@ -233,12 +230,6 @@ export default function StyleWorkspace() {
       const result = await refineMutation.mutateAsync(chatMessage);
       setStyleData(result.refinedStyleData);
       
-      // CRITICAL: Also update the top-level description from the refined style data
-      // This ensures the description field in the form reflects the AI-refined description
-      if (result.refinedStyleData?.description) {
-        setDescription(result.refinedStyleData.description);
-      }
-      
       setChatMessage('');
       toast({
         title: 'Style Refined',
@@ -256,10 +247,6 @@ export default function StyleWorkspace() {
   const handleUndo = () => {
     if (previousStyleData) {
       setStyleData(previousStyleData);
-      // Also restore the description field from the previous style data
-      if (previousStyleData?.description) {
-        setDescription(previousStyleData.description);
-      }
       setPreviousStyleData(null);
       toast({
         title: 'Changes Reverted',
@@ -554,8 +541,8 @@ export default function StyleWorkspace() {
                 <div>
                   <Label className="text-sm font-medium text-blue-600">Description</Label>
                   <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    value={styleData?.description || ''}
+                    onChange={(e) => setStyleData({ ...styleData, description: e.target.value })}
                     rows={3}
                     className="mt-1 resize-none"
                   />
