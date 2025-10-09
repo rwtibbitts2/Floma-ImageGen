@@ -290,18 +290,48 @@ export default function StyleWorkspace() {
 
   const addColor = () => {
     const newColor = '#000000';
-    updateStyleField('color_palette', [...(styleData?.color_palette || []), newColor]);
+    const paletteField = styleData?.color_palette ? 'color_palette' : 'palette';
+    const currentPalette = styleData?.color_palette || styleData?.palette || [];
+    updateStyleField(paletteField, [...currentPalette, newColor]);
   };
 
   const updateColor = (index: number, color: string) => {
-    const updatedPalette = [...(styleData?.color_palette || [])];
+    const paletteField = styleData?.color_palette ? 'color_palette' : 'palette';
+    const currentPalette = styleData?.color_palette || styleData?.palette || [];
+    const updatedPalette = [...currentPalette];
     updatedPalette[index] = color;
-    updateStyleField('color_palette', updatedPalette);
+    updateStyleField(paletteField, updatedPalette);
   };
 
   const removeColor = (index: number) => {
-    const updatedPalette = styleData?.color_palette?.filter((_: any, i: number) => i !== index) || [];
-    updateStyleField('color_palette', updatedPalette);
+    const paletteField = styleData?.color_palette ? 'color_palette' : 'palette';
+    const currentPalette = styleData?.color_palette || styleData?.palette || [];
+    const updatedPalette = currentPalette.filter((_: any, i: number) => i !== index);
+    updateStyleField(paletteField, updatedPalette);
+  };
+
+  // Helper function to format field keys into readable labels
+  const formatFieldLabel = (key: string): string => {
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Get all dynamic fields from styleData, excluding special handled fields
+  const getDynamicFields = () => {
+    if (!styleData) return [];
+    
+    const excludeFields = ['style_name', 'description', 'color_palette', 'palette', 'renderText'];
+    
+    return Object.keys(styleData)
+      .filter(key => !excludeFields.includes(key))
+      .filter(key => {
+        const value = styleData[key];
+        // Include strings, numbers, and objects (but not null/undefined)
+        return value !== null && value !== undefined;
+      })
+      .sort(); // Sort fields alphabetically for consistent display
   };
 
   if (isLoading) {
@@ -479,92 +509,109 @@ export default function StyleWorkspace() {
                 </div>
               </div>
 
-              {/* Color Palette */}
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium text-blue-600">Color palette</Label>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {(styleData?.color_palette || []).map((color: string, index: number) => (
-                        <div key={index} className="flex items-center gap-1">
-                          <input
-                            type="color"
-                            value={color}
-                            onChange={(e) => updateColor(index, e.target.value)}
-                            className="w-8 h-8 rounded border cursor-pointer"
-                          />
-                          <span className="text-xs text-muted-foreground font-mono">{color}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeColor(index)}
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={addColor}
-                        className="h-8 w-8 p-0"
-                      >
-                        +
-                      </Button>
+              {/* Color Palette - Handle color_palette or palette */}
+              {(styleData?.color_palette || styleData?.palette) && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-blue-600">Color palette</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {((styleData?.color_palette || styleData?.palette) as string[] || []).map((color: string, index: number) => (
+                          <div key={index} className="flex items-center gap-1">
+                            <input
+                              type="color"
+                              value={color}
+                              onChange={(e) => updateColor(index, e.target.value)}
+                              className="w-8 h-8 rounded border cursor-pointer"
+                            />
+                            <span className="text-xs text-muted-foreground font-mono">{color}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeColor(index)}
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={addColor}
+                          className="h-8 w-8 p-0"
+                        >
+                          +
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Style Properties */}
-              {[
-                { key: 'color_usage', label: 'Color usage' },
-                { key: 'lighting', label: 'Lighting' },
-                { key: 'shadow_style', label: 'Shadow style' },
-                { key: 'shapes', label: 'Shapes' },
-                { key: 'shape_edges', label: 'Shape edges' },
-                { key: 'symmetry_balance', label: 'Symmetry' },
-                { key: 'line_quality', label: 'Line quality' },
-                { key: 'line_color_treatment', label: 'Line color' },
-                { key: 'texture', label: 'Texture' },
-                { key: 'material_suggestion', label: 'Material' },
-                { key: 'rendering_style', label: 'Rendering style' },
-                { key: 'detail_level', label: 'Detail level' },
-                { key: 'perspective', label: 'Perspective' },
-                { key: 'scale_relationships', label: 'Scale relationships' },
-                { key: 'composition', label: 'Composition' },
-                { key: 'visual_hierarchy', label: 'Visual hierarchy' },
-              ].map(({ key, label }) => (
-                <div key={key} className="space-y-2">
-                  <Label className="text-sm font-medium text-blue-600">{label}</Label>
-                  <Textarea
-                    value={styleData?.[key] || ''}
-                    onChange={(e) => updateStyleField(key, e.target.value)}
-                    rows={2}
-                    className="resize-none"
-                  />
-                </div>
-              ))}
-
-              {/* Typography */}
-              <div className="space-y-4">
-                <Label className="text-sm font-medium text-blue-600">Typography</Label>
-                {[
-                  { key: 'font_styles', label: 'Font styles' },
-                  { key: 'font_weights', label: 'Font weight' },
-                  { key: 'case_usage', label: 'Case usage' },
-                  { key: 'alignment', label: 'Alignment' },
-                ].map(({ key, label }) => (
-                  <div key={key} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{label}</Label>
-                    <Input
-                      value={styleData?.typography?.[key] || ''}
-                      onChange={(e) => updateStyleField('typography', e.target.value, key)}
-                    />
-                  </div>
-                ))}
-              </div>
+              {/* Dynamic Style Properties */}
+              {getDynamicFields().map((key) => {
+                const value = styleData[key];
+                const isObject = typeof value === 'object' && !Array.isArray(value);
+                
+                if (isObject) {
+                  // Render nested object as a group
+                  return (
+                    <div key={key} className="space-y-4 col-span-2">
+                      <Label className="text-sm font-medium text-blue-600">{formatFieldLabel(key)}</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l-2 border-muted">
+                        {Object.keys(value).map((nestedKey) => {
+                          const nestedValue = value[nestedKey];
+                          // Handle arrays within nested objects
+                          if (Array.isArray(nestedValue)) {
+                            return (
+                              <div key={nestedKey} className="space-y-2 col-span-2">
+                                <Label className="text-xs text-muted-foreground">{formatFieldLabel(nestedKey)}</Label>
+                                <Textarea
+                                  value={JSON.stringify(nestedValue, null, 2)}
+                                  onChange={(e) => {
+                                    try {
+                                      const parsed = JSON.parse(e.target.value);
+                                      updateStyleField(key, { ...value, [nestedKey]: parsed });
+                                    } catch {
+                                      // Invalid JSON, keep as string
+                                      updateStyleField(key, { ...value, [nestedKey]: e.target.value });
+                                    }
+                                  }}
+                                  rows={3}
+                                  className="resize-none font-mono text-xs"
+                                />
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={nestedKey} className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">{formatFieldLabel(nestedKey)}</Label>
+                              <Input
+                                value={nestedValue || ''}
+                                onChange={(e) => updateStyleField(key, { ...value, [nestedKey]: e.target.value })}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  // Render simple field as textarea
+                  return (
+                    <div key={key} className="space-y-2">
+                      <Label className="text-sm font-medium text-blue-600">{formatFieldLabel(key)}</Label>
+                      <Textarea
+                        value={value || ''}
+                        onChange={(e) => updateStyleField(key, e.target.value)}
+                        rows={2}
+                        className="resize-none"
+                      />
+                    </div>
+                  );
+                }
+              })}
             </div>
           </div>
         </div>
