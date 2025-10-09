@@ -1796,25 +1796,28 @@ router.post('/refine-style', requireAuth, async (req, res) => {
 
 Your task is to:
 1. Carefully read the current style definition structure and user feedback
-2. Make SUBSTANTIAL, NOTICEABLE changes to the style values based on the feedback
+2. Make changes PROPORTIONAL to the instruction - subtle feedback gets subtle changes, dramatic feedback gets dramatic changes
 3. Update ALL relevant fields that relate to the feedback (not just one field)
 4. Maintain the EXACT SAME JSON structure and field names as the input
 5. Only modify field VALUES - do not add or remove fields or change the structure
 
-IMPORTANT: The user expects to see clear, obvious changes based on their feedback. Don't be subtle - make bold adjustments that clearly reflect their direction.
+CRITICAL - Description Field Requirements:
+- The "description" field is THE MOST IMPORTANT field and MUST ALWAYS be significantly updated
+- ALWAYS expand/rewrite the description to be 2-3 detailed sentences (not just 1 short sentence)
+- The description should incorporate the feedback and paint a comprehensive picture of the visual style
+- Include sensory details, technical aspects, and the overall aesthetic impression
+- Example good description: "A bold urban photography style characterized by direct frontal flash lighting that creates stark, dramatic contrasts. The aesthetic combines vintage film grain with contemporary street photography sensibilities, featuring cool color temperatures that offset warm accent tones. This approach emphasizes raw, authentic moments with high-impact lighting that flattens depth and creates an intimate, documentary-style feel."
 
-Example: If feedback says "make it more dramatic", you should:
-- Increase contrast significantly
-- Strengthen shadow descriptions
-- Use more intense language in descriptions
-- Update lighting to be more directional/hard
-- Adjust multiple related fields consistently
+For other fields:
+- Make changes appropriate to the feedback intensity
+- Update all related fields consistently (e.g., if changing lighting, also update shadows, contrast, mood, etc.)
+- Use precise, descriptive language
 
 Rules:
 - Respond with ONLY valid JSON (no markdown, no code blocks, no explanations)
 - Match the exact structure of the input styleData
-- Make significant, visible changes based on feedback
-- Update all related fields consistently
+- ALWAYS expand the description field to 2-3 detailed sentences
+- Update all relevant fields proportionally
 - Keep nested objects and arrays intact`;
 
     const userMessage = `Current style definition:
