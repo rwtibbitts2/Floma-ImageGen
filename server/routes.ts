@@ -1795,18 +1795,27 @@ router.post('/refine-style', requireAuth, async (req, res) => {
     const systemMessage = `You are a professional visual style analyst. The user will provide you with a current style definition (in JSON format) and feedback for improvement. 
 
 Your task is to:
-1. Carefully read the current style definition structure
-2. Apply the user's feedback to refine and improve the style definition
-3. Maintain the EXACT SAME JSON structure and field names as the input
-4. Only modify field VALUES based on the feedback - do not add or remove fields
-5. Keep all nested objects and their structures intact
+1. Carefully read the current style definition structure and user feedback
+2. Make SUBSTANTIAL, NOTICEABLE changes to the style values based on the feedback
+3. Update ALL relevant fields that relate to the feedback (not just one field)
+4. Maintain the EXACT SAME JSON structure and field names as the input
+5. Only modify field VALUES - do not add or remove fields or change the structure
+
+IMPORTANT: The user expects to see clear, obvious changes based on their feedback. Don't be subtle - make bold adjustments that clearly reflect their direction.
+
+Example: If feedback says "make it more dramatic", you should:
+- Increase contrast significantly
+- Strengthen shadow descriptions
+- Use more intense language in descriptions
+- Update lighting to be more directional/hard
+- Adjust multiple related fields consistently
 
 Rules:
 - Respond with ONLY valid JSON (no markdown, no code blocks, no explanations)
 - Match the exact structure of the input styleData
-- Apply the feedback thoughtfully to improve the style description
-- Maintain consistency across all related fields
-- Keep the same level of detail and specificity`;
+- Make significant, visible changes based on feedback
+- Update all related fields consistently
+- Keep nested objects and arrays intact`;
 
     const userMessage = `Current style definition:
 ${JSON.stringify(styleData, null, 2)}
@@ -1848,7 +1857,11 @@ Please provide the refined style definition in the same JSON format.`;
       throw new Error('Invalid JSON response from style refinement');
     }
 
-    console.log('Style refined successfully with feedback:', feedback);
+    console.log('=== STYLE REFINEMENT RESULTS ===');
+    console.log('Feedback:', feedback);
+    console.log('Original style data:', JSON.stringify(styleData, null, 2));
+    console.log('Refined style data:', JSON.stringify(refinedStyleData, null, 2));
+    console.log('================================');
 
     res.json({
       refinedStyleData,
