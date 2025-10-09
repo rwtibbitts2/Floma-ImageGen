@@ -1325,17 +1325,35 @@ router.post('/upload-reference-image', requireAuth, upload.single('image'), asyn
     }
 
     const tempFilePath = req.file.path;
-    const fileExtension = path.extname(req.file.originalname) || '.png';
-    const fileName = `reference-${randomUUID()}${fileExtension}`;
+    const originalMimeType = req.file.mimetype;
     
     try {
-      // Read the file and prepare it for object storage
-      const fileBuffer = await fs.promises.readFile(tempFilePath);
+      // OpenAI only supports: png, jpeg, gif, webp
+      const supportedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+      const isSupported = supportedMimeTypes.includes(originalMimeType.toLowerCase());
       
-      // For now, we'll store it as a data URL (in production, use actual object storage)
-      const base64Data = fileBuffer.toString('base64');
-      const mimeType = req.file.mimetype;
-      const dataUrl = `data:${mimeType};base64,${base64Data}`;
+      let finalBuffer: Buffer;
+      let finalMimeType: string;
+      let fileExtension: string;
+      
+      if (!isSupported) {
+        // Convert unsupported formats (AVIF, HEIC, BMP, TIFF, etc.) to PNG
+        console.log(`Converting unsupported image format ${originalMimeType} to PNG`);
+        finalBuffer = await sharp(tempFilePath)
+          .png()
+          .toBuffer();
+        finalMimeType = 'image/png';
+        fileExtension = '.png';
+      } else {
+        // Keep original format if supported
+        finalBuffer = await fs.promises.readFile(tempFilePath);
+        finalMimeType = originalMimeType;
+        fileExtension = path.extname(req.file.originalname) || '.png';
+      }
+      
+      const fileName = `reference-${randomUUID()}${fileExtension}`;
+      const base64Data = finalBuffer.toString('base64');
+      const dataUrl = `data:${finalMimeType};base64,${base64Data}`;
 
       // Clean up temp file
       await fs.promises.unlink(tempFilePath);
@@ -1343,8 +1361,9 @@ router.post('/upload-reference-image', requireAuth, upload.single('image'), asyn
       res.json({
         url: dataUrl,
         fileName: fileName,
-        size: req.file.size,
-        mimetype: req.file.mimetype
+        size: finalBuffer.length,
+        mimetype: finalMimeType,
+        converted: !isSupported
       });
     } catch (error) {
       // Clean up temp file on error
