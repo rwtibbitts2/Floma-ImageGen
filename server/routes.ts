@@ -1777,7 +1777,7 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
 router.post('/refine-style', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
-      styleData: z.record(z.any()), // Accept any dynamic style structure
+      styleData: z.any(), // Accept any dynamic style structure including nested objects
       feedback: z.string().min(1),
     });
 
