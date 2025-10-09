@@ -82,6 +82,7 @@ export default function AIStyleExtractorModal({
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [preferencesInitialized, setPreferencesInitialized] = useState(false);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -130,7 +131,7 @@ export default function AIStyleExtractorModal({
     if (editingStyle && isOpen) {
       setStep('configure');
       setStyleName(editingStyle.name);
-      setDescription(editingStyle.description || '');
+      setDescription((editingStyle.aiStyleData as any)?.description || '');
       setExtractionPrompt(editingStyle.extractionPrompt || DEFAULT_EXTRACTION_PROMPT);
       setConceptPrompt(editingStyle.conceptPrompt || DEFAULT_CONCEPT_PROMPT);
       setSelectedExtractionPromptId(undefined); // Clear selection when editing - prompts are from the style
@@ -373,8 +374,12 @@ export default function AIStyleExtractorModal({
             <img
               src={previewUrl}
               alt="Reference preview"
-              className="max-w-full max-h-64 mx-auto rounded-lg"
+              className="max-w-full max-h-64 mx-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
               data-testid="img-reference-preview"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomedImageUrl(previewUrl);
+              }}
             />
             <Button
               variant="outline"
@@ -443,7 +448,10 @@ export default function AIStyleExtractorModal({
       {referenceImageUrl && (
         <div className="space-y-2">
           <Label>Reference Image</Label>
-          <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+          <div 
+            className="aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => setZoomedImageUrl(referenceImageUrl)}
+          >
             <img
               src={referenceImageUrl}
               alt="Reference"
@@ -569,19 +577,44 @@ export default function AIStyleExtractorModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-ai-style-extractor">
-        <DialogHeader>
-          <DialogTitle>{getStepTitle()}</DialogTitle>
-          <DialogDescription>{getStepDescription()}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-ai-style-extractor">
+          <DialogHeader>
+            <DialogTitle>{getStepTitle()}</DialogTitle>
+            <DialogDescription>{getStepDescription()}</DialogDescription>
+          </DialogHeader>
 
-        <div className="mt-6">
-          {step === 'upload' && renderUploadStep()}
-          {step === 'configure' && renderConfigureStep()}
-          {step === 'extract' && renderExtractStep()}
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="mt-6">
+            {step === 'upload' && renderUploadStep()}
+            {step === 'configure' && renderConfigureStep()}
+            {step === 'extract' && renderExtractStep()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Zoom Dialog */}
+      <Dialog open={!!zoomedImageUrl} onOpenChange={() => setZoomedImageUrl(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95" data-testid="dialog-zoomed-image">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            <button
+              onClick={() => setZoomedImageUrl(null)}
+              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              data-testid="button-close-zoom"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+            {zoomedImageUrl && (
+              <img
+                src={zoomedImageUrl}
+                alt="Zoomed preview"
+                className="max-w-full max-h-[90vh] object-contain"
+                data-testid="img-zoomed"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
