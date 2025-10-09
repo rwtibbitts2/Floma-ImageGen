@@ -44,7 +44,20 @@ interface AIStyleExtractorModalProps {
 // Default prompts
 const DEFAULT_EXTRACTION_PROMPT = `Role: You are an expert visual analyst and systematizer. Goal: Analyze the provided reference image and output a single JSON object that captures only its reusable visual style — never its subject matter, narrative, brand, or specific content. Output Format (single JSON object only) { "style_name": "", "description": "", "color_palette": ["#RRGGBB"], "color_usage": "", "lighting": "", "shadow_style": "", "shapes": "", "shape_edges": "", "symmetry_balance": "", "line_quality": "", "line_color_treatment": "", "texture": "", "material_suggestion": "", "rendering_style": "", "detail_level": "", "perspective": "", "scale_relationships": "", "composition": "", "visual_hierarchy": "", "typography": { "font_styles": "", "font_weights": "", "case_usage": "", "alignment": "", "letter_spacing": "", "text_treatment": "" }, "ui_elements": { "corner_radius": "", "icon_style": "", "button_style": "", "spacing_rhythm": "" }, "motion_or_interaction": "", "notable_visual_effects": "" } Strict Rules No content/subject references: Do not mention people, objects, locations, logos, words in the image, brand names, IP, or narrative elements. Style only: Describe visual treatment (e.g., "isometric perspective," "soft diffused lighting," "grainy texture") rather than what is depicted. Neutral, reusable language: Prefer generic terms ("rounded pill buttons," "duotone icons") over any brand cues. Fill every field: If a field truly does not apply or is not visible, use "none" (string) — not null/empty — to preserve schema consistency. Quantify/qualify where possible: Use clear qualifiers (e.g., "high contrast," "low saturation," "2–4 px stroke," "8–12 px corner radius"). Color palette: Provide 5–8 representative colors in uppercase HEX (#RRGGBB). Include both background/base tones and accent colors when visible. If gradients dominate, include both endpoints as separate swatches. Typography & UI: Only populate if visible/inferable from the image. Otherwise set each field to "none". One JSON object only: No prose before/after. No markdown. No comments. Output only the JSON object as specified.`;
 
-const DEFAULT_CONCEPT_PROMPT = `Based on the visual style you just analyzed, generate a single creative concept that would work well with this style. Return only a short, descriptive concept phrase (2-5 words) that could be used as a prompt for image generation. Examples: "mysterious forest clearing", "vintage coffee shop", "futuristic city skyline"`;
+const DEFAULT_CONCEPT_PROMPT = `Look at this reference image and imagine it's part of a series of similar images. Your task is to generate a concept for a DIFFERENT image that would belong in the same series - NOT a description of the image shown.
+
+For example:
+- If shown: a coffee mug on a desk → Generate: "laptop on a wooden table", "notepad with a pen", "glasses beside a book"
+- If shown: a sunset over mountains → Generate: "dawn breaking over hills", "twilight at the coastline", "moonrise above the valley"
+- If shown: a portrait of a woman in red → Generate: "portrait of a man in blue", "portrait of a child in yellow", "portrait of an elder in green"
+
+The concept should be:
+1. A DIFFERENT subject/scene than what's shown (not describing the reference image)
+2. Something that would fit naturally in the same series or collection
+3. A short, clear phrase (3-8 words) suitable as an image generation prompt
+4. Focused on the subject/content, not the style (style will be applied separately)
+
+Return ONLY the concept phrase, nothing else.`;
 
 export default function AIStyleExtractorModal({
   isOpen,
