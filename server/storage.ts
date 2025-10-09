@@ -120,11 +120,11 @@ export class MemStorage implements IStorage {
     const style: ImageStyle = { 
       ...insertStyle,
       id, 
-      description: insertStyle.description || null,
       referenceImageUrl: insertStyle.referenceImageUrl || null,
       isAiExtracted: insertStyle.isAiExtracted || false,
       extractionPrompt: insertStyle.extractionPrompt || null,
       conceptPrompt: insertStyle.conceptPrompt || null,
+      generatedConcept: insertStyle.generatedConcept || null,
       aiStyleData: insertStyle.aiStyleData || null,
       previewImageUrl: insertStyle.previewImageUrl || null,
       createdAt: new Date(),
@@ -1086,23 +1086,35 @@ export const storage = new DatabaseStorage();
   const defaultStyles = [
     {
       name: 'Professional Corporate',
-      description: 'Clean, modern corporate style for business presentations',
-      stylePrompt: 'professional corporate style, clean modern design, business presentation quality, high-end commercial photography'
+      stylePrompt: 'professional corporate style, clean modern design, business presentation quality, high-end commercial photography',
+      aiStyleData: {
+        description: 'Clean, modern corporate style for business presentations',
+        mood: 'professional and trustworthy'
+      }
     },
     {
       name: 'Creative Artistic',
-      description: 'Bold artistic style with vibrant colors and creative elements',
-      stylePrompt: 'creative artistic style, vibrant colors, bold design elements, contemporary art inspiration, dynamic composition'
+      stylePrompt: 'creative artistic style, vibrant colors, bold design elements, contemporary art inspiration, dynamic composition',
+      aiStyleData: {
+        description: 'Bold artistic style with vibrant colors and creative elements',
+        mood: 'energetic and expressive'
+      }
     },
     {
       name: 'Minimalist Clean',
-      description: 'Simple, clean minimalist aesthetic with plenty of white space',
-      stylePrompt: 'minimalist clean style, simple design, plenty of white space, elegant simplicity, modern minimal aesthetic'
+      stylePrompt: 'minimalist clean style, simple design, plenty of white space, elegant simplicity, modern minimal aesthetic',
+      aiStyleData: {
+        description: 'Simple, clean minimalist aesthetic with plenty of white space',
+        mood: 'serene and refined'
+      }
     },
     {
       name: 'Vintage Retro',
-      description: 'Nostalgic vintage style with retro color palettes and classic design elements',
-      stylePrompt: 'vintage retro style, nostalgic aesthetic, classic design elements, retro color palette, timeless appeal'
+      stylePrompt: 'vintage retro style, nostalgic aesthetic, classic design elements, retro color palette, timeless appeal',
+      aiStyleData: {
+        description: 'Nostalgic vintage style with retro color palettes and classic design elements',
+        mood: 'nostalgic and warm'
+      }
     }
   ];
 
