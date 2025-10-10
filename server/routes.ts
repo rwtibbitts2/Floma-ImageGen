@@ -211,6 +211,59 @@ function convertConceptJsonToText(conceptJson: string): string {
   }
 }
 
+// Helper function to build style context description from extracted style data
+// This is used for text-only concept generation (avoiding image safety filters)
+function buildStyleContextForConcepts(styleData: any): string {
+  const parts: string[] = [];
+  
+  // Add description if available
+  if (styleData.description) {
+    parts.push(`Visual style: ${styleData.description}`);
+  }
+  
+  // Add mood/atmosphere
+  if (styleData.mood) {
+    parts.push(`Mood: ${styleData.mood}`);
+  }
+  
+  // Add composition info
+  if (styleData.composition) {
+    const comp = styleData.composition;
+    const compParts: string[] = [];
+    if (comp.framing) compParts.push(`${comp.framing} framing`);
+    if (comp.perspective_type) compParts.push(comp.perspective_type);
+    if (comp.subject_scale) compParts.push(`subject scale: ${comp.subject_scale}`);
+    if (compParts.length > 0) {
+      parts.push(`Composition: ${compParts.join(', ')}`);
+    }
+  }
+  
+  // Add lighting info
+  if (styleData.lighting) {
+    const light = styleData.lighting;
+    const lightParts: string[] = [];
+    if (light.source_type) lightParts.push(light.source_type);
+    if (light.direction) lightParts.push(light.direction);
+    if (light.color_temperature) lightParts.push(light.color_temperature);
+    if (lightParts.length > 0) {
+      parts.push(`Lighting: ${lightParts.join(', ')}`);
+    }
+  }
+  
+  // Add camera info
+  if (styleData.camera) {
+    const cam = styleData.camera;
+    const camParts: string[] = [];
+    if (cam.focal_length) camParts.push(cam.focal_length);
+    if (cam.perspective_type) camParts.push(cam.perspective_type);
+    if (camParts.length > 0) {
+      parts.push(`Camera: ${camParts.join(', ')}`);
+    }
+  }
+  
+  return parts.join('. ');
+}
+
 
 // Utility function to download image from URL to temporary file
 async function downloadImageToTempFile(imageUrl: string): Promise<{ path: string; contentType: string; }> {
@@ -1560,24 +1613,17 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
     
     console.log('Final styleData structure:', JSON.stringify(styleData, null, 2));
 
-    // Generate concept using the same model
+    // Build style context from extracted data for text-only concept generation
+    const styleContext = buildStyleContextForConcepts(styleData);
+    console.log('Style context for concept generation:', styleContext);
+
+    // Generate concept using text-only (no image to avoid safety filters)
     const conceptResponse = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "user",
-          content: [
-            {
-              type: "text",
-              text: conceptPrompt
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageUrl
-              }
-            }
-          ]
+          content: `${conceptPrompt}\n\nContext about the visual style (not the reference image content):\n${styleContext}`
         }
       ],
       max_tokens: 400, // Sufficient for single detailed concept with composition
