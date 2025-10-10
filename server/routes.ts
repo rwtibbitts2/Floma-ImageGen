@@ -122,7 +122,13 @@ function convertConceptJsonToText(conceptJson: string): string {
   try {
     const parsed = JSON.parse(conceptJson);
     
-    // NEW FORMAT: Handle concepts array format
+    // NEW FORMAT: Handle single concept field format
+    if (parsed.concept && typeof parsed.concept === 'string') {
+      console.log('Using single concept format:', parsed.concept);
+      return parsed.concept;
+    }
+    
+    // LEGACY FORMAT: Handle concepts array format (backwards compatibility)
     if (parsed.concepts && Array.isArray(parsed.concepts) && parsed.concepts.length > 0) {
       // Randomly pick one concept from the array
       const randomIndex = Math.floor(Math.random() * parsed.concepts.length);
@@ -1574,7 +1580,7 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
           ]
         }
       ],
-      max_tokens: 800, // Increased to allow multiple detailed concepts in JSON array
+      max_tokens: 400, // Sufficient for single detailed concept with composition
     });
 
     let concept = conceptResponse.choices[0]?.message?.content?.trim();
@@ -1670,7 +1676,7 @@ router.post('/generate-new-concept', requireAuth, async (req, res) => {
           ]
         }
       ],
-      max_tokens: 800, // Increased to allow multiple detailed concepts in JSON array
+      max_tokens: 400, // Sufficient for single detailed concept with composition
     });
 
     let concept = conceptResponse.choices[0]?.message?.content?.trim();

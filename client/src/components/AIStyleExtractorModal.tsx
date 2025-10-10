@@ -44,28 +44,21 @@ interface AIStyleExtractorModalProps {
 // Default prompts
 const DEFAULT_EXTRACTION_PROMPT = `Role: You are an expert visual analyst and systematizer. Goal: Analyze the provided reference image and output a single JSON object that captures only its reusable visual style — never its subject matter, narrative, brand, or specific content. Output Format (single JSON object only) { "style_name": "", "description": "", "color_palette": ["#RRGGBB"], "color_usage": "", "lighting": "", "shadow_style": "", "shapes": "", "shape_edges": "", "symmetry_balance": "", "line_quality": "", "line_color_treatment": "", "texture": "", "material_suggestion": "", "rendering_style": "", "detail_level": "", "perspective": "", "scale_relationships": "", "composition": "", "visual_hierarchy": "", "typography": { "font_styles": "", "font_weights": "", "case_usage": "", "alignment": "", "letter_spacing": "", "text_treatment": "" }, "ui_elements": { "corner_radius": "", "icon_style": "", "button_style": "", "spacing_rhythm": "" }, "motion_or_interaction": "", "notable_visual_effects": "" } Strict Rules No content/subject references: Do not mention people, objects, locations, logos, words in the image, brand names, IP, or narrative elements. Style only: Describe visual treatment (e.g., "isometric perspective," "soft diffused lighting," "grainy texture") rather than what is depicted. Neutral, reusable language: Prefer generic terms ("rounded pill buttons," "duotone icons") over any brand cues. Fill every field: If a field truly does not apply or is not visible, use "none" (string) — not null/empty — to preserve schema consistency. Quantify/qualify where possible: Use clear qualifiers (e.g., "high contrast," "low saturation," "2–4 px stroke," "8–12 px corner radius"). Color palette: Provide 5–8 representative colors in uppercase HEX (#RRGGBB). Include both background/base tones and accent colors when visible. If gradients dominate, include both endpoints as separate swatches. Typography & UI: Only populate if visible/inferable from the image. Otherwise set each field to "none". One JSON object only: No prose before/after. No markdown. No comments. Output only the JSON object as specified.`;
 
-const DEFAULT_CONCEPT_PROMPT = `You are a creative visual concept generator. 
-Your goal is to produce new image concepts that could belong to the same visual series as a provided reference image — without ever describing the contents, people, or specific details of that reference.
+const DEFAULT_CONCEPT_PROMPT = `You are a creative visual concept generator.
 
-You may look at the reference image only to understand its *visual category* (e.g., outdoor landscape, workplace environment, urban street, product setup, etc.) and its general *setting or composition type* (e.g., wide shot, close-up, over-the-shoulder, aerial view, etc.).
+You will be given an image reference that serves only as inspiration for tone, mood, and general visual category. 
+Do not analyze or describe the image itself in any way. 
+Instead, infer the general *type* of visual scene it represents (for example: a workspace, outdoor landscape, city environment, or product setup), and then create a new, original concept that could naturally belong to the same themed series.
 
-Do NOT describe, identify, or reference the actual content of the image. 
-Do NOT mention or infer who or what is in it.
-Focus purely on generating new, original scene ideas that share a similar category and atmosphere.
+Guidelines:
+- The concept should be a visually realistic, photograph-like scene.
+- Include a clear subject and short description of composition (e.g., wide shot, close-up, over-the-shoulder, aerial view).
+- Avoid all identifying details (no people, names, brands, or locations).
+- The goal is to propose a creative *new* scene idea, not to restate or describe the reference.
 
-Each concept should:
-- Represent a visually realistic, photograph-like scene.
-- Describe a clear subject or moment that fits the category (e.g., workspace, outdoor travel, creative studio).
-- Include light compositional guidance (e.g., perspective, focal depth, camera angle, environment).
-- Avoid any identifying details such as names, faces, brands, or locations.
-- Sound like a caption or subject description for an image generator.
-
-Output in this format:
+Output strictly in this format:
 {
-  "concepts": [
-    "Concept Title — 2–3 sentence description of the visual composition, written in a natural and cinematic way.",
-    "Another Concept Title — Description..."
-  ]
+  "concept": "Concept Title — 2–3 sentence description of the visual composition, written in a natural and cinematic way."
 }`;
 
 export default function AIStyleExtractorModal({
