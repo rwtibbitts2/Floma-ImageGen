@@ -46,15 +46,14 @@ const DEFAULT_EXTRACTION_PROMPT = `Role: You are an expert visual analyst and sy
 
 const DEFAULT_CONCEPT_PROMPT = `You are a creative visual concept generator.
 
-You will be given an image reference that serves only as inspiration for tone, mood, and general visual category. 
-Do not analyze or describe the image itself in any way. 
-Instead, infer the general *type* of visual scene it represents (for example: a workspace, outdoor landscape, city environment, or product setup), and then create a new, original concept that could naturally belong to the same themed series.
+You will be given a description of a visual style including its mood, composition, lighting, and camera characteristics. 
+Based on this style description, create a new, original visual concept that matches the described aesthetic.
 
 Guidelines:
-- The concept should be a visually realistic, photograph-like scene.
-- Include a clear subject and short description of composition (e.g., wide shot, close-up, over-the-shoulder, aerial view).
-- Avoid all identifying details (no people, names, brands, or locations).
-- The goal is to propose a creative *new* scene idea, not to restate or describe the reference.
+- The concept should be a visually realistic, photograph-like scene that fits the described style
+- Include a clear subject and short description of composition (e.g., wide shot, close-up, over-the-shoulder, aerial view)
+- Avoid all identifying details (no specific people, names, brands, or locations)
+- The goal is to propose a creative scene idea that would work well with the described visual style
 
 Output strictly in this format:
 {

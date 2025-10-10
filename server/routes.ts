@@ -213,51 +213,113 @@ function convertConceptJsonToText(conceptJson: string): string {
 
 // Helper function to build style context description from extracted style data
 // This is used for text-only concept generation (avoiding image safety filters)
+// Includes ALL extracted style data for comprehensive context
 function buildStyleContextForConcepts(styleData: any): string {
   const parts: string[] = [];
   
-  // Add description if available
+  // Helper to serialize nested objects and arrays
+  const serializeValue = (value: any, key: string, prefix = ''): string => {
+    const label = key.replace(/_/g, ' ');
+    
+    if (!value || value === 'none') {
+      return '';
+    }
+    
+    if (Array.isArray(value)) {
+      // Handle arrays - recursively serialize objects within arrays
+      const arrayItems = value.map((item, idx) => {
+        if (typeof item === 'object' && item !== null) {
+          const objParts: string[] = [];
+          for (const [k, v] of Object.entries(item)) {
+            const serialized = serializeValue(v, k);
+            if (serialized) objParts.push(serialized);
+          }
+          return objParts.join(', ');
+        }
+        return String(item);
+      }).filter(Boolean);
+      return arrayItems.length > 0 ? `${prefix}${label}: ${arrayItems.join('; ')}` : '';
+    }
+    
+    if (typeof value === 'object') {
+      // Handle nested objects
+      const objParts: string[] = [];
+      for (const [k, v] of Object.entries(value)) {
+        const serialized = serializeValue(v, k);
+        if (serialized) objParts.push(serialized);
+      }
+      return objParts.length > 0 ? `${prefix}${label}: ${objParts.join(', ')}` : '';
+    }
+    
+    // Primitive value
+    return `${prefix}${label}: ${value}`;
+  };
+  
+  // Description (most important)
   if (styleData.description) {
-    parts.push(`Visual style: ${styleData.description}`);
+    parts.push(`Style: ${styleData.description}`);
   }
   
-  // Add mood/atmosphere
+  // Style name
+  if (styleData.style_name) {
+    parts.push(`Name: ${styleData.style_name}`);
+  }
+  
+  // Mood
   if (styleData.mood) {
     parts.push(`Mood: ${styleData.mood}`);
   }
   
-  // Add composition info
-  if (styleData.composition) {
-    const comp = styleData.composition;
-    const compParts: string[] = [];
-    if (comp.framing) compParts.push(`${comp.framing} framing`);
-    if (comp.perspective_type) compParts.push(comp.perspective_type);
-    if (comp.subject_scale) compParts.push(`subject scale: ${comp.subject_scale}`);
-    if (compParts.length > 0) {
-      parts.push(`Composition: ${compParts.join(', ')}`);
-    }
-  }
-  
-  // Add lighting info
-  if (styleData.lighting) {
-    const light = styleData.lighting;
-    const lightParts: string[] = [];
-    if (light.source_type) lightParts.push(light.source_type);
-    if (light.direction) lightParts.push(light.direction);
-    if (light.color_temperature) lightParts.push(light.color_temperature);
-    if (lightParts.length > 0) {
-      parts.push(`Lighting: ${lightParts.join(', ')}`);
-    }
-  }
-  
-  // Add camera info
+  // Camera settings
   if (styleData.camera) {
-    const cam = styleData.camera;
-    const camParts: string[] = [];
-    if (cam.focal_length) camParts.push(cam.focal_length);
-    if (cam.perspective_type) camParts.push(cam.perspective_type);
-    if (camParts.length > 0) {
-      parts.push(`Camera: ${camParts.join(', ')}`);
+    const serialized = serializeValue(styleData.camera, 'camera');
+    if (serialized) parts.push(serialized);
+  }
+  
+  // Lighting
+  if (styleData.lighting) {
+    const serialized = serializeValue(styleData.lighting, 'lighting');
+    if (serialized) parts.push(serialized);
+  }
+  
+  // Color grade
+  if (styleData.color_grade) {
+    const serialized = serializeValue(styleData.color_grade, 'color grade');
+    if (serialized) parts.push(serialized);
+  }
+  
+  // Composition
+  if (styleData.composition) {
+    const serialized = serializeValue(styleData.composition, 'composition');
+    if (serialized) parts.push(serialized);
+  }
+  
+  // Texture and grain
+  if (styleData.texture_and_grain) {
+    parts.push(`Texture: ${styleData.texture_and_grain}`);
+  }
+  
+  // Post processing
+  if (styleData.post_processing) {
+    parts.push(`Post-processing: ${styleData.post_processing}`);
+  }
+  
+  // Visual effects
+  if (styleData.notable_visual_effects) {
+    parts.push(`Effects: ${styleData.notable_visual_effects}`);
+  }
+  
+  // Any other top-level fields
+  const processedKeys = new Set([
+    'description', 'style_name', 'mood', 'camera', 'lighting', 
+    'color_grade', 'composition', 'texture_and_grain', 
+    'post_processing', 'notable_visual_effects'
+  ]);
+  
+  for (const [key, value] of Object.entries(styleData)) {
+    if (!processedKeys.has(key) && value && value !== 'none') {
+      const serialized = serializeValue(value, key);
+      if (serialized) parts.push(serialized);
     }
   }
   
