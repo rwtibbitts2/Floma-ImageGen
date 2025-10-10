@@ -121,6 +121,17 @@ function buildImageParams(model: string, size: string, quality: string, prompt: 
 function convertConceptJsonToText(conceptJson: string): string {
   try {
     const parsed = JSON.parse(conceptJson);
+    
+    // NEW FORMAT: Handle concepts array format
+    if (parsed.concepts && Array.isArray(parsed.concepts) && parsed.concepts.length > 0) {
+      // Randomly pick one concept from the array
+      const randomIndex = Math.floor(Math.random() * parsed.concepts.length);
+      const selectedConcept = parsed.concepts[randomIndex];
+      console.log(`Selected concept ${randomIndex + 1}/${parsed.concepts.length}:`, selectedConcept);
+      return selectedConcept;
+    }
+    
+    // LEGACY FORMAT: Handle old structured JSON format
     const parts: string[] = [];
     
     // Process ALL fields in a structured order for natural language
@@ -1563,7 +1574,7 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
           ]
         }
       ],
-      max_tokens: 300, // Increased to allow complete JSON responses
+      max_tokens: 800, // Increased to allow multiple detailed concepts in JSON array
     });
 
     let concept = conceptResponse.choices[0]?.message?.content?.trim();
@@ -1659,7 +1670,7 @@ router.post('/generate-new-concept', requireAuth, async (req, res) => {
           ]
         }
       ],
-      max_tokens: 300,
+      max_tokens: 800, // Increased to allow multiple detailed concepts in JSON array
     });
 
     let concept = conceptResponse.choices[0]?.message?.content?.trim();
