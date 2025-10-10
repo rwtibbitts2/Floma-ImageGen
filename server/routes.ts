@@ -1698,28 +1698,20 @@ router.post('/generate-new-concept', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Style does not have a concept prompt' });
     }
 
-    if (!style.referenceImageUrl) {
-      return res.status(400).json({ error: 'Style does not have a reference image' });
+    // Build style context from the style's aiStyleData for text-only concept generation
+    let styleContext = '';
+    if (style.aiStyleData) {
+      styleContext = buildStyleContextForConcepts(style.aiStyleData);
+      console.log('Style context for new concept generation:', styleContext);
     }
 
-    // Generate new concept using the same model and prompt
+    // Generate new concept using text-only (no image to avoid safety filters)
     const conceptResponse = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "user",
-          content: [
-            {
-              type: "text",
-              text: style.conceptPrompt
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: style.referenceImageUrl
-              }
-            }
-          ]
+          content: `${style.conceptPrompt}\n\nContext about the visual style (not the reference image content):\n${styleContext}`
         }
       ],
       max_tokens: 400, // Sufficient for single detailed concept with composition
