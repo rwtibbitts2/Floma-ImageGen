@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, X, Sparkles, Loader2, RefreshCw, Check, Undo, Plus } from 'lucide-react';
+import { Upload, X, Sparkles, Loader2, RefreshCw, Check, Undo, Plus, Wand2 } from 'lucide-react';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import PromptSelector from '@/components/PromptSelector';
@@ -38,6 +39,9 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
   // Generated data
   const [generatedConcepts, setGeneratedConcepts] = useState<string[]>([]);
   const [feedbackText, setFeedbackText] = useState('');
+  
+  // Checkbox selection state for selective refinement
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   
   // Conversation history for refinements
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
@@ -191,23 +195,50 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
       const conversationContext = conversationHistory.map(msg => 
         `${msg.role === 'user' ? 'USER' : 'ASSISTANT'}: ${msg.content}`
       ).join('\n\n');
-      
-      const fullContent = `${conversationContext}\n\nUSER: ${feedbackText}`;
 
-      return api.generateConceptList({
-        companyName: 'Visual Concept Generation',
-        marketingContent: fullContent,
-        referenceImageUrl,
-        promptId: selectedPromptId,
-        promptText: promptText,
-        quantity: 5,
-        temperature,
-        literalMetaphorical,
-        simpleComplex,
-      });
+      // Determine which concepts to refine and build instruction
+      if (selectedIndices.size > 0) {
+        // Selective refinement - preserve order of selection
+        const selectedIndicesArray = Array.from(selectedIndices);
+        const selectedConcepts = selectedIndicesArray.map(idx => generatedConcepts[idx]);
+        
+        const refinementInstruction = `Apply the following feedback ONLY to these specific concepts:\n${selectedConcepts.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nFeedback: ${feedbackText}\n\nKeep all other concepts unchanged.`;
+        const fullContent = `${conversationContext}\n\nUSER: ${refinementInstruction}`;
+
+        const data = await api.generateConceptList({
+          companyName: 'Visual Concept Generation',
+          marketingContent: fullContent,
+          referenceImageUrl,
+          promptId: selectedPromptId,
+          promptText: promptText,
+          quantity: selectedIndices.size,
+          temperature,
+          literalMetaphorical,
+          simpleComplex,
+        });
+
+        return { data, selectedIndicesArray, isSelective: true };
+      } else {
+        // Full refinement - all concepts
+        const fullContent = `${conversationContext}\n\nUSER: ${feedbackText}`;
+
+        const data = await api.generateConceptList({
+          companyName: 'Visual Concept Generation',
+          marketingContent: fullContent,
+          referenceImageUrl,
+          promptId: selectedPromptId,
+          promptText: promptText,
+          quantity: generatedConcepts.length,
+          temperature,
+          literalMetaphorical,
+          simpleComplex,
+        });
+
+        return { data, selectedIndicesArray: [], isSelective: false };
+      }
     },
-    onSuccess: (data) => {
-      const concepts = data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
+    onSuccess: (result) => {
+      const refinedConcepts = result.data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
       
       // Save current state for undo
       setPreviousState({
@@ -215,19 +246,38 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
         history: conversationHistory
       });
       
-      setGeneratedConcepts(concepts);
+      // Apply refined concepts
+      let newConcepts: string[];
+      if (result.isSelective) {
+        // Replace only the selected concepts using the original order
+        newConcepts = [...generatedConcepts];
+        result.selectedIndicesArray.forEach((idx, i) => {
+          if (i < refinedConcepts.length) {
+            newConcepts[idx] = refinedConcepts[i];
+          }
+        });
+      } else {
+        // Replace all concepts
+        newConcepts = refinedConcepts;
+      }
+      
+      setGeneratedConcepts(newConcepts);
       
       // Update conversation history with the refinement exchange
       setConversationHistory(prev => [
         ...prev,
         { role: 'user', content: feedbackText },
-        { role: 'assistant', content: concepts.join('\n') }
+        { role: 'assistant', content: refinedConcepts.join('\n') }
       ]);
       
       setFeedbackText('');
+      setSelectedIndices(new Set()); // Clear selection after refinement
+      
       toast({
         title: 'Concepts Refined',
-        description: `Updated concepts based on your feedback`,
+        description: result.isSelective
+          ? `Updated ${result.selectedIndicesArray.length} selected concept${result.selectedIndicesArray.length !== 1 ? 's' : ''}`
+          : 'Updated all concepts based on your feedback',
       });
     },
     onError: (error) => {
@@ -288,6 +338,17 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
     const updatedConcepts = generatedConcepts.filter((_, index) => index !== indexToDelete);
     setGeneratedConcepts(updatedConcepts);
     
+    // Update selected indices (remove deleted index and adjust others)
+    const newSelectedIndices = new Set<number>();
+    selectedIndices.forEach(idx => {
+      if (idx < indexToDelete) {
+        newSelectedIndices.add(idx);
+      } else if (idx > indexToDelete) {
+        newSelectedIndices.add(idx - 1);
+      }
+    });
+    setSelectedIndices(newSelectedIndices);
+    
     // Remove the deleted concept from all assistant messages in conversation history
     // This maintains the alternating structure while ensuring deleted concepts don't reappear
     setConversationHistory(prev => {
@@ -313,6 +374,25 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
     toast({
       title: 'Concept Removed',
       description: `Concept removed from list`,
+    });
+  };
+
+  const handleToggleSelect = (index: number) => {
+    const newSelected = new Set(selectedIndices);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedIndices(newSelected);
+  };
+
+  const handleRefineSingleConcept = (index: number) => {
+    // Select only this concept and open refinement mode
+    setSelectedIndices(new Set([index]));
+    toast({
+      title: 'Concept Selected',
+      description: 'Provide feedback to refine this concept',
     });
   };
 
@@ -398,7 +478,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
           </div>
         </div>
 
-        {/* Plain Text Concepts */}
+        {/* Plain Text Concepts with Checkboxes */}
         <div className="space-y-2 rounded-md border bg-muted/30 p-4">
           {generatedConcepts.map((concept, index) => (
             <div
@@ -406,9 +486,26 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
               className="flex items-start gap-2 group"
               data-testid={`concept-result-${index}`}
             >
+              <Checkbox
+                checked={selectedIndices.has(index)}
+                onCheckedChange={() => handleToggleSelect(index)}
+                className="mt-1"
+                data-testid={`checkbox-concept-${index}`}
+              />
               <div className="text-sm leading-relaxed border-l-2 border-primary/30 pl-3 py-1 flex-1">
                 {concept}
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => handleRefineSingleConcept(index)}
+                data-testid={`button-refine-concept-${index}`}
+                title="Refine this concept"
+              >
+                <Wand2 className="w-3 h-3" />
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -540,7 +637,9 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="feedback-input" className="text-sm font-medium">
-              Refine these concepts (optional)
+              {selectedIndices.size > 0 
+                ? `Refine ${selectedIndices.size} selected concept${selectedIndices.size !== 1 ? 's' : ''}`
+                : 'Refine all concepts (optional)'}
             </Label>
             {conversationHistory.length > 2 && (
               <span className="text-xs text-muted-foreground">
@@ -552,10 +651,17 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
             id="feedback-input"
             value={feedbackText}
             onChange={(e) => setFeedbackText(e.target.value)}
-            placeholder="E.g., 'Make them more abstract' or 'Focus on outdoor scenes' or 'Add more color descriptions'"
+            placeholder={selectedIndices.size > 0 
+              ? "E.g., 'Make more specific' or 'Add lighting details' - will only update selected concepts"
+              : "E.g., 'Make them more abstract' or 'Focus on outdoor scenes' - will update all concepts"}
             className="min-h-20"
             data-testid="textarea-feedback"
           />
+          {selectedIndices.size > 0 && (
+            <p className="text-xs text-muted-foreground">
+              💡 Tip: Refinement will only apply to the {selectedIndices.size} checked concept{selectedIndices.size !== 1 ? 's' : ''}. Uncheck all to refine all concepts.
+            </p>
+          )}
         </div>
 
         {/* Action Buttons */}
