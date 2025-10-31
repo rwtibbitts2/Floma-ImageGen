@@ -27,6 +27,7 @@ export const imageStyles = pgTable("image_styles", {
   conceptPrompt: text("concept_prompt"), // The prompt used for concept generation
   generatedConcept: text("generated_concept"), // The AI-generated concept phrase
   aiStyleData: jsonb("ai_style_data"), // Raw JSON style data with description field inside
+  conceptPatternData: jsonb("concept_pattern_data"), // Raw JSON concept pattern data (composition, subject patterns)
   previewImageUrl: text("preview_image_url"), // URL to preview image generated during extraction
   createdAt: timestamp("created_at").defaultNow(),
   createdBy: varchar("created_by").references(() => users.id), // Optional: track who created the style
