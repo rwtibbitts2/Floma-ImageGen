@@ -46,12 +46,18 @@ export default function StyleWorkspace() {
   // State for style data
   const [styleName, setStyleName] = useState('');
   const [styleData, setStyleData] = useState<any>(null);
+  const [conceptPatternData, setConceptPatternData] = useState<any>(null);
   const [previousStyleData, setPreviousStyleData] = useState<any>(null);
+  const [previousConceptPatternData, setPreviousConceptPatternData] = useState<any>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [chatMessage, setChatMessage] = useState('');
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [renderText, setRenderText] = useState(true);
+  
+  // Refinement target state
+  const [refineVisualStyle, setRefineVisualStyle] = useState(true);
+  const [refineConceptPattern, setRefineConceptPattern] = useState(true);
   
   // Generation settings state
   const [generationSettings, setGenerationSettings] = useState({
@@ -73,6 +79,7 @@ export default function StyleWorkspace() {
     if (style) {
       setStyleName(style.name);
       setStyleData(style.aiStyleData || {});
+      setConceptPatternData((style as any).conceptPatternData || {});
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
       // Set renderText from saved style data (default to true if not set)
@@ -96,6 +103,7 @@ export default function StyleWorkspace() {
         name: styleName,
         stylePrompt: styleData ? buildStyleDescription(styleData) : 'AI-extracted style',
         aiStyleData: { ...styleData, renderText },
+        conceptPatternData,
         previewImageUrl,
         referenceImageUrl,
         generatedConcept,
@@ -135,7 +143,10 @@ export default function StyleWorkspace() {
         headers,
         body: JSON.stringify({
           styleData: styleData || {},
+          conceptPatternData: conceptPatternData || {},
           feedback: feedback,
+          refineVisualStyle,
+          refineConceptPattern,
         }),
       });
       if (!response.ok) throw new Error('Style refinement failed');
@@ -223,31 +234,54 @@ export default function StyleWorkspace() {
       return;
     }
 
+    if (!refineVisualStyle && !refineConceptPattern) {
+      toast({
+        title: 'Select Target',
+        description: 'Please select at least one refinement target (Visual Style or Concept Pattern).',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     try {
       // Save current state before refining
       setPreviousStyleData(styleData);
+      setPreviousConceptPatternData(conceptPatternData);
       
       const result = await refineMutation.mutateAsync(chatMessage);
-      setStyleData(result.refinedStyleData);
+      
+      // Update only the selected targets
+      if (refineVisualStyle && result.refinedStyleData) {
+        setStyleData(result.refinedStyleData);
+      }
+      if (refineConceptPattern && result.refinedConceptPatternData) {
+        setConceptPatternData(result.refinedConceptPatternData);
+      }
       
       setChatMessage('');
       toast({
         title: 'Style Refined',
-        description: 'Your style definition has been successfully refined with your feedback.'
+        description: 'Your style has been successfully refined with your feedback.'
       });
     } catch (error) {
       toast({
         title: 'Refinement Failed',
-        description: 'Failed to refine the style definition. Please try again.',
+        description: 'Failed to refine the style. Please try again.',
         variant: 'destructive'
       });
     }
   };
 
   const handleUndo = () => {
-    if (previousStyleData) {
-      setStyleData(previousStyleData);
-      setPreviousStyleData(null);
+    if (previousStyleData || previousConceptPatternData) {
+      if (previousStyleData) {
+        setStyleData(previousStyleData);
+        setPreviousStyleData(null);
+      }
+      if (previousConceptPatternData) {
+        setConceptPatternData(previousConceptPatternData);
+        setPreviousConceptPatternData(null);
+      }
       toast({
         title: 'Changes Reverted',
         description: 'Style has been restored to the previous state.'
@@ -483,18 +517,47 @@ export default function StyleWorkspace() {
               <h3 className="font-medium">Refine with feedback</h3>
             </div>
             <div className="space-y-2">
+              {/* Refinement target checkboxes */}
+              <div className="space-y-2 p-2 bg-muted/30 rounded-md border">
+                <div className="text-xs font-medium text-muted-foreground mb-1">Apply feedback to:</div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="refine-visual-style"
+                    checked={refineVisualStyle}
+                    onCheckedChange={(checked) => setRefineVisualStyle(checked as boolean)}
+                    data-testid="checkbox-refine-visual-style"
+                  />
+                  <Label htmlFor="refine-visual-style" className="text-sm cursor-pointer font-normal">
+                    Visual Style
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="refine-concept-pattern"
+                    checked={refineConceptPattern}
+                    onCheckedChange={(checked) => setRefineConceptPattern(checked as boolean)}
+                    data-testid="checkbox-refine-concept-pattern"
+                  />
+                  <Label htmlFor="refine-concept-pattern" className="text-sm cursor-pointer font-normal">
+                    Concept Pattern
+                  </Label>
+                </div>
+              </div>
+              
               <Textarea
-                placeholder="Describe changes to refine your style definition..."
+                placeholder="Describe changes to refine visual style, concept pattern, or both..."
                 value={chatMessage}
                 onChange={(e) => setChatMessage(e.target.value)}
                 rows={3}
                 className="resize-none"
+                data-testid="textarea-refinement-feedback"
               />
               <Button 
                 onClick={handleRefineStyle}
                 disabled={refineMutation.isPending || !chatMessage.trim()}
                 size="sm" 
                 className="w-full gap-2"
+                data-testid="button-refine-style"
               >
                 {refineMutation.isPending ? (
                   <>
@@ -504,7 +567,7 @@ export default function StyleWorkspace() {
                 ) : (
                   <>
                     <Send className="w-3 h-3" />
-                    Refine style definition
+                    Apply refinement
                   </>
                 )}
               </Button>
