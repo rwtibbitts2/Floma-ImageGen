@@ -1512,7 +1512,7 @@ router.post('/upload-reference-image', requireAuth, upload.single('image'), asyn
   }
 });
 
-// POST /api/extract-style - Extract style from reference image using GPT-5 vision (Protected)
+// POST /api/extract-style - Extract visual style AND concept pattern from reference image (Protected)
 router.post('/extract-style', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
@@ -1531,8 +1531,8 @@ router.post('/extract-style', requireAuth, async (req, res) => {
 
     const { imageUrl, extractionPrompt, conceptPrompt } = validation.data;
 
-    // Hardcoded system message for reliable JSON structure
-    const systemMessage = `You are a professional visual style analyst. You MUST respond with ONLY valid JSON that matches this exact structure:
+    // System message for visual style extraction
+    const styleSystemMessage = `You are a professional visual style analyst. You MUST respond with ONLY valid JSON that matches this exact structure:
 
 {
   "style_name": "string - short descriptive name",
@@ -1574,13 +1574,35 @@ router.post('/extract-style', requireAuth, async (req, res) => {
 
 Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 
-    // Extract style using GPT-4 Vision with system message + user prompt
+    // System message for concept pattern extraction
+    const conceptPatternSystemMessage = `You are a visual composition analyst. Analyze the reference image to identify compositional patterns, subject matter, and structural elements that define WHAT goes in the image and HOW it's arranged. You MUST respond with ONLY valid JSON that matches this exact structure:
+
+{
+  "subject_matter": "string - what subjects/elements typically appear",
+  "primary_subjects": ["string - main subject 1", "string - main subject 2", ...],
+  "supporting_elements": ["string - background/contextual element 1", ...],
+  "composition_pattern": "string - how elements are arranged (rule of thirds, centered, asymmetric, etc.)",
+  "spatial_relationships": "string - how subjects relate spatially",
+  "depth_layers": "string - foreground/midground/background treatment",
+  "focal_point": "string - where viewer attention is directed",
+  "framing": "string - how the scene is framed or cropped",
+  "subject_positioning": "string - typical positioning of main subjects",
+  "environmental_context": "string - typical setting or environment",
+  "props_objects": ["string - common props or objects", ...],
+  "scale_hierarchy": "string - relative scale of elements",
+  "negative_space": "string - use of empty space",
+  "visual_flow": "string - how the eye moves through the composition"
+}
+
+Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
+
+    // Extract VISUAL STYLE using GPT-4 Vision
     const styleResponse = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: systemMessage
+          content: styleSystemMessage
         },
         {
           role: "user",
@@ -1598,82 +1620,138 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
           ]
         }
       ],
-      max_tokens: 2000, // Increased for detailed JSON response
+      max_tokens: 2000,
+    });
+
+    // Extract CONCEPT PATTERN using GPT-4 Vision
+    const conceptPatternResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: conceptPatternSystemMessage
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Analyze this reference image for composition patterns and subject matter. What goes in the image and how is it arranged?"
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageUrl
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 1500,
     });
 
     const styleAnalysis = styleResponse.choices[0]?.message?.content;
+    const conceptPatternAnalysis = conceptPatternResponse.choices[0]?.message?.content;
+    
     if (!styleAnalysis) {
       throw new Error('No style analysis returned from OpenAI');
     }
+    if (!conceptPatternAnalysis) {
+      throw new Error('No concept pattern analysis returned from OpenAI');
+    }
 
     console.log('=== STYLE EXTRACTION DEBUG ===');
-    console.log('Raw OpenAI Response Length:', styleAnalysis.length);
-    console.log('Raw OpenAI Response (first 200 chars):', styleAnalysis.substring(0, 200));
-    console.log('Raw OpenAI Response (last 200 chars):', styleAnalysis.substring(Math.max(0, styleAnalysis.length - 200)));
+    console.log('Style Analysis Length:', styleAnalysis.length);
+    console.log('Concept Pattern Analysis Length:', conceptPatternAnalysis.length);
 
-    // Try to parse as JSON, handling markdown code blocks, fallback to structured data
+    // Parse VISUAL STYLE data
     let styleData;
-    let jsonText = styleAnalysis.trim(); // Declare outside try block for proper scope
+    let styleJsonText = styleAnalysis.trim();
     try {
-      // Remove markdown code block wrapper if present
-      
-      // Handle various markdown wrapper formats
-      if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.replace(/^```json\s*/m, '').replace(/\s*```$/m, '');
-      } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/^```\s*/m, '').replace(/\s*```$/m, '');
+      if (styleJsonText.startsWith('```json')) {
+        styleJsonText = styleJsonText.replace(/^```json\s*/m, '').replace(/\s*```$/m, '');
+      } else if (styleJsonText.startsWith('```')) {
+        styleJsonText = styleJsonText.replace(/^```\s*/m, '').replace(/\s*```$/m, '');
       }
       
-      console.log('Cleaned JSON Text (first 200 chars):', jsonText.substring(0, 200));
-      
-      styleData = JSON.parse(jsonText);
-      console.log('Successfully parsed JSON with keys:', Object.keys(styleData));
+      styleData = JSON.parse(styleJsonText);
+      console.log('✓ Successfully parsed style data with keys:', Object.keys(styleData));
       
     } catch (parseError) {
       console.error('Failed to parse style analysis JSON:', parseError);
-      console.error('Attempted to parse:', jsonText?.substring(0, 500));
       
-      // Create a structured response from the raw text
       styleData = {
         style_name: "AI Extracted Style", 
         description: `Style analysis: ${styleAnalysis.substring(0, 500)}`,
         color_palette: ["#000000", "#FFFFFF"],
-        color_usage: "Unable to parse color information",
-        lighting: "Unable to parse lighting information", 
-        shadow_style: "Unable to parse shadow information",
-        shapes: "Unable to parse shape information",
-        shape_edges: "Unable to parse edge information",
-        symmetry_balance: "Unable to parse balance information",
-        line_quality: "Unable to parse line information",
-        line_color_treatment: "Unable to parse line color information",
-        texture: "Unable to parse texture information",
-        material_suggestion: "Unable to parse material information", 
-        rendering_style: "Unable to parse rendering information",
-        detail_level: "Unable to parse detail information",
-        perspective: "Unable to parse perspective information",
-        scale_relationships: "Unable to parse scale information",
-        composition: "Unable to parse composition information",
-        visual_hierarchy: "Unable to parse hierarchy information",
+        color_usage: "Unable to parse",
+        lighting: "Unable to parse", 
+        shadow_style: "Unable to parse",
+        shapes: "Unable to parse",
+        shape_edges: "Unable to parse",
+        symmetry_balance: "Unable to parse",
+        line_quality: "Unable to parse",
+        line_color_treatment: "Unable to parse",
+        texture: "Unable to parse",
+        material_suggestion: "Unable to parse", 
+        rendering_style: "Unable to parse",
+        detail_level: "Unable to parse",
+        perspective: "Unable to parse",
+        scale_relationships: "Unable to parse",
+        composition: "Unable to parse",
+        visual_hierarchy: "Unable to parse",
         typography: {
-          font_styles: "Unable to parse typography",
-          font_weights: "Unable to parse weights", 
-          case_usage: "Unable to parse case usage",
-          alignment: "Unable to parse alignment",
-          letter_spacing: "Unable to parse spacing",
-          text_treatment: "Unable to parse text treatment"
+          font_styles: "Unable to parse",
+          font_weights: "Unable to parse", 
+          case_usage: "Unable to parse",
+          alignment: "Unable to parse",
+          letter_spacing: "Unable to parse",
+          text_treatment: "Unable to parse"
         },
         ui_elements: {
-          corner_radius: "Unable to parse corner radius",
-          icon_style: "Unable to parse icon style",
-          button_style: "Unable to parse button style", 
-          spacing_rhythm: "Unable to parse spacing rhythm"
+          corner_radius: "Unable to parse",
+          icon_style: "Unable to parse",
+          button_style: "Unable to parse", 
+          spacing_rhythm: "Unable to parse"
         },
-        motion_or_interaction: "Unable to parse motion information",
-        notable_visual_effects: "Unable to parse effects information"
+        motion_or_interaction: "Unable to parse",
+        notable_visual_effects: "Unable to parse"
       };
     }
-    
-    console.log('Final styleData structure:', JSON.stringify(styleData, null, 2));
+
+    // Parse CONCEPT PATTERN data
+    let conceptPatternData;
+    let conceptPatternJsonText = conceptPatternAnalysis.trim();
+    try {
+      if (conceptPatternJsonText.startsWith('```json')) {
+        conceptPatternJsonText = conceptPatternJsonText.replace(/^```json\s*/m, '').replace(/\s*```$/m, '');
+      } else if (conceptPatternJsonText.startsWith('```')) {
+        conceptPatternJsonText = conceptPatternJsonText.replace(/^```\s*/m, '').replace(/\s*```$/m, '');
+      }
+      
+      conceptPatternData = JSON.parse(conceptPatternJsonText);
+      console.log('✓ Successfully parsed concept pattern data with keys:', Object.keys(conceptPatternData));
+      
+    } catch (parseError) {
+      console.error('Failed to parse concept pattern JSON:', parseError);
+      
+      conceptPatternData = {
+        subject_matter: "Unable to parse",
+        primary_subjects: [],
+        supporting_elements: [],
+        composition_pattern: "Unable to parse",
+        spatial_relationships: "Unable to parse",
+        depth_layers: "Unable to parse",
+        focal_point: "Unable to parse",
+        framing: "Unable to parse",
+        subject_positioning: "Unable to parse",
+        environmental_context: "Unable to parse",
+        props_objects: [],
+        scale_hierarchy: "Unable to parse",
+        negative_space: "Unable to parse",
+        visual_flow: "Unable to parse"
+      };
+    }
 
     // Build style context from extracted data for text-only concept generation
     const styleContext = buildStyleContextForConcepts(styleData);
@@ -1688,7 +1766,7 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
           content: `${conceptPrompt}\n\nContext about the visual style (not the reference image content):\n${styleContext}`
         }
       ],
-      max_tokens: 400, // Sufficient for single detailed concept with composition
+      max_tokens: 400,
     });
 
     let concept = conceptResponse.choices[0]?.message?.content?.trim();
@@ -1698,9 +1776,8 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 
     console.log('Raw concept response:', concept);
 
-    // Parse JSON response to validate and clean, but keep the full structure
+    // Parse JSON response to validate and clean
     try {
-      // Remove markdown code blocks if present
       let cleanedConcept = concept;
       if (cleanedConcept.includes('```json')) {
         cleanedConcept = cleanedConcept.replace(/```json\s*/g, '').replace(/```/g, '');
@@ -1709,23 +1786,21 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
       }
       
       cleanedConcept = cleanedConcept.trim();
-      
-      // Try to parse as JSON - if successful, use the cleaned JSON string
-      JSON.parse(cleanedConcept); // Just validate it's valid JSON
-      concept = cleanedConcept; // Use the full cleaned JSON string
+      JSON.parse(cleanedConcept);
+      concept = cleanedConcept;
       console.log('✓ Using full concept JSON (parsed and validated)');
     } catch (parseError) {
-      // If not JSON, use the concept as-is
-      console.log('Concept not in JSON format, using raw text. Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
+      console.log('Concept not in JSON format, using raw text');
     }
 
-    // Convert concept to human-readable text for display and image generation
+    // Convert concept to human-readable text
     const conceptText = convertConceptJsonToText(concept);
     
     res.json({
       styleData,
-      concept: conceptText,        // Human-readable text for display and image generation
-      conceptJson: concept          // Original JSON for storage and future use
+      conceptPatternData,
+      concept: conceptText,
+      conceptJson: concept
     });
   } catch (error) {
     console.error('Error extracting style:', error);
