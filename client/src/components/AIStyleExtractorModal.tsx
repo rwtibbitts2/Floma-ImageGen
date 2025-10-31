@@ -77,6 +77,7 @@ export default function AIStyleExtractorModal({
   const [selectedExtractionPromptId, setSelectedExtractionPromptId] = useState<string | undefined>(undefined);
   const [selectedConceptPromptId, setSelectedConceptPromptId] = useState<string | undefined>(undefined);
   const [extractedStyleData, setExtractedStyleData] = useState<any>(null);
+  const [extractedConceptPatternData, setExtractedConceptPatternData] = useState<any>(null);
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
@@ -140,6 +141,9 @@ export default function AIStyleExtractorModal({
       setPreviewImageUrl(editingStyle.previewImageUrl || '');
       if (editingStyle.aiStyleData) {
         setExtractedStyleData(editingStyle.aiStyleData);
+      }
+      if ((editingStyle as any).conceptPatternData) {
+        setExtractedConceptPatternData((editingStyle as any).conceptPatternData);
       }
     }
   }, [editingStyle, isOpen]);
@@ -221,8 +225,9 @@ export default function AIStyleExtractorModal({
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (data?: { styleData: any, concept: string }) => {
+    mutationFn: async (data?: { styleData: any, conceptPatternData?: any, concept: string }) => {
       const finalStyleData = data?.styleData || extractedStyleData;
+      const finalConceptPatternData = data?.conceptPatternData || extractedConceptPatternData;
       const stylePayload = {
         name: finalStyleData?.style_name || 'AI Extracted Style',
         description: finalStyleData?.description || '',
@@ -231,8 +236,9 @@ export default function AIStyleExtractorModal({
         isAiExtracted: true,
         extractionPrompt,
         conceptPrompt,
-        generatedConcept: data?.concept || generatedConcept, // Save the actual generated concept
+        generatedConcept: data?.concept || generatedConcept,
         aiStyleData: finalStyleData,
+        conceptPatternData: finalConceptPatternData,
         previewImageUrl,
       };
 
@@ -288,10 +294,11 @@ export default function AIStyleExtractorModal({
     try {
       const result = await extractStyleMutation.mutateAsync();
       setExtractedStyleData(result.styleData);
+      setExtractedConceptPatternData(result.conceptPatternData);
       setGeneratedConcept(result.concept);
       
       // Auto-save the extracted style and navigate to workspace
-      await handleSaveAndNavigate(result.styleData, result.concept);
+      await handleSaveAndNavigate(result.styleData, result.conceptPatternData, result.concept);
     } catch (error) {
       toast({
         title: 'Extraction Failed',
@@ -315,9 +322,9 @@ export default function AIStyleExtractorModal({
     }
   };
 
-  const handleSaveAndNavigate = async (styleData: any, concept: string) => {
+  const handleSaveAndNavigate = async (styleData: any, conceptPatternData: any, concept: string) => {
     try {
-      const savedStyle = await saveMutation.mutateAsync({ styleData, concept });
+      const savedStyle = await saveMutation.mutateAsync({ styleData, conceptPatternData, concept });
       
       // Navigate to workspace BEFORE closing modal
       setLocation(`/workspace?id=${savedStyle.id}`);
@@ -354,6 +361,7 @@ export default function AIStyleExtractorModal({
     setSelectedExtractionPromptId(undefined);
     setSelectedConceptPromptId(undefined);
     setExtractedStyleData(null);
+    setExtractedConceptPatternData(null);
     setGeneratedConcept('');
     setPreviewImageUrl('');
     setReferenceImageUrl('');
