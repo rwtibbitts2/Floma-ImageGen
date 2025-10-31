@@ -1965,12 +1965,15 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/refine-style - Refine style definition using GPT-5 based on user feedback (Protected)
+// POST /api/refine-style - Refine style definition and/or concept pattern using GPT-4 based on user feedback (Protected)
 router.post('/refine-style', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       styleData: z.any(), // Accept any dynamic style structure including nested objects
+      conceptPatternData: z.any().optional(), // Accept concept pattern data
       feedback: z.string().min(1),
+      refineVisualStyle: z.boolean().default(true),
+      refineConceptPattern: z.boolean().default(true),
     });
 
     const validation = schema.safeParse(req.body);
@@ -1981,10 +1984,14 @@ router.post('/refine-style', requireAuth, async (req, res) => {
       });
     }
 
-    const { styleData, feedback } = validation.data;
+    const { styleData, conceptPatternData, feedback, refineVisualStyle, refineConceptPattern } = validation.data;
 
-    // System message for style refinement
-    const systemMessage = `You are a professional visual style analyst. The user will provide you with a current style definition (in JSON format) and feedback for improvement. 
+    let refinedStyleData = styleData;
+    let refinedConceptPatternData = conceptPatternData;
+
+    // Refine VISUAL STYLE if requested
+    if (refineVisualStyle && styleData) {
+      const styleSystemMessage = `You are a professional visual style analyst. The user will provide you with a current VISUAL STYLE definition (in JSON format) and feedback for improvement. 
 
 Your task is to:
 1. Carefully read the current style definition structure and user feedback
@@ -1998,7 +2005,6 @@ CRITICAL - Description Field Requirements:
 - ALWAYS expand/rewrite the description to be 2-3 detailed sentences (not just 1 short sentence)
 - The description should incorporate the feedback and paint a comprehensive picture of the visual style
 - Include sensory details, technical aspects, and the overall aesthetic impression
-- Example good description: "A bold urban photography style characterized by direct frontal flash lighting that creates stark, dramatic contrasts. The aesthetic combines vintage film grain with contemporary street photography sensibilities, featuring cool color temperatures that offset warm accent tones. This approach emphasizes raw, authentic moments with high-impact lighting that flattens depth and creates an intimate, documentary-style feel."
 
 For other fields:
 - Make changes appropriate to the feedback intensity
@@ -2012,54 +2018,118 @@ Rules:
 - Update all relevant fields proportionally
 - Keep nested objects and arrays intact`;
 
-    const userMessage = `Current style definition:
+      const styleUserMessage = `Current visual style definition:
 ${JSON.stringify(styleData, null, 2)}
 
 User feedback for refinement:
 ${feedback}
 
-Please provide the refined style definition in the same JSON format.`;
+Please provide the refined visual style definition in the same JSON format.`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: systemMessage
-        },
-        {
-          role: "user", 
-          content: userMessage
-        }
-      ],
-      max_tokens: 2000,
-      temperature: 0.7,
-    });
+      const styleCompletion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: styleSystemMessage
+          },
+          {
+            role: "user", 
+            content: styleUserMessage
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+      });
 
-    let jsonText = completion.choices[0]?.message?.content?.trim();
-    if (!jsonText) {
-      throw new Error('No response from OpenAI');
+      let styleJsonText = styleCompletion.choices[0]?.message?.content?.trim();
+      if (!styleJsonText) {
+        throw new Error('No response from OpenAI for visual style refinement');
+      }
+
+      styleJsonText = styleJsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      try {
+        refinedStyleData = JSON.parse(styleJsonText);
+        console.log('✓ Visual style refined successfully');
+      } catch (parseError) {
+        console.error('Failed to parse refined style JSON:', styleJsonText);
+        throw new Error('Invalid JSON response from visual style refinement');
+      }
     }
 
-    // Clean up the response - remove markdown code blocks if present
-    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // Refine CONCEPT PATTERN if requested
+    if (refineConceptPattern && conceptPatternData) {
+      const conceptSystemMessage = `You are a visual composition analyst. The user will provide you with a current CONCEPT PATTERN definition (in JSON format) and feedback for improvement.
 
-    let refinedStyleData;
-    try {
-      refinedStyleData = JSON.parse(jsonText);
-    } catch (parseError) {
-      console.error('Failed to parse refined style JSON:', jsonText);
-      throw new Error('Invalid JSON response from style refinement');
+Your task is to:
+1. Carefully read the current concept pattern structure and user feedback
+2. Make changes PROPORTIONAL to the instruction - subtle feedback gets subtle changes, dramatic feedback gets dramatic changes
+3. Update ALL relevant fields that relate to the feedback
+4. Maintain the EXACT SAME JSON structure and field names as the input
+5. Only modify field VALUES - do not add or remove fields or change the structure
+
+Focus on:
+- Subject matter and what appears in images
+- Compositional patterns and how elements are arranged
+- Spatial relationships between elements
+- Framing, positioning, and visual flow
+
+Rules:
+- Respond with ONLY valid JSON (no markdown, no code blocks, no explanations)
+- Match the exact structure of the input conceptPatternData
+- Update all relevant fields proportionally
+- Keep nested objects and arrays intact`;
+
+      const conceptUserMessage = `Current concept pattern definition:
+${JSON.stringify(conceptPatternData, null, 2)}
+
+User feedback for refinement:
+${feedback}
+
+Please provide the refined concept pattern definition in the same JSON format.`;
+
+      const conceptCompletion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: conceptSystemMessage
+          },
+          {
+            role: "user", 
+            content: conceptUserMessage
+          }
+        ],
+        max_tokens: 1500,
+        temperature: 0.7,
+      });
+
+      let conceptJsonText = conceptCompletion.choices[0]?.message?.content?.trim();
+      if (!conceptJsonText) {
+        throw new Error('No response from OpenAI for concept pattern refinement');
+      }
+
+      conceptJsonText = conceptJsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      try {
+        refinedConceptPatternData = JSON.parse(conceptJsonText);
+        console.log('✓ Concept pattern refined successfully');
+      } catch (parseError) {
+        console.error('Failed to parse refined concept pattern JSON:', conceptJsonText);
+        throw new Error('Invalid JSON response from concept pattern refinement');
+      }
     }
 
-    console.log('=== STYLE REFINEMENT RESULTS ===');
+    console.log('=== REFINEMENT RESULTS ===');
     console.log('Feedback:', feedback);
-    console.log('Original style data:', JSON.stringify(styleData, null, 2));
-    console.log('Refined style data:', JSON.stringify(refinedStyleData, null, 2));
-    console.log('================================');
+    console.log('Refined visual style:', refineVisualStyle);
+    console.log('Refined concept pattern:', refineConceptPattern);
+    console.log('==========================');
 
     res.json({
       refinedStyleData,
+      refinedConceptPatternData,
       originalFeedback: feedback
     });
   } catch (error) {
