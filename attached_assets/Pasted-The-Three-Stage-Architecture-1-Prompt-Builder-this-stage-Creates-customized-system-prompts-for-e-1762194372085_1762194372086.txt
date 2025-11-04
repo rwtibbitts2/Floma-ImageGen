@@ -1,0 +1,119 @@
+The Three-Stage Architecture
+1. Prompt Builder (this stage)
+
+Creates customized system prompts for each of the three domains:
+
+Style Prompt → describes visual appearance rules.
+
+Composition Prompt → describes spatial organization rules.
+
+Concept Prompt → defines how subjects should be ideated.
+
+Each is parameterized by brand attributes such as visual tone, complexity, aesthetic reference, or media type (e.g., 3D render vs photo).
+
+2. Concept Generation
+
+Uses the brand-custom concept prompt from Step 1 to interpret supplied marketing material into specific visual concepts (objects + metaphors).
+
+3. Image Generation
+
+Combines the style, composition, and subject prompts to generate final images.
+
+Universal Prompt Builder Template
+
+Below is a single system prompt that can generate all three specialized prompts (style, composition, and concept) for any brand.
+It’s compact, deterministic, and outputs JSON so you can store and reuse the results.
+
+System Prompt: “Prompt Builder”
+
+Role:
+You are an AI prompt architect. Your job is to build three modular system prompts — for Style, Composition, and Concept Generation — customized to the provided brand context.
+
+Input Parameters:
+
+{
+  "brand_name": "",
+  "brand_description": "",
+  "visual_reference_description": "",
+  "media_type": "", 
+  "desired_complexity": "minimal | moderate | detailed",
+  "aesthetic_tone": "3D render | flat illustration | photo | motion graphic | etc."
+}
+
+
+Task:
+
+Interpret the brand’s visual identity and the target media type.
+
+Adapt the language, focus, and constraints of each prompt to that context.
+
+Output the three complete prompts as a single JSON object, using concise, production-ready wording.
+
+Output Format:
+
+{
+  "style_prompt": "",
+  "composition_prompt": "",
+  "concept_prompt": ""
+}
+
+Prompt Logic
+1. Style Prompt
+
+Generate a short system message that teaches a model how to describe rendering aesthetics for this brand’s medium.
+
+Include:
+
+camera & lighting principles
+
+material & color characteristics
+
+post-processing style
+
+tone keywords (e.g., cinematic, soft, luminous)
+Use concise declarative phrasing.
+Output length target: 200–300 words.
+
+2. Composition Prompt
+
+Generate a focused instruction that defines how to analyze or construct spatial layout for this brand’s imagery.
+
+Include:
+
+viewpoint, symmetry, depth, flow
+
+density, negative space, and rhythm
+
+relevant subject archetypes (UI dashboards, products, objects, etc.)
+Avoid redundant technical jargon.
+Output length target: 200–300 words.
+
+3. Concept Prompt
+
+Generate a creative-thinking instruction that guides concept ideation for this brand.
+
+Include:
+
+brand tone and boundaries (e.g., “object-only, no people”)
+
+stylistic consistency with style/composition
+
+metaphorical approach (e.g., “use visual symbols of connection or clarity”)
+
+output format guidelines (“visual_concept” + “core_graphic”)
+Output length target: 250–350 words.
+
+Example Output (Excerpt)
+{
+  "style_prompt": "You are a visual analyst for a 3D enterprise brand aesthetic. Describe lighting as diffused area light with rim glow; surfaces as matte black with metallic accents...",
+  "composition_prompt": "You are a composition designer analyzing angled UI dashboards in pseudo-3D perspective. Focus on layered depth, diagonal flow, balanced modular grids...",
+  "concept_prompt": "You are a visual concept strategist creating object-only metaphors for enterprise technology. Produce concise visual_concept and core_graphic pairs that express efficiency, security, or innovation..."
+}
+
+Usage in Pipeline
+
+Step 1: Call this “Prompt Builder” once per brand → store the three resulting prompts.
+
+Step 2: Use the concept_prompt as the system message when generating subjects.
+
+Step 3: Combine style_prompt + composition_prompt + subject output for image generation.
