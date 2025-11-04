@@ -20,14 +20,11 @@ export const users = pgTable("users", {
 export const imageStyles = pgTable("image_styles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  stylePrompt: text("style_prompt").notNull(),
+  stylePrompt: text("style_prompt"), // System prompt for visual style (lighting, colors, materials)
+  compositionPrompt: text("composition_prompt"), // System prompt for spatial composition (layout, perspective, depth)
+  conceptPrompt: text("concept_prompt"), // System prompt for concept generation (metaphors, subject ideation)
   referenceImageUrl: text("reference_image_url"), // URL to reference image in object storage
   isAiExtracted: boolean("is_ai_extracted").default(false), // Track if style was AI-extracted
-  extractionPrompt: text("extraction_prompt"), // The prompt used for AI extraction
-  conceptPrompt: text("concept_prompt"), // The prompt used for concept generation
-  generatedConcept: text("generated_concept"), // The AI-generated concept phrase
-  aiStyleData: jsonb("ai_style_data"), // Raw JSON style data with description field inside
-  conceptPatternData: jsonb("concept_pattern_data"), // Raw JSON concept pattern data (composition, subject patterns)
   previewImageUrl: text("preview_image_url"), // URL to preview image generated during extraction
   createdAt: timestamp("created_at").defaultNow(),
   createdBy: varchar("created_by").references(() => users.id), // Optional: track who created the style

@@ -888,28 +888,33 @@ async function generateImagesAsync(
     for (const concept of concepts) {
       for (let variation = 1; variation <= settings.variations; variation++) {
         try {
-          // Truncate style prompt if too long to fit within OpenAI's 1000 character limit
+          // Build prompt combining all three system prompts + concept
           const maxPromptLength = 1000;
-          const templateText = `Generate a clean, professional digital asset:\nStyle: \nSubject: ${concept}`;
+          
+          // Combine the three prompts into one comprehensive prompt
+          const systemInstructions = [
+            style.stylePrompt || '',
+            style.compositionPrompt || '',
+          ].filter(p => p).join(' ');
+          
+          const templateText = `System instructions:\n\nSubject: ${concept}`;
           const remainingSpace = maxPromptLength - templateText.length;
           
-          let truncatedStylePrompt = style.stylePrompt;
-          if (style.stylePrompt.length > remainingSpace) {
-            truncatedStylePrompt = style.stylePrompt.substring(0, remainingSpace - 3) + '...';
-            console.log(`Style prompt truncated from ${style.stylePrompt.length} to ${truncatedStylePrompt.length} characters`);
+          let truncatedInstructions = systemInstructions;
+          if (systemInstructions.length > remainingSpace) {
+            truncatedInstructions = systemInstructions.substring(0, remainingSpace - 3) + '...';
+            console.log(`System instructions truncated from ${systemInstructions.length} to ${truncatedInstructions.length} characters`);
           }
           
-          // Construct professional structured prompt with clear labeling
-          let fullPrompt = `Generate a clean, professional digital asset:
-Style: ${truncatedStylePrompt}
-Subject: ${concept}`;
+          // Construct prompt with system instructions + subject
+          let fullPrompt = `System instructions:\n${truncatedInstructions}\n\nSubject: ${concept}`;
           
           // Add transparent background instruction when transparency is enabled
           if (settings.transparency && settings.model === 'gpt-image-1') {
-            fullPrompt += `\nRender only the image subject on a transparent background`;
+            fullPrompt += `\n\nRender only the image subject on a transparent background`;
           }
           
-          console.log(`Generating image ${completedImages + 1}/${totalImages}: "${fullPrompt}" (${fullPrompt.length} chars)`);
+          console.log(`Generating image ${completedImages + 1}/${totalImages} (${fullPrompt.length} chars)`);
 
           const model = settings.model || "gpt-image-1";
           
@@ -1512,8 +1517,243 @@ router.post('/upload-reference-image', requireAuth, upload.single('image'), asyn
   }
 });
 
-// POST /api/extract-style - Extract visual style AND concept pattern from reference image (Protected)
+// POST /api/extract-style - Extract three system prompts (style, composition, concept) from reference image (Protected)
 router.post('/extract-style', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      imageUrl: z.string().min(1),
+      userContext: z.string().optional(), // Optional context about what the user wants
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { imageUrl, userContext } = validation.data;
+
+    // Define the three system prompts for parallel extraction
+    // Each analysis should be 200-350 words of focused system instructions
+    
+    const styleAnalysisPrompt = `Analyze this reference image and generate a comprehensive SYSTEM PROMPT (200-350 words) that an AI image generator should follow to replicate the visual style.
+
+Focus on:
+- Lighting (direction, quality, intensity, mood)
+- Colors (palette, saturation, temperature, harmony)
+- Materials (textures, surface qualities, finish)
+- Rendering style (photorealistic, illustrated, 3D, painterly, etc.)
+- Visual treatment (grain, noise, filters, post-processing)
+
+Write in second-person imperative as direct instructions to an AI: "Use soft diffused lighting from the upper left..." "Apply a warm color palette with..." etc.
+
+${userContext ? `User context: ${userContext}` : ''}`;
+
+    const compositionAnalysisPrompt = `Analyze this reference image and generate a comprehensive SYSTEM PROMPT (200-350 words) that an AI image generator should follow to replicate the spatial composition and layout.
+
+Focus on:
+- Layout and arrangement (rule of thirds, golden ratio, centered, asymmetric, etc.)
+- Perspective (camera angle, viewpoint, depth of field)
+- Depth and layering (foreground, midground, background separation)
+- Balance and weight distribution
+- Framing and cropping approach
+- Negative space usage
+
+Write in second-person imperative as direct instructions to an AI: "Frame the subject using the rule of thirds..." "Create depth by..." etc.
+
+${userContext ? `User context: ${userContext}` : ''}`;
+
+    const conceptAnalysisPrompt = `Analyze this reference image and generate a comprehensive SYSTEM PROMPT (200-350 words) that an AI should follow for concept ideation and subject generation.
+
+Focus on:
+- Subject matter approach (what kinds of subjects work well)
+- Metaphorical vs literal representation style
+- Brand tone and messaging approach
+- Conceptual themes and ideas that fit the style
+- How to generate creative concepts that match this aesthetic
+
+Write in second-person imperative as direct instructions to an AI: "Generate concepts that use visual metaphors..." "Create subjects that convey..." etc.
+
+${userContext ? `User context: ${userContext}` : ''}`;
+
+    // Make THREE parallel GPT-4 vision calls
+    console.log('=== EXTRACTING THREE PROMPTS IN PARALLEL ===');
+    
+    const [styleResult, compositionResult, conceptResult] = await Promise.all([
+      // 1. Extract STYLE PROMPT
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: styleAnalysisPrompt
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+      
+      // 2. Extract COMPOSITION PROMPT
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: compositionAnalysisPrompt
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+      
+      // 3. Extract CONCEPT PROMPT
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: conceptAnalysisPrompt
+              },
+              {
+                type: "image_url",
+                image_url: { url: imageUrl }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      })
+    ]);
+
+    const stylePrompt = styleResult.choices[0]?.message?.content?.trim();
+    const compositionPrompt = compositionResult.choices[0]?.message?.content?.trim();
+    const conceptPrompt = conceptResult.choices[0]?.message?.content?.trim();
+    
+    if (!stylePrompt || !compositionPrompt || !conceptPrompt) {
+      throw new Error('Failed to generate all three prompts from OpenAI');
+    }
+
+    console.log('✓ Style Prompt Length:', stylePrompt.length, 'chars');
+    console.log('✓ Composition Prompt Length:', compositionPrompt.length, 'chars');
+    console.log('✓ Concept Prompt Length:', conceptPrompt.length, 'chars');
+    
+    res.json({
+      stylePrompt,
+      compositionPrompt,
+      conceptPrompt
+    });
+  } catch (error) {
+    console.error('Error extracting style:', error);
+    res.status(500).json({ error: 'Failed to extract style from image' });
+  }
+});
+
+// POST /api/refine-style - Refine a specific prompt based on user feedback (Protected)
+router.post('/refine-style', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      promptType: z.enum(['style', 'composition', 'concept']),
+      currentPrompt: z.string().min(1),
+      feedback: z.string().min(1),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { promptType, currentPrompt, feedback } = validation.data;
+
+    const promptTypeLabels = {
+      style: 'visual style (lighting, colors, materials, rendering)',
+      composition: 'spatial composition (layout, perspective, depth, balance)',
+      concept: 'concept ideation (metaphors, subject generation, brand tone)'
+    };
+
+    const systemMessage = `You are refining a system prompt for ${promptTypeLabels[promptType]}.
+
+The user will provide:
+1. The current system prompt (200-350 words of instructions to an AI image generator)
+2. Feedback on how to improve it
+
+Your task:
+- Read the current prompt and feedback carefully
+- Make changes PROPORTIONAL to the feedback (subtle feedback = subtle changes)
+- Keep the prompt length between 200-350 words
+- Write in second-person imperative as direct instructions to an AI
+- Maintain focus on ${promptTypeLabels[promptType]} only
+- Return ONLY the refined prompt text (no explanations, no markdown)`;
+
+    const userMessage = `Current prompt:
+${currentPrompt}
+
+User feedback:
+${feedback}
+
+Please provide the refined prompt (200-350 words).`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemMessage
+        },
+        {
+          role: "user",
+          content: userMessage
+        }
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const refinedPrompt = completion.choices[0]?.message?.content?.trim();
+    if (!refinedPrompt) {
+      throw new Error('No refined prompt returned from OpenAI');
+    }
+
+    console.log(`✓ Refined ${promptType} prompt: ${refinedPrompt.length} chars`);
+    
+    res.json({
+      refinedPrompt
+    });
+  } catch (error) {
+    console.error('Error refining prompt:', error);
+    res.status(500).json({ error: 'Failed to refine prompt' });
+  }
+});
+
+// LEGACY ENDPOINT - Remove after frontend migration
+// POST /api/extract-style-legacy - Old two-call extraction (DEPRECATED)
+router.post('/extract-style-legacy', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       imageUrl: z.string().min(1),
@@ -1895,12 +2135,14 @@ router.post('/generate-new-concept', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/generate-style-preview - Generate preview image using extracted style (Protected)
+// POST /api/generate-style-preview - Generate preview image using three-prompt architecture (Protected)
 router.post('/generate-style-preview', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
-      styleData: z.record(z.any()), // Accept the full extracted style data object
-      concept: z.string().min(1),
+      stylePrompt: z.string().optional(),
+      compositionPrompt: z.string().optional(),
+      conceptPrompt: z.string().optional(),
+      concept: z.string().min(1), // The specific concept to generate
       model: z.string().optional().default('gpt-image-1'),
       size: z.string().optional().default('1024x1024'),
       quality: z.string().optional().default('standard'),
@@ -1916,28 +2158,31 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       });
     }
 
-    const { styleData, concept, model, size, quality, transparency, renderText } = validation.data;
+    const { stylePrompt, compositionPrompt, conceptPrompt, concept, model, size, quality, transparency, renderText } = validation.data;
     
-    // Build a comprehensive style description from the extracted style data
-    const styleDescription = buildStyleDescription(styleData);
+    // Combine all three prompts into system instructions
+    const systemInstructions = [
+      stylePrompt || '',
+      compositionPrompt || '',
+    ].filter(p => p).join(' ');
     
-    // Build prompt combining concept and full style description
-    let fullPrompt = `${concept}. Style: ${styleDescription}`;
+    // Build prompt with system instructions + concept
+    let fullPrompt = `System instructions:\n${systemInstructions}\n\nSubject: ${concept}`;
     
     // Add transparent background instruction when transparency is enabled
     if (transparency && model === 'gpt-image-1') {
-      fullPrompt += `. Render only the image subject on a transparent background`;
+      fullPrompt += `\n\nRender only the image subject on a transparent background`;
     }
     
     // Add "NO TEXT" instruction when renderText is disabled
     if (!renderText) {
-      fullPrompt += `. NO TEXT`;
+      fullPrompt += `\n\nNO TEXT`;
     }
     
     // Use configurable settings for preview generation
     const requestParams = buildImageParams(model, size, quality, fullPrompt, transparency);
     
-    console.log('Generating style preview with prompt:', fullPrompt);
+    console.log('Generating style preview with three-prompt architecture:', fullPrompt.substring(0, 200) + '...');
     
     const response = await openai.images.generate(requestParams);
     

@@ -122,10 +122,9 @@ export class MemStorage implements IStorage {
       id, 
       referenceImageUrl: insertStyle.referenceImageUrl || null,
       isAiExtracted: insertStyle.isAiExtracted || false,
-      extractionPrompt: insertStyle.extractionPrompt || null,
+      stylePrompt: insertStyle.stylePrompt || null,
+      compositionPrompt: insertStyle.compositionPrompt || null,
       conceptPrompt: insertStyle.conceptPrompt || null,
-      generatedConcept: insertStyle.generatedConcept || null,
-      aiStyleData: insertStyle.aiStyleData || null,
       previewImageUrl: insertStyle.previewImageUrl || null,
       createdAt: new Date(),
       createdBy: insertStyle.createdBy || null

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
   Dialog,
@@ -9,30 +9,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Upload,
   X,
   Sparkles,
-  Image as ImageIcon,
   Loader2,
-  Save,
-  Eye,
-  RefreshCw,
-  ChevronDown,
-  Settings
 } from 'lucide-react';
-import { ImageStyle, SystemPrompt } from '@shared/schema';
+import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
-import { getUserPreferences } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import PromptSelector from '@/components/PromptSelector';
 
 interface AIStyleExtractorModalProps {
   isOpen: boolean;
@@ -41,110 +30,34 @@ interface AIStyleExtractorModalProps {
   editingStyle?: ImageStyle | null;
 }
 
-// Default prompts
-const DEFAULT_EXTRACTION_PROMPT = `Role: You are an expert visual analyst and systematizer. Goal: Analyze the provided reference image and output a single JSON object that captures only its reusable visual style — never its subject matter, narrative, brand, or specific content. Output Format (single JSON object only) { "style_name": "", "description": "", "color_palette": ["#RRGGBB"], "color_usage": "", "lighting": "", "shadow_style": "", "shapes": "", "shape_edges": "", "symmetry_balance": "", "line_quality": "", "line_color_treatment": "", "texture": "", "material_suggestion": "", "rendering_style": "", "detail_level": "", "perspective": "", "scale_relationships": "", "composition": "", "visual_hierarchy": "", "typography": { "font_styles": "", "font_weights": "", "case_usage": "", "alignment": "", "letter_spacing": "", "text_treatment": "" }, "ui_elements": { "corner_radius": "", "icon_style": "", "button_style": "", "spacing_rhythm": "" }, "motion_or_interaction": "", "notable_visual_effects": "" } Strict Rules No content/subject references: Do not mention people, objects, locations, logos, words in the image, brand names, IP, or narrative elements. Style only: Describe visual treatment (e.g., "isometric perspective," "soft diffused lighting," "grainy texture") rather than what is depicted. Neutral, reusable language: Prefer generic terms ("rounded pill buttons," "duotone icons") over any brand cues. Fill every field: If a field truly does not apply or is not visible, use "none" (string) — not null/empty — to preserve schema consistency. Quantify/qualify where possible: Use clear qualifiers (e.g., "high contrast," "low saturation," "2–4 px stroke," "8–12 px corner radius"). Color palette: Provide 5–8 representative colors in uppercase HEX (#RRGGBB). Include both background/base tones and accent colors when visible. If gradients dominate, include both endpoints as separate swatches. Typography & UI: Only populate if visible/inferable from the image. Otherwise set each field to "none". One JSON object only: No prose before/after. No markdown. No comments. Output only the JSON object as specified.`;
-
-const DEFAULT_CONCEPT_PROMPT = `You are a creative visual concept generator.
-
-You will be given a description of a visual style including its mood, composition, lighting, and camera characteristics. 
-Based on this style description, create a new, original visual concept that matches the described aesthetic.
-
-Guidelines:
-- The concept should be a visually realistic, photograph-like scene that fits the described style
-- Include a clear subject and short description of composition (e.g., wide shot, close-up, over-the-shoulder, aerial view)
-- Avoid all identifying details (no specific people, names, brands, or locations)
-- The goal is to propose a creative scene idea that would work well with the described visual style
-
-Output strictly in this format:
-{
-  "concept": "Concept Title — 2–3 sentence description of the visual composition, written in a natural and cinematic way."
-}`;
-
 export default function AIStyleExtractorModal({
   isOpen,
   onClose,
   onStyleSaved,
   editingStyle
 }: AIStyleExtractorModalProps) {
-  const [step, setStep] = useState<'upload' | 'configure' | 'extract'>('upload');
+  const [step, setStep] = useState<'upload' | 'configure' | 'extract' | 'review'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
-  const [styleName, setStyleName] = useState('');
-  const [description, setDescription] = useState('');
-  const [extractionPrompt, setExtractionPrompt] = useState(DEFAULT_EXTRACTION_PROMPT);
-  const [conceptPrompt, setConceptPrompt] = useState(DEFAULT_CONCEPT_PROMPT);
-  const [instructions, setInstructions] = useState('');
-  const [selectedExtractionPromptId, setSelectedExtractionPromptId] = useState<string | undefined>(undefined);
-  const [selectedConceptPromptId, setSelectedConceptPromptId] = useState<string | undefined>(undefined);
-  const [extractedStyleData, setExtractedStyleData] = useState<any>(null);
-  const [extractedConceptPatternData, setExtractedConceptPatternData] = useState<any>(null);
-  const [generatedConcept, setGeneratedConcept] = useState('');
-  const [previewImageUrl, setPreviewImageUrl] = useState('');
+  const [userContext, setUserContext] = useState('');
+  const [extractedStylePrompt, setExtractedStylePrompt] = useState('');
+  const [extractedCompositionPrompt, setExtractedCompositionPrompt] = useState('');
+  const [extractedConceptPrompt, setExtractedConceptPrompt] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [preferencesInitialized, setPreferencesInitialized] = useState(false);
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  // Load system prompts
-  const { data: extractionPrompts = [] } = useQuery({
-    queryKey: ['systemPrompts', 'style_extraction'],
-    queryFn: () => api.getSystemPromptsByCategory('style_extraction'),
-    enabled: isOpen,
-  });
-
-  const { data: conceptPrompts = [] } = useQuery({
-    queryKey: ['systemPrompts', 'concept_generation'],
-    queryFn: () => api.getSystemPromptsByCategory('concept_generation'),
-    enabled: isOpen,
-  });
-
-  // Auto-select default prompts when modal opens (only for new styles, not editing)
-  useEffect(() => {
-    if (!editingStyle && isOpen && !preferencesInitialized) {
-      const defaultExtractionPrompt = extractionPrompts.find(p => p.isDefault);
-      const defaultConceptPrompt = conceptPrompts.find(p => p.isDefault);
-      
-      if (defaultExtractionPrompt) {
-        setSelectedExtractionPromptId(defaultExtractionPrompt.id);
-        setExtractionPrompt(defaultExtractionPrompt.promptText);
-      }
-      if (defaultConceptPrompt) {
-        setSelectedConceptPromptId(defaultConceptPrompt.id);
-        setConceptPrompt(defaultConceptPrompt.promptText);
-      }
-      setPreferencesInitialized(true);
-    }
-  }, [extractionPrompts, conceptPrompts, editingStyle, isOpen, preferencesInitialized]);
-
-  // Reset initialization flag when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setPreferencesInitialized(false);
-    }
-  }, [isOpen]);
-
   // Initialize editing mode
   useEffect(() => {
     if (editingStyle && isOpen) {
-      setStep('configure');
-      setStyleName(editingStyle.name);
-      setDescription((editingStyle.aiStyleData as any)?.description || '');
-      setExtractionPrompt(editingStyle.extractionPrompt || DEFAULT_EXTRACTION_PROMPT);
-      setConceptPrompt(editingStyle.conceptPrompt || DEFAULT_CONCEPT_PROMPT);
-      setSelectedExtractionPromptId(undefined); // Clear selection when editing - prompts are from the style
-      setSelectedConceptPromptId(undefined); // Clear selection when editing - prompts are from the style
+      setStep('review');
       setReferenceImageUrl(editingStyle.referenceImageUrl || '');
-      setPreviewImageUrl(editingStyle.previewImageUrl || '');
-      if (editingStyle.aiStyleData) {
-        setExtractedStyleData(editingStyle.aiStyleData);
-      }
-      if ((editingStyle as any).conceptPatternData) {
-        setExtractedConceptPatternData((editingStyle as any).conceptPatternData);
-      }
+      setExtractedStylePrompt(editingStyle.stylePrompt || '');
+      setExtractedCompositionPrompt(editingStyle.compositionPrompt || '');
+      setExtractedConceptPrompt(editingStyle.conceptPrompt || '');
     }
   }, [editingStyle, isOpen]);
 
@@ -153,7 +66,6 @@ export default function AIStyleExtractorModal({
       const formData = new FormData();
       formData.append('image', file);
       
-      // Get JWT token for authentication
       const token = localStorage.getItem('authToken');
       const headers: Record<string, string> = {};
       if (token) {
@@ -172,12 +84,6 @@ export default function AIStyleExtractorModal({
 
   const extractStyleMutation = useMutation({
     mutationFn: async () => {
-      // Combine extraction prompt with optional instructions
-      const finalExtractionPrompt = instructions
-        ? `${extractionPrompt}\n\nAdditional Instructions: ${instructions}`
-        : extractionPrompt;
-      
-      // Get JWT token for authentication
       const token = localStorage.getItem('authToken');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -190,9 +96,8 @@ export default function AIStyleExtractorModal({
         method: 'POST',
         headers,
         body: JSON.stringify({
-          imageUrl: referenceImageUrl,
-          extractionPrompt: finalExtractionPrompt,
-          conceptPrompt,
+          referenceImageUrl,
+          userContext: userContext || undefined,
         }),
       });
       if (!response.ok) throw new Error('Style extraction failed');
@@ -200,46 +105,15 @@ export default function AIStyleExtractorModal({
     },
   });
 
-  const previewMutation = useMutation({
-    mutationFn: async () => {
-      // Get JWT token for authentication
-      const token = localStorage.getItem('authToken');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch('/api/generate-style-preview', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          styleData: extractedStyleData,
-          concept: generatedConcept,
-        }),
-      });
-      if (!response.ok) throw new Error('Preview generation failed');
-      return response.json();
-    },
-  });
-
   const saveMutation = useMutation({
-    mutationFn: async (data?: { styleData: any, conceptPatternData?: any, concept: string }) => {
-      const finalStyleData = data?.styleData || extractedStyleData;
-      const finalConceptPatternData = data?.conceptPatternData || extractedConceptPatternData;
+    mutationFn: async () => {
       const stylePayload = {
-        name: finalStyleData?.style_name || 'AI Extracted Style',
-        description: finalStyleData?.description || '',
-        stylePrompt: finalStyleData.style_name ? `${finalStyleData.style_name}: ${finalStyleData.description}` : finalStyleData.description || 'AI-extracted style',
+        name: editingStyle?.name || 'AI Extracted Style',
+        stylePrompt: extractedStylePrompt,
+        compositionPrompt: extractedCompositionPrompt,
+        conceptPrompt: extractedConceptPrompt,
         referenceImageUrl,
         isAiExtracted: true,
-        extractionPrompt,
-        conceptPrompt,
-        generatedConcept: data?.concept || generatedConcept,
-        aiStyleData: finalStyleData,
-        conceptPatternData: finalConceptPatternData,
-        previewImageUrl,
       };
 
       if (editingStyle) {
@@ -293,12 +167,10 @@ export default function AIStyleExtractorModal({
     setStep('extract');
     try {
       const result = await extractStyleMutation.mutateAsync();
-      setExtractedStyleData(result.styleData);
-      setExtractedConceptPatternData(result.conceptPatternData);
-      setGeneratedConcept(result.concept);
-      
-      // Auto-save the extracted style and navigate to workspace
-      await handleSaveAndNavigate(result.styleData, result.conceptPatternData, result.concept);
+      setExtractedStylePrompt(result.stylePrompt);
+      setExtractedCompositionPrompt(result.compositionPrompt);
+      setExtractedConceptPrompt(result.conceptPrompt);
+      setStep('review');
     } catch (error) {
       toast({
         title: 'Extraction Failed',
@@ -309,27 +181,12 @@ export default function AIStyleExtractorModal({
     }
   };
 
-  const handleGeneratePreview = async () => {
+  const handleSaveAndNavigate = async () => {
     try {
-      const result = await previewMutation.mutateAsync();
-      setPreviewImageUrl(result.imageUrl);
-    } catch (error) {
-      toast({
-        title: 'Preview Failed',
-        description: 'Failed to generate preview image. You can still save the style.',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleSaveAndNavigate = async (styleData: any, conceptPatternData: any, concept: string) => {
-    try {
-      const savedStyle = await saveMutation.mutateAsync({ styleData, conceptPatternData, concept });
+      const savedStyle = await saveMutation.mutateAsync();
       
-      // Navigate to workspace BEFORE closing modal
       setLocation(`/workspace?id=${savedStyle.id}`);
       
-      // Small delay to ensure navigation happens before cleanup
       setTimeout(() => {
         onStyleSaved();
         handleClose();
@@ -349,21 +206,13 @@ export default function AIStyleExtractorModal({
   };
 
   const handleClose = () => {
-    // Reset all state
     setStep('upload');
     setSelectedFile(null);
     setPreviewUrl('');
-    setStyleName('');
-    setDescription('');
-    setExtractionPrompt(DEFAULT_EXTRACTION_PROMPT);
-    setConceptPrompt(DEFAULT_CONCEPT_PROMPT);
-    setInstructions('');
-    setSelectedExtractionPromptId(undefined);
-    setSelectedConceptPromptId(undefined);
-    setExtractedStyleData(null);
-    setExtractedConceptPatternData(null);
-    setGeneratedConcept('');
-    setPreviewImageUrl('');
+    setUserContext('');
+    setExtractedStylePrompt('');
+    setExtractedCompositionPrompt('');
+    setExtractedConceptPrompt('');
     setReferenceImageUrl('');
     onClose();
   };
@@ -472,67 +321,26 @@ export default function AIStyleExtractorModal({
 
       <div className="p-4 bg-muted/50 rounded-lg border">
         <p className="text-sm text-muted-foreground">
-          The AI will automatically generate a style name and description based on your reference image. 
-          You can edit these later in the workspace.
+          The AI will analyze your reference image and extract three distinct prompts: 
+          Style (visual elements), Composition (spatial layout), and Concept (subject generation).
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="extraction-instructions">Special Instructions (Optional)</Label>
+        <Label htmlFor="user-context">Additional Context (Optional)</Label>
         <Textarea
-          id="extraction-instructions"
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          rows={2}
-          placeholder='e.g., "ignore the background colors and focus only on the image subjects"'
+          id="user-context"
+          value={userContext}
+          onChange={(e) => setUserContext(e.target.value)}
+          rows={3}
+          placeholder='e.g., "Focus on the lighting and color palette, ignore the background"'
           className="resize-none"
-          data-testid="textarea-extraction-instructions"
+          data-testid="textarea-user-context"
         />
         <p className="text-xs text-muted-foreground">
-          Add specific guidance for the AI during style extraction
+          Provide any specific guidance for the AI during style extraction
         </p>
       </div>
-
-      <Collapsible open={showAdvancedSettings} onOpenChange={setShowAdvancedSettings}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="w-full justify-between p-2 h-auto"
-            data-testid="button-toggle-advanced-settings"
-          >
-            <div className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="text-sm font-medium">Advanced Prompt Settings</span>
-            </div>
-            <ChevronDown 
-              className={`h-4 w-4 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} 
-            />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-4 pt-4">
-          <PromptSelector
-            category="style_extraction"
-            selectedPromptId={selectedExtractionPromptId}
-            onPromptSelect={(prompt: SystemPrompt) => {
-              setSelectedExtractionPromptId(prompt.id);
-              setExtractionPrompt(prompt.promptText);
-            }}
-            label="Style Extraction Prompt"
-            description="Template for analyzing and extracting visual style characteristics"
-          />
-
-          <PromptSelector
-            category="concept_generation"
-            selectedPromptId={selectedConceptPromptId}
-            onPromptSelect={(prompt: SystemPrompt) => {
-              setSelectedConceptPromptId(prompt.id);
-              setConceptPrompt(prompt.promptText);
-            }}
-            label="Concept Generation Prompt"
-            description="Template for generating creative visual concepts"
-          />
-        </CollapsibleContent>
-      </Collapsible>
 
       <div className="flex gap-3">
         <Button variant="outline" onClick={handleClose} className="flex-1">
@@ -558,19 +366,120 @@ export default function AIStyleExtractorModal({
         <div>
           <h3 className="text-lg font-semibold">Analyzing Your Reference Image</h3>
           <p className="text-muted-foreground">
-            GPT-5 is extracting the visual style and generating a concept...
+            AI is extracting style, composition, and concept prompts...
           </p>
         </div>
       </div>
     </div>
   );
 
+  const renderReviewStep = () => (
+    <div className="space-y-6">
+      {referenceImageUrl && (
+        <div className="space-y-2">
+          <Label>Reference Image</Label>
+          <div 
+            className="aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => setZoomedImageUrl(referenceImageUrl)}
+          >
+            <img
+              src={referenceImageUrl}
+              alt="Reference"
+              className="w-full h-full object-cover"
+              data-testid="img-reference-review"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Style Prompt</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={extractedStylePrompt}
+              onChange={(e) => setExtractedStylePrompt(e.target.value)}
+              rows={4}
+              className="resize-none"
+              data-testid="textarea-style-prompt"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Describes visual elements: lighting, colors, materials, textures
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Composition Prompt</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={extractedCompositionPrompt}
+              onChange={(e) => setExtractedCompositionPrompt(e.target.value)}
+              rows={4}
+              className="resize-none"
+              data-testid="textarea-composition-prompt"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Describes spatial layout: perspective, framing, depth, arrangement
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Concept Prompt</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={extractedConceptPrompt}
+              onChange={(e) => setExtractedConceptPrompt(e.target.value)}
+              rows={4}
+              className="resize-none"
+              data-testid="textarea-concept-prompt"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Generates subject ideas: metaphors, themes, creative concepts
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={handleClose} className="flex-1">
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSaveAndNavigate}
+          disabled={saveMutation.isPending}
+          className="flex-1 gap-2"
+          data-testid="button-save-style"
+        >
+          {saveMutation.isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              Save & Open Workspace
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
 
   const getStepTitle = () => {
     switch (step) {
       case 'upload': return 'Upload Reference Image';
       case 'configure': return 'Configure Style Extraction';
       case 'extract': return 'Extracting Style';
+      case 'review': return 'Review Extracted Prompts';
       default: return 'AI Style Extractor';
     }
   };
@@ -578,8 +487,9 @@ export default function AIStyleExtractorModal({
   const getStepDescription = () => {
     switch (step) {
       case 'upload': return 'Upload a reference image to extract its visual style';
-      case 'configure': return 'Configure the extraction prompts and style details';
-      case 'extract': return 'AI is analyzing your image and extracting style elements';
+      case 'configure': return 'Add optional context to guide the extraction process';
+      case 'extract': return 'AI is analyzing your image and extracting three distinct prompts';
+      case 'review': return 'Review and edit the extracted prompts before saving';
       default: return 'Create reusable styles from reference images using AI';
     }
   };
@@ -597,32 +507,23 @@ export default function AIStyleExtractorModal({
             {step === 'upload' && renderUploadStep()}
             {step === 'configure' && renderConfigureStep()}
             {step === 'extract' && renderExtractStep()}
+            {step === 'review' && renderReviewStep()}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Image Zoom Dialog */}
-      <Dialog open={!!zoomedImageUrl} onOpenChange={() => setZoomedImageUrl(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95" data-testid="dialog-zoomed-image">
-          <div className="relative w-full h-full flex items-center justify-center p-4">
-            <button
-              onClick={() => setZoomedImageUrl(null)}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              data-testid="button-close-zoom"
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
-            {zoomedImageUrl && (
-              <img
-                src={zoomedImageUrl}
-                alt="Zoomed preview"
-                className="max-w-full max-h-[90vh] object-contain"
-                data-testid="img-zoomed"
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {zoomedImageUrl && (
+        <Dialog open={!!zoomedImageUrl} onOpenChange={() => setZoomedImageUrl(null)}>
+          <DialogContent className="max-w-[90vw] max-h-[90vh] p-0">
+            <img
+              src={zoomedImageUrl}
+              alt="Zoomed reference"
+              className="w-full h-full object-contain"
+              data-testid="img-zoomed"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

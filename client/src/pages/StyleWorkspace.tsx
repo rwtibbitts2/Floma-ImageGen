@@ -8,26 +8,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ArrowLeft, 
   Save, 
   RefreshCw, 
   Sparkles, 
-  MessageSquare,
   Send,
   Image as ImageIcon,
-  Settings,
-  Undo
+  Settings
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
-import { buildStyleDescription } from '@shared/utils';
 
 interface StyleWorkspaceProps {
   styleId?: string;
@@ -45,19 +40,17 @@ export default function StyleWorkspace() {
   
   // State for style data
   const [styleName, setStyleName] = useState('');
-  const [styleData, setStyleData] = useState<any>(null);
-  const [conceptPatternData, setConceptPatternData] = useState<any>(null);
-  const [previousStyleData, setPreviousStyleData] = useState<any>(null);
-  const [previousConceptPatternData, setPreviousConceptPatternData] = useState<any>(null);
+  const [stylePrompt, setStylePrompt] = useState('');
+  const [compositionPrompt, setCompositionPrompt] = useState('');
+  const [conceptPrompt, setConceptPrompt] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
-  const [chatMessage, setChatMessage] = useState('');
   const [generatedConcept, setGeneratedConcept] = useState('');
-  const [renderText, setRenderText] = useState(true);
   
-  // Refinement target state
-  const [refineVisualStyle, setRefineVisualStyle] = useState(true);
-  const [refineConceptPattern, setRefineConceptPattern] = useState(true);
+  // Refinement feedback state (per tab)
+  const [styleFeedback, setStyleFeedback] = useState('');
+  const [compositionFeedback, setCompositionFeedback] = useState('');
+  const [conceptFeedback, setConceptFeedback] = useState('');
   
   // Generation settings state
   const [generationSettings, setGenerationSettings] = useState({
@@ -78,19 +71,12 @@ export default function StyleWorkspace() {
   useEffect(() => {
     if (style) {
       setStyleName(style.name);
-      setStyleData(style.aiStyleData || {});
-      setConceptPatternData((style as any).conceptPatternData || {});
+      setStylePrompt(style.stylePrompt || '');
+      setCompositionPrompt(style.compositionPrompt || '');
+      setConceptPrompt(style.conceptPrompt || '');
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
-      // Set renderText from saved style data (default to true if not set)
-      setRenderText((style.aiStyleData as any)?.renderText !== undefined ? (style.aiStyleData as any).renderText : true);
-      // Set generated concept from AI extraction, or create one from style data
-      if (style.generatedConcept) {
-        setGeneratedConcept(style.generatedConcept);
-      } else if (style.aiStyleData && (style.aiStyleData as any)?.description) {
-        // Fallback: create a simple concept from the style description
-        setGeneratedConcept(((style.aiStyleData as any).description as string).split('.')[0] || 'Creative concept');
-      }
+      setGeneratedConcept('A creative concept for preview'); // Default concept
     }
   }, [style]);
 
@@ -101,35 +87,30 @@ export default function StyleWorkspace() {
       
       const updateData = {
         name: styleName,
-        stylePrompt: styleData ? buildStyleDescription(styleData) : 'AI-extracted style',
-        aiStyleData: { ...styleData, renderText },
-        conceptPatternData,
+        stylePrompt,
+        compositionPrompt,
+        conceptPrompt,
         previewImageUrl,
         referenceImageUrl,
-        generatedConcept,
       };
       
       return api.updateImageStyle(styleId, updateData);
     },
     onSuccess: (data) => {
       // Invalidate the style query cache to ensure fresh data is fetched
-      // Use the returned data's ID to ensure we invalidate the correct cache entry
       if (data?.id) {
         queryClient.invalidateQueries({ queryKey: ['imageStyle', data.id] });
       }
-      // Also invalidate by the current styleId to be safe
       if (styleId) {
         queryClient.invalidateQueries({ queryKey: ['imageStyle', styleId] });
       }
-      // Invalidate the list of all styles
       queryClient.invalidateQueries({ queryKey: ['imageStyles'] });
     },
   });
 
-  // Style refinement mutation
+  // Prompt refinement mutation
   const refineMutation = useMutation({
-    mutationFn: async (feedback: string) => {
-      // Get JWT token for authentication
+    mutationFn: async ({ promptType, feedback }: { promptType: 'style' | 'composition' | 'concept', feedback: string }) => {
       const token = localStorage.getItem('authToken');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -142,14 +123,12 @@ export default function StyleWorkspace() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          styleData: styleData || {},
-          conceptPatternData: conceptPatternData || {},
-          feedback: feedback,
-          refineVisualStyle,
-          refineConceptPattern,
+          promptType,
+          currentPrompt: promptType === 'style' ? stylePrompt : promptType === 'composition' ? compositionPrompt : conceptPrompt,
+          feedback,
         }),
       });
-      if (!response.ok) throw new Error('Style refinement failed');
+      if (!response.ok) throw new Error('Prompt refinement failed');
       return response.json();
     },
   });
@@ -157,7 +136,6 @@ export default function StyleWorkspace() {
   // Preview generation mutation
   const previewMutation = useMutation({
     mutationFn: async () => {
-      // Get JWT token for authentication
       const token = localStorage.getItem('authToken');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -170,40 +148,17 @@ export default function StyleWorkspace() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          styleData: styleData || {},
+          stylePrompt,
+          compositionPrompt,
+          conceptPrompt,
           concept: generatedConcept,
           model: generationSettings.model,
           quality: generationSettings.quality,
           size: generationSettings.size,
           transparency: generationSettings.transparency,
-          renderText: renderText,
         }),
       });
       if (!response.ok) throw new Error('Preview generation failed');
-      return response.json();
-    },
-  });
-
-  // New concept generation mutation
-  const newConceptMutation = useMutation({
-    mutationFn: async () => {
-      // Get JWT token for authentication
-      const token = localStorage.getItem('authToken');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch('/api/generate-new-concept', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          styleId: styleId,
-        }),
-      });
-      if (!response.ok) throw new Error('Concept generation failed');
       return response.json();
     },
   });
@@ -224,67 +179,42 @@ export default function StyleWorkspace() {
     }
   };
 
-  const handleRefineStyle = async () => {
-    if (!chatMessage.trim()) {
+  const handleRefinePrompt = async (promptType: 'style' | 'composition' | 'concept') => {
+    const feedback = promptType === 'style' ? styleFeedback : promptType === 'composition' ? compositionFeedback : conceptFeedback;
+    
+    if (!feedback.trim()) {
       toast({
         title: 'Feedback Required',
-        description: 'Please enter feedback to refine the style definition.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    if (!refineVisualStyle && !refineConceptPattern) {
-      toast({
-        title: 'Select Target',
-        description: 'Please select at least one refinement target (Visual Style or Concept Pattern).',
+        description: 'Please enter feedback to refine the prompt.',
         variant: 'destructive'
       });
       return;
     }
 
     try {
-      // Save current state before refining
-      setPreviousStyleData(styleData);
-      setPreviousConceptPatternData(conceptPatternData);
+      const result = await refineMutation.mutateAsync({ promptType, feedback });
       
-      const result = await refineMutation.mutateAsync(chatMessage);
-      
-      // Update only the selected targets
-      if (refineVisualStyle && result.refinedStyleData) {
-        setStyleData(result.refinedStyleData);
+      // Update the appropriate prompt
+      if (promptType === 'style' && result.refinedPrompt) {
+        setStylePrompt(result.refinedPrompt);
+        setStyleFeedback('');
+      } else if (promptType === 'composition' && result.refinedPrompt) {
+        setCompositionPrompt(result.refinedPrompt);
+        setCompositionFeedback('');
+      } else if (promptType === 'concept' && result.refinedPrompt) {
+        setConceptPrompt(result.refinedPrompt);
+        setConceptFeedback('');
       }
-      if (refineConceptPattern && result.refinedConceptPatternData) {
-        setConceptPatternData(result.refinedConceptPatternData);
-      }
       
-      setChatMessage('');
       toast({
-        title: 'Style Refined',
-        description: 'Your style has been successfully refined with your feedback.'
+        title: 'Prompt Refined',
+        description: `The ${promptType} prompt has been successfully refined.`
       });
     } catch (error) {
       toast({
         title: 'Refinement Failed',
-        description: 'Failed to refine the style. Please try again.',
+        description: 'Failed to refine the prompt. Please try again.',
         variant: 'destructive'
-      });
-    }
-  };
-
-  const handleUndo = () => {
-    if (previousStyleData || previousConceptPatternData) {
-      if (previousStyleData) {
-        setStyleData(previousStyleData);
-        setPreviousStyleData(null);
-      }
-      if (previousConceptPatternData) {
-        setConceptPatternData(previousConceptPatternData);
-        setPreviousConceptPatternData(null);
-      }
-      toast({
-        title: 'Changes Reverted',
-        description: 'Style has been restored to the previous state.'
       });
     }
   };
@@ -316,24 +246,6 @@ export default function StyleWorkspace() {
     }
   };
 
-  const handleGenerateNewConcept = async () => {
-    try {
-      const result = await newConceptMutation.mutateAsync();
-      setGeneratedConcept(result.concept);
-      
-      toast({
-        title: 'New Concept Generated',
-        description: 'A new random concept has been generated using the same prompt.'
-      });
-    } catch (error) {
-      toast({
-        title: 'Concept Generation Failed',
-        description: 'Failed to generate new concept. Please try again.',
-        variant: 'destructive'
-      });
-    }
-  };
-
   const updateGenerationSetting = (key: string, value: any) => {
     setGenerationSettings(prev => {
       const updated = {
@@ -348,64 +260,6 @@ export default function StyleWorkspace() {
       
       return updated;
     });
-  };
-
-  const updateStyleField = (field: string, value: any, nestedField?: string) => {
-    setStyleData((prev: any) => {
-      const updated = { ...(prev || {}) };
-      if (nestedField) {
-        updated[field] = { ...(updated[field] || {}), [nestedField]: value };
-      } else {
-        updated[field] = value;
-      }
-      return updated;
-    });
-  };
-
-  const addColor = () => {
-    const newColor = '#000000';
-    const paletteField = styleData?.color_palette ? 'color_palette' : 'palette';
-    const currentPalette = styleData?.color_palette || styleData?.palette || [];
-    updateStyleField(paletteField, [...currentPalette, newColor]);
-  };
-
-  const updateColor = (index: number, color: string) => {
-    const paletteField = styleData?.color_palette ? 'color_palette' : 'palette';
-    const currentPalette = styleData?.color_palette || styleData?.palette || [];
-    const updatedPalette = [...currentPalette];
-    updatedPalette[index] = color;
-    updateStyleField(paletteField, updatedPalette);
-  };
-
-  const removeColor = (index: number) => {
-    const paletteField = styleData?.color_palette ? 'color_palette' : 'palette';
-    const currentPalette = styleData?.color_palette || styleData?.palette || [];
-    const updatedPalette = currentPalette.filter((_: any, i: number) => i !== index);
-    updateStyleField(paletteField, updatedPalette);
-  };
-
-  // Helper function to format field keys into readable labels
-  const formatFieldLabel = (key: string): string => {
-    return key
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Get all dynamic fields from styleData, excluding special handled fields
-  const getDynamicFields = () => {
-    if (!styleData) return [];
-    
-    const excludeFields = ['style_name', 'description', 'color_palette', 'palette', 'renderText'];
-    
-    return Object.keys(styleData)
-      .filter(key => !excludeFields.includes(key))
-      .filter(key => {
-        const value = styleData[key];
-        // Include strings, numbers, and objects (but not null/undefined)
-        return value !== null && value !== undefined;
-      })
-      .sort(); // Sort fields alphabetically for consistent display
   };
 
   if (isLoading) {
@@ -454,25 +308,11 @@ export default function StyleWorkspace() {
             </div>
           </div>
           <div className="flex gap-2">
-            {previousStyleData && (
-              <Button 
-                variant="outline" 
-                className="gap-2"
-                onClick={handleUndo}
-                data-testid="button-undo"
-              >
-                <Undo className="w-4 h-4" />
-                Undo
-              </Button>
-            )}
-            <Button variant="outline" className="gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Reset
-            </Button>
             <Button 
               onClick={handleSave}
               disabled={saveMutation.isPending}
               className="gap-2"
+              data-testid="button-save"
             >
               {saveMutation.isPending ? (
                 <>
@@ -492,378 +332,277 @@ export default function StyleWorkspace() {
 
       {/* Main workspace */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left sidebar - References */}
-        <div className="w-64 border-r bg-muted/5 p-4 space-y-4">
-          <div>
-            <h3 className="font-medium mb-3 flex items-center gap-2">
+        {/* Left sidebar - Reference Image */}
+        <div className="w-64 border-r bg-muted/5 p-4">
+          <div className="space-y-4">
+            <h3 className="font-medium flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
-              References
+              Reference
             </h3>
-            {referenceImageUrl && (
+            {referenceImageUrl ? (
               <div className="aspect-video rounded-md overflow-hidden bg-muted border">
                 <img
                   src={referenceImageUrl}
                   alt="Reference"
                   className="w-full h-full object-cover"
+                  data-testid="img-reference"
                 />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground aspect-video border rounded-md bg-muted">
+                <ImageIcon className="w-4 h-4" />
+                <p className="text-sm">No reference</p>
               </div>
             )}
           </div>
-
-          {/* Chat section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              <h3 className="font-medium">Refine with feedback</h3>
-            </div>
-            <div className="space-y-2">
-              {/* Refinement target checkboxes */}
-              <div className="space-y-2 p-2 bg-muted/30 rounded-md border">
-                <div className="text-xs font-medium text-muted-foreground mb-1">Apply feedback to:</div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="refine-visual-style"
-                    checked={refineVisualStyle}
-                    onCheckedChange={(checked) => setRefineVisualStyle(checked as boolean)}
-                    data-testid="checkbox-refine-visual-style"
-                  />
-                  <Label htmlFor="refine-visual-style" className="text-sm cursor-pointer font-normal">
-                    Visual Style
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="refine-concept-pattern"
-                    checked={refineConceptPattern}
-                    onCheckedChange={(checked) => setRefineConceptPattern(checked as boolean)}
-                    data-testid="checkbox-refine-concept-pattern"
-                  />
-                  <Label htmlFor="refine-concept-pattern" className="text-sm cursor-pointer font-normal">
-                    Concept Pattern
-                  </Label>
-                </div>
-              </div>
-              
-              <Textarea
-                placeholder="Describe changes to refine visual style, concept pattern, or both..."
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                rows={3}
-                className="resize-none"
-                data-testid="textarea-refinement-feedback"
-              />
-              <Button 
-                onClick={handleRefineStyle}
-                disabled={refineMutation.isPending || !chatMessage.trim()}
-                size="sm" 
-                className="w-full gap-2"
-                data-testid="button-refine-style"
-              >
-                {refineMutation.isPending ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                    Refining...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3 h-3" />
-                    Apply refinement
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
         </div>
 
-        {/* Center - Style Definition */}
+        {/* Center - Tabbed Prompts */}
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Checkbox
-                checked={renderText}
-                onCheckedChange={(checked) => setRenderText(checked as boolean)}
-                id="render-text"
-                data-testid="checkbox-render-text"
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Style name</Label>
+              <Input
+                value={styleName}
+                onChange={(e) => setStyleName(e.target.value)}
+                data-testid="input-style-name"
               />
-              <Label htmlFor="render-text" className="text-sm font-medium cursor-pointer">
-                Render text
-              </Label>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Basic Info */}
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium text-blue-600">Style name</Label>
-                  <Input
-                    value={styleName}
-                    onChange={(e) => setStyleName(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-blue-600">Description</Label>
+            <Tabs defaultValue="style" className="w-full" data-testid="tabs-prompts">
+              <TabsList className="grid w-full grid-cols-3" data-testid="tabs-list">
+                <TabsTrigger value="style" data-testid="tab-trigger-style">Style</TabsTrigger>
+                <TabsTrigger value="composition" data-testid="tab-trigger-composition">Composition</TabsTrigger>
+                <TabsTrigger value="concept" data-testid="tab-trigger-concept">Concept</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="style" className="space-y-4" data-testid="tab-content-style">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Current style prompt</Label>
                   <Textarea
-                    value={styleData?.description || ''}
-                    onChange={(e) => setStyleData({ ...styleData, description: e.target.value })}
-                    rows={3}
-                    className="mt-1 resize-none"
+                    value={stylePrompt}
+                    readOnly
+                    rows={10}
+                    className="resize-none bg-muted"
+                    data-testid="textarea-style-prompt"
                   />
                 </div>
-              </div>
-
-              {/* Color Palette - Handle color_palette or palette */}
-              {(styleData?.color_palette || styleData?.palette) && (
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium text-blue-600">Color palette</Label>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {((styleData?.color_palette || styleData?.palette) as string[] || []).map((color: string, index: number) => (
-                          <div key={index} className="flex items-center gap-1">
-                            <input
-                              type="color"
-                              value={color}
-                              onChange={(e) => updateColor(index, e.target.value)}
-                              className="w-8 h-8 rounded border cursor-pointer"
-                            />
-                            <span className="text-xs text-muted-foreground font-mono">{color}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeColor(index)}
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                            >
-                              ×
-                            </Button>
-                          </div>
-                        ))}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={addColor}
-                          className="h-8 w-8 p-0"
-                        >
-                          +
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Refinement feedback</Label>
+                  <Textarea
+                    value={styleFeedback}
+                    onChange={(e) => setStyleFeedback(e.target.value)}
+                    placeholder="Describe how to refine this style prompt..."
+                    rows={4}
+                    className="resize-none"
+                    data-testid="textarea-style-feedback"
+                  />
                 </div>
-              )}
+                <Button
+                  onClick={() => handleRefinePrompt('style')}
+                  disabled={refineMutation.isPending || !styleFeedback.trim()}
+                  className="gap-2"
+                  data-testid="button-refine-style"
+                >
+                  {refineMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Refining...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Refine style prompt
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
 
-              {/* Dynamic Style Properties */}
-              {getDynamicFields().map((key) => {
-                const value = styleData[key];
-                const isObject = typeof value === 'object' && !Array.isArray(value);
-                
-                if (isObject) {
-                  // Render nested object as a group
-                  return (
-                    <div key={key} className="space-y-4 col-span-2">
-                      <Label className="text-sm font-medium text-blue-600">{formatFieldLabel(key)}</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l-2 border-muted">
-                        {Object.keys(value).map((nestedKey) => {
-                          const nestedValue = value[nestedKey];
-                          // Handle arrays within nested objects
-                          if (Array.isArray(nestedValue)) {
-                            return (
-                              <div key={nestedKey} className="space-y-2 col-span-2">
-                                <Label className="text-xs text-muted-foreground">{formatFieldLabel(nestedKey)}</Label>
-                                <Textarea
-                                  value={JSON.stringify(nestedValue, null, 2)}
-                                  onChange={(e) => {
-                                    try {
-                                      const parsed = JSON.parse(e.target.value);
-                                      updateStyleField(key, { ...value, [nestedKey]: parsed });
-                                    } catch {
-                                      // Invalid JSON, keep as string
-                                      updateStyleField(key, { ...value, [nestedKey]: e.target.value });
-                                    }
-                                  }}
-                                  rows={3}
-                                  className="resize-none font-mono text-xs"
-                                />
-                              </div>
-                            );
-                          }
-                          return (
-                            <div key={nestedKey} className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">{formatFieldLabel(nestedKey)}</Label>
-                              <Input
-                                value={nestedValue || ''}
-                                onChange={(e) => updateStyleField(key, { ...value, [nestedKey]: e.target.value })}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                } else {
-                  // Render simple field as textarea
-                  return (
-                    <div key={key} className="space-y-2">
-                      <Label className="text-sm font-medium text-blue-600">{formatFieldLabel(key)}</Label>
-                      <Textarea
-                        value={value || ''}
-                        onChange={(e) => updateStyleField(key, e.target.value)}
-                        rows={2}
-                        className="resize-none"
-                      />
-                    </div>
-                  );
-                }
-              })}
-            </div>
+              <TabsContent value="composition" className="space-y-4" data-testid="tab-content-composition">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Current composition prompt</Label>
+                  <Textarea
+                    value={compositionPrompt}
+                    readOnly
+                    rows={10}
+                    className="resize-none bg-muted"
+                    data-testid="textarea-composition-prompt"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Refinement feedback</Label>
+                  <Textarea
+                    value={compositionFeedback}
+                    onChange={(e) => setCompositionFeedback(e.target.value)}
+                    placeholder="Describe how to refine this composition prompt..."
+                    rows={4}
+                    className="resize-none"
+                    data-testid="textarea-composition-feedback"
+                  />
+                </div>
+                <Button
+                  onClick={() => handleRefinePrompt('composition')}
+                  disabled={refineMutation.isPending || !compositionFeedback.trim()}
+                  className="gap-2"
+                  data-testid="button-refine-composition"
+                >
+                  {refineMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Refining...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Refine composition prompt
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="concept" className="space-y-4" data-testid="tab-content-concept">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Current concept prompt</Label>
+                  <Textarea
+                    value={conceptPrompt}
+                    readOnly
+                    rows={10}
+                    className="resize-none bg-muted"
+                    data-testid="textarea-concept-prompt"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Refinement feedback</Label>
+                  <Textarea
+                    value={conceptFeedback}
+                    onChange={(e) => setConceptFeedback(e.target.value)}
+                    placeholder="Describe how to refine this concept prompt..."
+                    rows={4}
+                    className="resize-none"
+                    data-testid="textarea-concept-feedback"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleRefinePrompt('concept')}
+                    disabled={refineMutation.isPending || !conceptFeedback.trim()}
+                    className="gap-2"
+                    data-testid="button-refine-concept"
+                  >
+                    {refineMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Refining...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Refine concept prompt
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleGeneratePreview}
+                    disabled={previewMutation.isPending}
+                    variant="outline"
+                    className="gap-2"
+                    data-testid="button-generate-preview"
+                  >
+                    {previewMutation.isPending ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Generate preview
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
-        {/* Right sidebar - Style Preview */}
-        <div className="w-80 border-l bg-muted/5 p-4 overflow-y-auto max-h-screen">
+        {/* Right sidebar - Preview */}
+        <div className="w-80 border-l bg-muted/5 p-4">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium">Style preview</h3>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={handleGenerateNewConcept}
-                disabled={newConceptMutation.isPending}
-                data-testid="button-new-concept"
-              >
-                <Sparkles className={`w-3 h-3 ${newConceptMutation.isPending ? 'animate-pulse' : ''}`} />
-                {newConceptMutation.isPending ? 'Generating...' : 'New prompt'}
-              </Button>
-            </div>
+            <h3 className="font-medium">Style preview</h3>
             
-            {/* Concept Prompt */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Concept prompt</Label>
+              <Label className="text-sm font-medium">Test concept</Label>
               <Textarea
                 value={generatedConcept}
                 onChange={(e) => setGeneratedConcept(e.target.value)}
-                placeholder="Enter a creative concept for this style..."
+                placeholder="Enter a concept to test..."
                 rows={3}
                 className="resize-none"
-                data-testid="textarea-concept-prompt"
+                data-testid="textarea-test-concept"
               />
             </div>
 
-            {/* Preview Image */}
             {previewImageUrl ? (
               <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
                 <img
                   src={previewImageUrl}
                   alt="Style preview"
                   className="w-full h-full object-cover"
-                  data-testid="img-style-preview"
+                  data-testid="img-preview"
                 />
               </div>
             ) : (
-              <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-                <ImageIcon className="w-4 h-4" />
-                <p className="text-sm">No preview generated</p>
+              <div className="flex items-center justify-center aspect-square rounded-lg border bg-muted text-muted-foreground">
+                <div className="text-center">
+                  <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No preview</p>
+                </div>
               </div>
             )}
 
-            {/* Generation Settings */}
             <div className="space-y-3 pt-2 border-t">
-              {/* Settings Accordion */}
-              <Accordion type="single" collapsible className="w-full" data-testid="accordion-generation-settings">
-                <AccordionItem value="generation-settings" className="border-0">
-                  <AccordionTrigger className="flex items-center gap-2 py-2 hover:no-underline" data-testid="accordion-trigger-settings">
-                    <div className="flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      <span className="text-sm font-medium">Generation Settings</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-3 pt-2">
-                      {/* Model Selection */}
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Model</Label>
-                        <Select
-                          value={generationSettings.model}
-                          onValueChange={(value) => updateGenerationSetting('model', value)}
-                        >
-                          <SelectTrigger className="h-8" data-testid="select-model">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="dall-e-3">DALL-E 3</SelectItem>
-                            <SelectItem value="dall-e-2">DALL-E 2</SelectItem>
-                            <SelectItem value="gpt-image-1">GPT Image 1 (supports transparency)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Settings className="w-4 h-4" />
+                <span>Generation settings</span>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Model</Label>
+                  <Select
+                    value={generationSettings.model}
+                    onValueChange={(value) => updateGenerationSetting('model', value)}
+                  >
+                    <SelectTrigger className="h-8" data-testid="select-model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dall-e-3">DALL-E 3</SelectItem>
+                      <SelectItem value="dall-e-2">DALL-E 2</SelectItem>
+                      <SelectItem value="gpt-image-1">GPT Image 1</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                      {/* Quality Selection */}
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Quality</Label>
-                        <Select
-                          value={generationSettings.quality}
-                          onValueChange={(value) => updateGenerationSetting('quality', value)}
-                        >
-                          <SelectTrigger className="h-8" data-testid="select-quality">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="standard">Standard</SelectItem>
-                            <SelectItem value="hd">HD</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Size Selection */}
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Size</Label>
-                        <Select
-                          value={generationSettings.size}
-                          onValueChange={(value) => updateGenerationSetting('size', value)}
-                        >
-                          <SelectTrigger className="h-8" data-testid="select-size">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1024x1024">Square</SelectItem>
-                            <SelectItem value="1024x1536">Portrait</SelectItem>
-                            <SelectItem value="1536x1024">Landscape</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Transparent Background */}
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">Transparent background</Label>
-                        <Switch
-                          checked={generationSettings.transparency}
-                          onCheckedChange={(checked) => updateGenerationSetting('transparency', checked)}
-                          data-testid="switch-transparency"
-                        />
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Size</Label>
+                  <Select
+                    value={generationSettings.size}
+                    onValueChange={(value) => updateGenerationSetting('size', value)}
+                  >
+                    <SelectTrigger className="h-8" data-testid="select-size">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1024x1024">Square</SelectItem>
+                      <SelectItem value="1024x1536">Portrait</SelectItem>
+                      <SelectItem value="1536x1024">Landscape</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-
-            {/* Generate Preview Button */}
-            <Button
-              onClick={handleGeneratePreview}
-              disabled={previewMutation.isPending || !generatedConcept.trim()}
-              className="w-full"
-              data-testid="button-generate-preview"
-            >
-              {previewMutation.isPending ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                'Generate preview'
-              )}
-            </Button>
           </div>
         </div>
       </div>
