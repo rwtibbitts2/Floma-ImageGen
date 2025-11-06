@@ -1,4 +1,4 @@
-import { Home, ImageIcon, Palette, FileText, Lightbulb, Settings, LogOut } from "lucide-react";
+import { Home, ImageIcon, Palette, FileText, Lightbulb, Settings, LogOut, Layers } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -42,6 +42,11 @@ const navigationItems = [
 ];
 
 const adminItems = [
+  {
+    title: "Media Adapters",
+    url: "/media-adapters",
+    icon: Layers,
+  },
   {
     title: "Admin Panel",
     url: "/admin",

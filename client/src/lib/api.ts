@@ -1,6 +1,9 @@
 // API helper functions for image generation
 import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt, ConceptList, Concept, MediaAdapter } from '@shared/schema';
 
+// Re-export types for convenience
+export type { MediaAdapter };
+
 const API_BASE = '/api';
 
 // Helper function to make authenticated fetch requests
