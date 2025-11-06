@@ -16,10 +16,13 @@ import {
   Sparkles, 
   Send,
   Image as ImageIcon,
-  Settings
+  Settings,
+  Layers,
+  Info
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageStyle } from '@shared/schema';
+import type { MediaAdapter } from '@/lib/api';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
@@ -65,6 +68,17 @@ export default function StyleWorkspace() {
     queryKey: ['imageStyle', styleId],
     queryFn: () => api.getImageStyle(styleId!),
     enabled: !!styleId
+  });
+
+  // Fetch media adapter if style has one
+  const { data: mediaAdapter } = useQuery<MediaAdapter>({
+    queryKey: ['/api/media-adapters', style?.mediaAdapterId],
+    queryFn: ({ queryKey }) => {
+      const [, adapterId] = queryKey;
+      if (!adapterId) throw new Error('Media adapter ID is required');
+      return api.getMediaAdapter(adapterId as string);
+    },
+    enabled: !!style?.mediaAdapterId,
   });
 
   // Initialize form data when style loads
@@ -304,6 +318,12 @@ export default function StyleWorkspace() {
                   <Sparkles className="w-3 h-3 mr-1" />
                   AI Extracted
                 </Badge>
+                {mediaAdapter && (
+                  <Badge variant="outline" className="text-xs gap-1" data-testid="badge-media-adapter">
+                    <Layers className="w-3 h-3" />
+                    {mediaAdapter.name}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -332,8 +352,8 @@ export default function StyleWorkspace() {
 
       {/* Main workspace */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left sidebar - Reference Image */}
-        <div className="w-64 border-r bg-muted/5 p-4">
+        {/* Left sidebar - Reference Image & Media Adapter */}
+        <div className="w-64 border-r bg-muted/5 p-4 space-y-6">
           <div className="space-y-4">
             <h3 className="font-medium flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
@@ -355,6 +375,27 @@ export default function StyleWorkspace() {
               </div>
             )}
           </div>
+
+          {mediaAdapter && (
+            <div className="space-y-3">
+              <h3 className="font-medium flex items-center gap-2">
+                <Layers className="w-4 h-4" />
+                Media Type
+              </h3>
+              <Card>
+                <CardHeader className="p-3 space-y-1">
+                  <CardTitle className="text-sm">{mediaAdapter.name}</CardTitle>
+                  <p className="text-xs text-muted-foreground">{mediaAdapter.description}</p>
+                </CardHeader>
+              </Card>
+              <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg border text-xs">
+                <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  This adapter was used during style extraction to apply media-specific adjustments.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Center - Tabbed Prompts */}
