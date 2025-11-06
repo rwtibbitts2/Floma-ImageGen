@@ -96,7 +96,7 @@ export default function AIStyleExtractorModal({
         method: 'POST',
         headers,
         body: JSON.stringify({
-          referenceImageUrl,
+          imageUrl: referenceImageUrl,
           userContext: userContext || undefined,
         }),
       });
