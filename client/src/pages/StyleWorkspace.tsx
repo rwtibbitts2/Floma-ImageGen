@@ -378,14 +378,119 @@ export default function StyleWorkspace() {
 
               <TabsContent value="style" className="space-y-4" data-testid="tab-content-style">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Current style prompt</Label>
-                  <Textarea
-                    value={stylePrompt}
-                    readOnly
-                    rows={10}
-                    className="resize-none bg-muted"
-                    data-testid="textarea-style-prompt"
-                  />
+                  <Label className="text-sm font-medium">Current style definition</Label>
+                  {(() => {
+                    try {
+                      const styleData = JSON.parse(stylePrompt);
+                      return (
+                        <div className="bg-muted rounded-lg p-4 space-y-4 max-h-96 overflow-y-auto" data-testid="style-structured-view">
+                          {styleData.style_name && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Style Name</div>
+                              <div className="text-sm">{styleData.style_name}</div>
+                            </div>
+                          )}
+                          {styleData.style_summary && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Summary</div>
+                              <div className="text-sm">{styleData.style_summary}</div>
+                            </div>
+                          )}
+                          {styleData.camera && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Camera</div>
+                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
+                                {Object.entries(styleData.camera).map(([key, value]) => (
+                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {styleData.lighting && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Lighting</div>
+                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
+                                {Object.entries(styleData.lighting).map(([key, value]) => (
+                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {styleData.surface_behavior && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Surface Behavior</div>
+                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
+                                {Object.entries(styleData.surface_behavior).map(([key, value]) => (
+                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {styleData.color_treatment && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Color Treatment</div>
+                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
+                                {Object.entries(styleData.color_treatment).map(([key, value]) => (
+                                  <div key={key}>
+                                    <span className="font-medium">{key.replace(/_/g, ' ')}:</span>{' '}
+                                    {key === 'palette' && Array.isArray(value) ? (
+                                      <div className="flex gap-1 mt-1">
+                                        {value.map((color, i) => (
+                                          <div key={i} className="flex items-center gap-1">
+                                            <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: color }}></div>
+                                            <span className="text-xs text-muted-foreground">{color}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : String(value)}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {styleData.finishing_treatment && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Finishing Treatment</div>
+                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
+                                {Object.entries(styleData.finishing_treatment).map(([key, value]) => (
+                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {styleData.mood && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Mood</div>
+                              <div className="text-sm">{styleData.mood}</div>
+                            </div>
+                          )}
+                          {styleData.media_type_alignment && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Media Type</div>
+                              <div className="text-sm">{styleData.media_type_alignment}</div>
+                            </div>
+                          )}
+                          {styleData.complexity_level && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Complexity</div>
+                              <div className="text-sm">{styleData.complexity_level}</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    } catch {
+                      // Fall back to raw text if not valid JSON
+                      return (
+                        <Textarea
+                          value={stylePrompt}
+                          readOnly
+                          rows={10}
+                          className="resize-none bg-muted"
+                          data-testid="textarea-style-prompt"
+                        />
+                      );
+                    }
+                  })()}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Refinement feedback</Label>
