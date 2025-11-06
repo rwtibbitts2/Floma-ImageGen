@@ -1940,6 +1940,7 @@ router.post('/regenerate-test-concepts', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
       conceptPrompt: z.string().min(1),
+      conceptFramework: z.record(z.any()).optional(),
       userContext: z.string().optional(),
     });
 
@@ -1951,11 +1952,28 @@ router.post('/regenerate-test-concepts', requireAuth, async (req, res) => {
       });
     }
 
-    const { conceptPrompt, userContext } = validation.data;
+    const { conceptPrompt, conceptFramework, userContext } = validation.data;
 
     console.log('=== REGENERATING TEST CONCEPTS ===');
     
-    const testConceptSystemPrompt = `${conceptPrompt}
+    // Use the full conceptFramework JSON for more detailed concept generation
+    const testConceptSystemPrompt = conceptFramework 
+      ? `You are generating visual concepts based on the following structured framework:
+
+${JSON.stringify(conceptFramework, null, 2)}
+
+Follow ALL the guidelines in the concept_framework, especially:
+- Subject approach: ${conceptFramework.concept_framework?.subject_approach || ''}
+- Representation style: ${conceptFramework.concept_framework?.representation_style || ''}
+- Brand tone alignment: ${conceptFramework.concept_framework?.brand_tone_alignment || ''}
+- Visual devices: ${conceptFramework.concept_framework?.visual_devices || ''}
+- Ideation guidelines: ${conceptFramework.concept_framework?.ideation_guidelines || ''}
+
+IMPORTANT OUTPUT FORMAT:
+Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
+Example format: ["Concept 1 description", "Concept 2 description", "Concept 3 description"]
+Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`
+      : `${conceptPrompt}
 
 IMPORTANT OUTPUT FORMAT:
 Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).

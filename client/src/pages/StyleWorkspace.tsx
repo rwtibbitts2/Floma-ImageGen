@@ -48,6 +48,8 @@ export default function StyleWorkspace() {
   const [stylePrompt, setStylePrompt] = useState('');
   const [compositionPrompt, setCompositionPrompt] = useState('');
   const [conceptPrompt, setConceptPrompt] = useState('');
+  const [compositionFramework, setCompositionFramework] = useState<Record<string, any> | null>(null);
+  const [conceptFramework, setConceptFramework] = useState<Record<string, any> | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [generatedConcept, setGeneratedConcept] = useState('');
@@ -92,6 +94,8 @@ export default function StyleWorkspace() {
       setStylePrompt(style.stylePrompt || '');
       setCompositionPrompt(style.compositionPrompt || '');
       setConceptPrompt(style.conceptPrompt || '');
+      setCompositionFramework(style.compositionFramework || null);
+      setConceptFramework(style.conceptFramework || null);
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
       setTestConcepts(style.testConcepts || []);
@@ -110,6 +114,8 @@ export default function StyleWorkspace() {
         stylePrompt,
         compositionPrompt,
         conceptPrompt,
+        compositionFramework: compositionFramework || undefined,
+        conceptFramework: conceptFramework || undefined,
         previewImageUrl,
         referenceImageUrl,
         testConcepts: testConcepts.length > 0 ? testConcepts : undefined,
@@ -145,6 +151,7 @@ export default function StyleWorkspace() {
         headers,
         body: JSON.stringify({
           conceptPrompt,
+          conceptFramework,
         }),
       });
       if (!response.ok) throw new Error('Failed to regenerate test concepts');
