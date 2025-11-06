@@ -1302,38 +1302,62 @@ export const storage = new DatabaseStorage();
     const mediaAdaptersSeed = [
       {
         name: 'Photography',
-        description: 'Professional photography with realistic lighting, depth of field, and camera-specific characteristics',
-        vocabularyAdjustments: 'Use photography-specific terms: aperture, bokeh, depth of field, exposure, ISO, shutter speed, lens characteristics, focal length. Avoid illustration terms like "illustration", "drawn", "painted".',
-        lightingAdjustments: 'Describe natural and artificial light sources with photographic precision. Specify lighting ratios, key/fill/rim light placement, golden hour qualities, studio lighting setups. Reference real-world lighting conditions.',
-        surfaceAdjustments: 'Focus on physically accurate material properties: reflectivity, translucency, texture detail captured by camera sensors. Describe how materials interact with light in realistic ways (subsurface scattering, specular highlights, diffuse reflection).',
-        conceptualAdjustments: 'Generate concepts that work as real-world photography subjects. Consider camera angles, composition rules (rule of thirds, leading lines), and what can actually be photographed or staged.',
+        description: 'Grounded, realistic imagery using light, material, and framing as primary metaphors.',
+        vocabularyAdjustments: `VOCABULARY: Focus on optical capture, natural light, and exposure balance. Use camera-specific terms when describing technical aspects. Avoid digital illustration or 3D rendering terminology.`,
+        lightingAdjustments: `LIGHTING: Real-world softbox or daylight with warm/cool tone control and natural shadow falloff. Reference photographic light sources and their characteristics.
+SURFACES: Tactile realism with organic reflections and material texture. Materials should appear as they would under camera capture.
+COLOR: Balanced color grade with authentic tones and moderate contrast. 
+FINISHING: Gentle S-curve, light film grain, subtle vignette for photographic aesthetic.`,
+        surfaceAdjustments: `Surfaces must exhibit tactile realism with organic reflections. Focus on how camera sensors capture material properties: subsurface scattering for translucent materials, specular highlights on glossy surfaces, diffuse reflection on matte surfaces.`,
+        conceptualAdjustments: `COMPOSITION: Rule-of-thirds or central framing with moderate layout density and controlled negative space. Foreground/mid/background separation with optical depth of field for subject emphasis.
+CONCEPTS: Real objects, lighting setups, and props as visual metaphors. Generate subjects that can be physically photographed or staged. Single or paired objects in real environments.
+REALISM: Realistic
+AVOID: Floating objects, impossible reflections, 3D stylization, illustration effects.`,
         isDefault: true
       },
       {
         name: 'Illustration',
-        description: 'Digital or traditional illustration with artistic interpretation, stylization, and design flexibility',
-        vocabularyAdjustments: 'Use illustration and art terms: brushstrokes, linework, stylized, artistic interpretation, digital painting, hand-drawn. Embrace non-photorealistic descriptors. Avoid photography-specific technical terms.',
-        lightingAdjustments: 'Describe lighting as artistic choices rather than physical accuracy. Use terms like "dramatic shadow shapes", "cel-shaded", "painterly light", "graphic contrast". Lighting can be stylized, impossible, or symbolic.',
-        surfaceAdjustments: 'Focus on artistic rendering techniques: flat colors, gradient fills, texture overlays, pattern work, line art definition. Surfaces can be simplified, exaggerated, or abstracted for visual impact.',
-        conceptualAdjustments: 'Generate concepts that leverage illustration freedoms: impossible perspectives, symbolic representations, exaggerated proportions, fantastical elements. Think in terms of visual metaphors and graphic storytelling.',
+        description: 'Stylized 2D artwork using color, shape, and simplification for conceptual clarity.',
+        vocabularyAdjustments: `VOCABULARY: Focus on graphic forms, vector lighting, and symbolic color fields. Use illustration and design terminology. Avoid photographic or 3D rendering terms.`,
+        lightingAdjustments: `LIGHTING: Flat or simplified lighting with stylized highlights. Light can be symbolic and non-physical.
+SURFACES: Smooth fills, clean edges, minimal gradients. 
+COLOR: Vivid palette with clear value separation for graphic impact.
+FINISHING: Crisp export finish with no grain or photographic texture.`,
+        surfaceAdjustments: `Surfaces use smooth color fills with clean vector edges. Minimal gradients, flat rendering, simplified shading. Focus on graphic clarity over physical accuracy.`,
+        conceptualAdjustments: `COMPOSITION: Flat orthographic or minimal isometric perspective. Sparse layout with generous negative space. Flat or shallow layered depth with separation via scale and color contrast.
+CONCEPTS: Geometric or symbolic abstractions as visual metaphors. Single or paired flat forms with conceptual meaning.
+REALISM: Stylized
+AVOID: Realistic textures, complex lighting, photographic realism, depth of field.`,
         isDefault: false
       },
       {
         name: '3D Render',
-        description: 'Computer-generated 3D imagery with precise geometric control, perfect lighting, and material rendering',
-        vocabularyAdjustments: 'Use 3D rendering terms: ray tracing, PBR materials, mesh, topology, global illumination, HDRI lighting, normal maps, subsurface scattering. Reference render engines (Arnold, V-Ray, Cycles) when relevant.',
-        lightingAdjustments: 'Describe technical lighting setups: HDRI environments, three-point lighting rigs, area lights, IES profiles. Specify rendering techniques like path tracing, caustics, ambient occlusion. Embrace perfect, controlled lighting impossible in photography.',
-        surfaceAdjustments: 'Focus on shader properties: metallic/roughness values, IOR (index of refraction), normal/bump mapping, displacement. Describe materials with technical precision (0.8 metallic, 0.2 roughness, 1.5 IOR).',
-        conceptualAdjustments: 'Generate concepts optimized for 3D creation: clean geometric forms, product shots, architectural visualization, impossible objects, perfectly clean environments. Consider what benefits from 3D precision and control.',
+        description: 'Physically based, dimensional imagery using materials and lighting for realism or stylized depth.',
+        vocabularyAdjustments: `VOCABULARY: Focus on rendering materials, light reflections, and cinematic tone. Use 3D rendering and CGI terminology. Reference PBR workflows and render engines when appropriate.`,
+        lightingAdjustments: `LIGHTING: Area and rim lights, volumetric depth, directional glow. Reference three-point lighting, HDRI environments, and technical lighting setups.
+SURFACES: Matte, glossy, translucent, or emissive surfaces with physically-based material properties.
+COLOR: Balanced palette with luminous accents.
+FINISHING: Post-render tone mapping, soft bloom, high clarity for polished CGI aesthetic.`,
+        surfaceAdjustments: `Surfaces use PBR shader properties: metallic/roughness workflows, IOR (index of refraction), normal/bump mapping, displacement. Specify technical material values when relevant.`,
+        conceptualAdjustments: `COMPOSITION: Isometric, oblique, or cinematic camera perspectives. Moderate layout density with sculpted negative space. Layered objects with parallax depth. Depth of field or lighting-driven emphasis.
+CONCEPTS: Abstract object metaphors using material properties. Generate clean geometric forms, product visualization, architectural elements, impossible objects. Single or paired geometric subjects.
+REALISM: Stylized physical realism
+AVOID: Flat 2D elements, photographic props, hand-drawn textures, text overlays.`,
         isDefault: false
       },
       {
         name: 'Product/UI Design',
-        description: 'Clean, professional product and interface design with emphasis on clarity, usability, and modern aesthetics',
-        vocabularyAdjustments: 'Use design and UX terms: UI elements, product shots, clean backgrounds, professional presentation, marketing imagery. Focus on clarity and visual hierarchy. Avoid artistic or abstract descriptors.',
-        lightingAdjustments: 'Describe clean, even lighting that showcases products clearly. Studio lighting, soft shadows, minimal drama, white/gradient backgrounds. Lighting should enhance visibility and appeal without dominating the composition.',
-        surfaceAdjustments: 'Focus on pristine, perfect surfaces: clean materials, subtle reflections, professional finish. Products should appear flawless. UI elements should be crisp with clean edges and modern glass/metal effects.',
-        conceptualAdjustments: 'Generate concepts for product marketing and UI presentations: hero shots, feature highlights, app interfaces, product comparisons, lifestyle contexts. Think e-commerce and marketing materials.',
+        description: 'Digital interface or data visualization imagery emphasizing clarity, hierarchy, and dimensional layering.',
+        vocabularyAdjustments: `VOCABULARY: Focus on interface elements, depth cues, and layered translucency. Use UI/UX and product design terminology. Avoid artistic or photographic descriptors.`,
+        lightingAdjustments: `LIGHTING: Subtle gradient lighting for depth separation without dramatic shadows.
+SURFACES: Smooth panels with soft highlights and shadows for dimensional clarity.
+COLOR: Controlled palette with accent hues for visual focus and hierarchy.
+FINISHING: Clean compositing with minimal bloom or grain. Emphasis on clarity and readability.`,
+        surfaceAdjustments: `Surfaces are pristine panels with soft edge highlights. Modern glass/frosted effects, subtle elevation shadows. Clean, professional finish with perfect edges.`,
+        conceptualAdjustments: `COMPOSITION: Isometric or frontal pseudo-3D perspective. Dense modular grid layout. Stacked panels with clear z-index logic. Layer prominence via lighting contrast.
+CONCEPTS: Data and UI metaphors—windows, dashboards, charts, signals, interface panels. Multiple layered panels or singular interface views.
+REALISM: Digital semi-realism
+AVOID: Organic textures, real-world props, human figures, photographic elements.`,
         isDefault: false
       }
     ];

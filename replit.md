@@ -12,6 +12,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 6, 2025
+
+**Modular Media Adapter System** - Added media-specific adjustment architecture:
+- Created `mediaAdapters` database table with vocabulary, lighting, surface, and conceptual adjustment fields
+- Added `mediaAdapterId` foreign key to `imageStyles` to track which adapter was used during extraction
+- Implemented complete CRUD API endpoints for managing media adapters with authentication and validation
+- Seeded four baseline adapters with detailed specifications:
+  - **Photography**: Grounded, realistic imagery using light, material, and framing as metaphors
+  - **Illustration**: Stylized 2D artwork using color, shape, and simplification for conceptual clarity
+  - **3D Render**: Physically based dimensional imagery using materials and lighting for depth
+  - **Product/UI Design**: Digital interface imagery emphasizing clarity, hierarchy, and layering
+- Enforced single-default adapter invariant: exactly one default adapter at all times through atomic updates
+- Updated extraction endpoint to accept `mediaAdapterId` parameter and inject adapter-specific adjustments into style and concept prompts
+- Architecture pattern: **Core Prompt + Media Adapter → Final System Prompt**
+
 ### November 4, 2025
 
 **Three-Prompt Architecture Implementation** - Complete architectural refactor to modular prompt system:
@@ -28,6 +43,30 @@ Preferred communication style: Simple, everyday language.
 - Refinement endpoint accepts promptType parameter to refine specific prompts independently
 
 ## System Architecture
+
+### Modular Media Adapter System
+
+The system uses a **Core Prompt + Media Adapter** architecture where media-specific adjustments modify the base extraction behavior:
+
+**Architecture Pattern**: `Core Prompts + Media Adapter → Final System Prompt`
+
+**Media Adapters** define domain-specific vocabulary, lighting, surface, and conceptual adjustments:
+- **Vocabulary Adjustments**: Media-specific terminology and language constraints
+- **Lighting Adjustments**: How light behaves in the medium (photographic, stylized, technical)
+- **Surface Adjustments**: Material rendering and texture characteristics for the medium
+- **Conceptual Adjustments**: Composition rules, concept constraints, and realism level
+
+**Four Baseline Adapters**:
+1. **Photography** (default): Optical capture, natural light, tactile realism, rule-of-thirds composition
+2. **Illustration**: Graphic forms, flat/simplified lighting, smooth fills, symbolic abstractions
+3. **3D Render**: PBR materials, technical lighting, cinematic perspectives, geometric metaphors
+4. **Product/UI Design**: Interface elements, gradient depth lighting, modular grids, data metaphors
+
+**Adapter Workflow**:
+1. During extraction, user selects (or defaults to) a media adapter
+2. Adapter adjustments are injected into the extraction prompts sent to GPT-4 Vision
+3. Resulting core prompts are media-specific and maintain adapter constraints
+4. At image generation, adapter is referenced to ensure final output maintains media coherence
 
 ### Three-Prompt System
 
@@ -102,8 +141,10 @@ The core architecture is built around three specialized system prompts extracted
 
 **Database Design**
 - PostgreSQL database with Drizzle ORM for type-safe database operations
-- Core entities: ImageStyles (three-prompt templates), GenerationJobs (batch operations), GeneratedImages (individual results), ConceptLists (AI-generated marketing concepts)
-- ImageStyles schema: stylePrompt, compositionPrompt, conceptPrompt, referenceImageUrl, previewImageUrl, name
+- Core entities: ImageStyles (three-prompt templates), MediaAdapters (media-specific adjustments), GenerationJobs (batch operations), GeneratedImages (individual results), ConceptLists (AI-generated marketing concepts)
+- ImageStyles schema: stylePrompt, compositionPrompt, conceptPrompt, mediaAdapterId (FK), referenceImageUrl, previewImageUrl, name
+- MediaAdapters schema: name, description, vocabularyAdjustments, lightingAdjustments, surfaceAdjustments, conceptualAdjustments, isDefault
+- Single-default invariant enforced: exactly one adapter flagged as default at all times via atomic updates
 - Schema supports tracking generation progress, status management, image metadata, and concept list management
 - Migration system using Drizzle Kit for database version control
 

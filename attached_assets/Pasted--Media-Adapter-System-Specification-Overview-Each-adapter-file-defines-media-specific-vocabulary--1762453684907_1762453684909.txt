@@ -1,0 +1,136 @@
+🧩 Media Adapter System Specification
+Overview
+
+Each adapter file defines media-specific vocabulary, constraints, and emphasis that modify or extend a core system prompt.
+Adapters allow your prompt builder to deliver precise creative guidance per image style without duplicating the entire instruction set.
+
+Core idea:
+
+Final Prompt = Core Prompt + Selected Media Adapter
+
+Schema Definition
+Adapter File (Generic Schema)
+{
+  "media_type": "photography | illustration | product_UI | 3D_render | hybrid",
+  "description": "One-sentence summary of the adapter’s purpose and stylistic domain.",
+  "style_adjustments": {
+    "vocabulary_focus": "camera terms | material realism | vector forms | interface panels",
+    "lighting_behavior": "describe light style and tone adjustments for this medium",
+    "surface_behavior": "describe how surfaces, edges, or textures behave visually",
+    "color_handling": "describe how color contrast or palette behaves in this medium",
+    "finishing_treatment": "describe the typical finishing pass or tone mapping"
+  },
+  "composition_adjustments": {
+    "camera_perspective": "frontal | isometric | oblique | rule-of-thirds",
+    "layout_density": "sparse | moderate | dense",
+    "depth_structure": "flat | layered | deep perspective",
+    "focus_behavior": "how focal depth and separation are expressed"
+  },
+  "concept_adjustments": {
+    "visual_metaphor_style": "real-world props | geometric forms | interface metaphors",
+    "object_constraints": "single | paired | environment-based",
+    "realism_level": "realistic | stylized | abstract",
+    "avoid_list": ["undesired elements, e.g., text, people, surreal distortions"]
+  }
+}
+
+Baseline Media Adapters
+📸 Photography Adapter (photography.json)
+{
+  "media_type": "photography",
+  "description": "Grounded, realistic imagery using light, material, and framing as primary metaphors.",
+  "style_adjustments": {
+    "vocabulary_focus": "optical capture, natural light, exposure balance",
+    "lighting_behavior": "real-world softbox or daylight, warm/cool tone control, natural shadow falloff",
+    "surface_behavior": "tactile realism with organic reflections and material texture",
+    "color_handling": "balanced color grade with authentic tones, moderate contrast",
+    "finishing_treatment": "gentle S-curve, light film grain, subtle vignette"
+  },
+  "composition_adjustments": {
+    "camera_perspective": "rule-of-thirds or central framing",
+    "layout_density": "moderate with controlled negative space",
+    "depth_structure": "foreground/mid/background separation",
+    "focus_behavior": "optical depth of field for subject emphasis"
+  },
+  "concept_adjustments": {
+    "visual_metaphor_style": "real objects, lighting, and props as metaphors",
+    "object_constraints": "single or paired objects in real environments",
+    "realism_level": "realistic",
+    "avoid_list": ["floating objects", "impossible reflections", "3D stylization"]
+  }
+}
+
+🎨 Illustration Adapter (illustration.json)
+{
+  "media_type": "illustration",
+  "description": "Stylized 2D artwork using color, shape, and simplification for conceptual clarity.",
+  "style_adjustments": {
+    "vocabulary_focus": "graphic forms, vector lighting, symbolic color fields",
+    "lighting_behavior": "flat or simplified lighting with stylized highlights",
+    "surface_behavior": "smooth fills, clean edges, minimal gradients",
+    "color_handling": "vivid palette with clear value separation",
+    "finishing_treatment": "crisp export finish with no grain or photographic texture"
+  },
+  "composition_adjustments": {
+    "camera_perspective": "flat orthographic or minimal isometric",
+    "layout_density": "sparse with generous negative space",
+    "depth_structure": "flat or shallow layered depth",
+    "focus_behavior": "separation via scale and color contrast"
+  },
+  "concept_adjustments": {
+    "visual_metaphor_style": "geometric or symbolic abstractions",
+    "object_constraints": "single or paired flat forms",
+    "realism_level": "stylized",
+    "avoid_list": ["realistic textures", "complex lighting", "photographic realism"]
+  }
+}
+
+🖥️ Product UI Adapter (product_ui.json)
+{
+  "media_type": "product_UI",
+  "description": "Digital interface or data visualization imagery emphasizing clarity, hierarchy, and dimensional layering.",
+  "style_adjustments": {
+    "vocabulary_focus": "interface elements, depth cues, layered translucency",
+    "lighting_behavior": "subtle gradient lighting for depth separation",
+    "surface_behavior": "smooth panels with soft highlights and shadows",
+    "color_handling": "controlled palette with accent hues for focus",
+    "finishing_treatment": "clean compositing with minimal bloom or grain"
+  },
+  "composition_adjustments": {
+    "camera_perspective": "isometric or frontal pseudo-3D",
+    "layout_density": "dense modular grid",
+    "depth_structure": "stacked panels with clear z-index logic",
+    "focus_behavior": "layer prominence and lighting contrast"
+  },
+  "concept_adjustments": {
+    "visual_metaphor_style": "data and UI metaphors—windows, charts, signals",
+    "object_constraints": "multiple layered panels or singular interface view",
+    "realism_level": "digital semi-realism",
+    "avoid_list": ["organic textures", "real-world props", "human figures"]
+  }
+}
+
+🧱 3D Render Adapter (3d_render.json)
+{
+  "media_type": "3D_render",
+  "description": "Physically based, dimensional imagery using materials and lighting for realism or stylized depth.",
+  "style_adjustments": {
+    "vocabulary_focus": "rendering materials, light reflections, cinematic tone",
+    "lighting_behavior": "area and rim lights, volumetric depth, directional glow",
+    "surface_behavior": "matte, glossy, translucent, or emissive surfaces",
+    "color_handling": "balanced palette with luminous accents",
+    "finishing_treatment": "post-render tone mapping, soft bloom, high clarity"
+  },
+  "composition_adjustments": {
+    "camera_perspective": "isometric, oblique, or cinematic",
+    "layout_density": "moderate with sculpted negative space",
+    "depth_structure": "layered objects with parallax",
+    "focus_behavior": "depth of field or lighting-driven emphasis"
+  },
+  "concept_adjustments": {
+    "visual_metaphor_style": "abstract object metaphors using material properties",
+    "object_constraints": "single or paired geometric objects",
+    "realism_level": "stylized physical realism",
+    "avoid_list": ["flat 2D elements", "photographic props", "text overlays"]
+  }
+}
