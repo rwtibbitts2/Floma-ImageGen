@@ -40,6 +40,13 @@ Preferred communication style: Simple, everyday language.
 - Regenerate button allows re-generating concepts after prompt refinement
 - Security fix: sanitized OpenAI responses to prevent API key exposure
 
+**Enhanced Test Concept Regeneration with Full Framework**:
+- Updated regenerate-test-concepts endpoint to accept and utilize the full `conceptFramework` JSON
+- When regenerating concepts, the system now leverages all structured framework fields (subject_approach, representation_style, brand_tone_alignment, visual_devices, ideation_guidelines) for more precise concept generation
+- Frontend StyleWorkspace persists both `conceptFramework` and `compositionFramework` state and includes them in save operations
+- Graceful fallback to text-based prompt if structured framework is not available
+- Enables more consistent and aligned concept generation after prompt refinement
+
 ## System Architecture
 
 ### Core Design Principles
