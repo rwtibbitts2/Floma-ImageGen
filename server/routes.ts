@@ -885,25 +885,52 @@ async function generateImagesAsync(
     let completedImages = 0;
     let failedImages = 0;
 
+    // Fetch media adapter if style has one
+    let mediaAdapter = null;
+    if (style.mediaAdapterId) {
+      try {
+        mediaAdapter = await storage.getMediaAdapterById(style.mediaAdapterId);
+      } catch (error) {
+        console.warn(`Failed to fetch media adapter ${style.mediaAdapterId}, continuing without it:`, error);
+      }
+    }
+
     for (const concept of concepts) {
       for (let variation = 1; variation <= settings.variations; variation++) {
         try {
-          // Build prompt combining all three system prompts + concept
+          // Build prompt combining all three system prompts + media adapter + concept
           const maxPromptLength = 1000;
           
-          // Combine the three prompts into one comprehensive prompt
+          // Combine all three prompts into one comprehensive prompt
           const systemInstructions = [
             style.stylePrompt || '',
             style.compositionPrompt || '',
+            style.conceptPrompt || '',
           ].filter(p => p).join(' ');
+          
+          // Inject media adapter adjustments if available
+          let enhancedInstructions = systemInstructions;
+          if (mediaAdapter) {
+            const adapterAdjustments = [
+              mediaAdapter.vocabularyAdjustments || '',
+              mediaAdapter.lightingAdjustments || '',
+              mediaAdapter.surfaceAdjustments || '',
+              mediaAdapter.conceptualAdjustments || '',
+            ].filter(a => a).join(' ');
+            
+            if (adapterAdjustments) {
+              enhancedInstructions = `${systemInstructions} ${adapterAdjustments}`;
+              console.log(`Applied media adapter "${mediaAdapter.name}" adjustments to prompt`);
+            }
+          }
           
           const templateText = `System instructions:\n\nSubject: ${concept}`;
           const remainingSpace = maxPromptLength - templateText.length;
           
-          let truncatedInstructions = systemInstructions;
-          if (systemInstructions.length > remainingSpace) {
-            truncatedInstructions = systemInstructions.substring(0, remainingSpace - 3) + '...';
-            console.log(`System instructions truncated from ${systemInstructions.length} to ${truncatedInstructions.length} characters`);
+          let truncatedInstructions = enhancedInstructions;
+          if (enhancedInstructions.length > remainingSpace) {
+            truncatedInstructions = enhancedInstructions.substring(0, remainingSpace - 3) + '...';
+            console.log(`System instructions truncated from ${enhancedInstructions.length} to ${truncatedInstructions.length} characters`);
           }
           
           // Construct prompt with system instructions + subject
