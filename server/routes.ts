@@ -1685,25 +1685,25 @@ Instructions:
 
 Output Schema:
 {
-  "concept_prompt_name": "",
-  "description": "",
+  "concept_prompt_name": "A short descriptive name for this concept framework",
+  "description": "1-2 sentences summarizing the overall conceptual approach",
   "concept_framework": {
-    "subject_approach": "Describe the kinds of subjects or objects that fit this aesthetic.",
-    "representation_style": "Explain whether ideas should be depicted literally or metaphorically, and how abstraction works in this style.",
-    "brand_tone_alignment": "Describe the emotional or brand tone that visuals should communicate.",
-    "thematic_scope": "Outline recurring conceptual themes or topics that match the reference style.",
-    "visual_devices": "List the visual tools or patterns used to communicate ideas (e.g., grids, light, color, geometry, repetition).",
-    "ideation_guidelines": "Write direct, imperative instructions for generating new visual concepts that align with this aesthetic."
+    "subject_approach": "1-3 sentences describing the kinds of subjects or objects that fit this aesthetic",
+    "representation_style": "1-3 sentences explaining whether ideas should be depicted literally or metaphorically, and how abstraction works in this style",
+    "brand_tone_alignment": "1-3 sentences describing the emotional or brand tone that visuals should communicate",
+    "thematic_scope": "1-3 sentences outlining recurring conceptual themes or topics that match the reference style",
+    "visual_devices": "1-3 sentences listing the visual tools or patterns used to communicate ideas (e.g., grids, light, color, geometry, repetition)",
+    "ideation_guidelines": "1-3 sentences with direct, imperative instructions for generating new visual concepts that align with this aesthetic"
   },
   "media_specific_adjustments": "${mediaAdapter ? mediaAdapter.conceptualAdjustments : ''}",
   "user_context": "${userContext || ''}",
-  "final_instruction_prompt": "Summarize the entire concept as a single directive, written in second-person imperative"
+  "final_instruction_prompt": "THIS IS THE MOST IMPORTANT FIELD - Write a comprehensive 200-350 word system prompt in second-person imperative that synthesizes all the framework insights above into direct, actionable instructions for an AI image generator. Be detailed and specific. Include all key conceptual guidelines, subject approaches, representation styles, visual devices, and thematic elements. Write as if instructing another AI on exactly how to ideate and generate concepts in this style."
 }
 
 Output Requirements:
 - Always output valid JSON following the above schema.
-- Each string field should contain 1–3 concise sentences.
-- The "final_instruction_prompt" field must summarize the entire concept as a single directive, written in second-person imperative (200-350 words), e.g. "Generate concepts that visualize clarity and organization through minimal geometric forms and rhythmic repetition."`;
+- The concept_framework fields should each be 1-3 concise sentences.
+- The "final_instruction_prompt" field MUST be 200-350 words (approximately 1200-2100 characters) and synthesize all the conceptual insights into comprehensive, actionable instructions written in second-person imperative voice.`;
 
     // Make THREE parallel GPT-4 vision calls
     console.log('=== EXTRACTING THREE PROMPTS IN PARALLEL ===');
