@@ -1538,18 +1538,70 @@ router.post('/extract-style', requireAuth, async (req, res) => {
     // Define the three system prompts for parallel extraction
     // Each analysis should be 200-350 words of focused system instructions
     
-    const styleAnalysisPrompt = `Analyze this reference image and generate a comprehensive SYSTEM PROMPT (200-350 words) that an AI image generator should follow to replicate the visual style.
+    const styleAnalysisPrompt = `You are a visual systems analyst who defines the visual treatment and aesthetic language of brand-aligned imagery.
+Your task is to extract or generate a style framework that describes how an image should look — not what it depicts.
 
-Focus on:
-- Lighting (direction, quality, intensity, mood)
-- Colors (palette, saturation, temperature, harmony)
-- Materials (textures, surface qualities, finish)
-- Rendering style (photorealistic, illustrated, 3D, painterly, etc.)
-- Visual treatment (grain, noise, filters, post-processing)
+Focus exclusively on:
 
-Write in second-person imperative as direct instructions to an AI: "Use soft diffused lighting from the upper left..." "Apply a warm color palette with..." etc.
+Camera setup and spatial perception — how viewpoint, angle, and depth shape the scene.
 
-${userContext ? `User context: ${userContext}` : ''}`;
+Light behavior and tonal atmosphere — how illumination defines mood, contrast, and dimensionality.
+
+Surface and material characteristics — how textures, edges, and finishes interact with light.
+
+Color palette and grading — how hues, temperature, and contrast are balanced.
+
+Finishing treatment — how tone, sharpness, and grain or clarity are refined after capture or rendering.
+
+Overall visual mood — the emotional or atmospheric quality the image conveys.
+
+You may reference archetypes relevant to the brand or medium (e.g., photographic editorial, flat vector illustration, product UI, 3D render), but never describe literal subjects, objects, or text.
+
+Your goal is to produce a reusable style definition that guides consistent image generation or replication across any media type.
+
+${userContext ? `Additional context: ${userContext}\n\n` : ''}Output as JSON:
+
+{
+  "style_name": "",
+  "style_summary": "",
+  "camera": {
+    "type": "",
+    "angle": "",
+    "depth_cues": "",
+    "focal_length_style": ""
+  },
+  "lighting": {
+    "type": "",
+    "direction": "",
+    "intensity": "",
+    "shadow_behavior": "",
+    "ambient_tone": "",
+    "exposure": ""
+  },
+  "surface_behavior": {
+    "finish": "matte | glossy | textured | blended | luminous",
+    "light_interaction": "soft diffusion | hard reflection | painted highlight | screen glow",
+    "edge_behavior": "crisp | rounded | feathered",
+    "detail_treatment": "minimal | tactile | grainy | gradient-based"
+  },
+  "color_treatment": {
+    "palette": ["#RRGGBB"],
+    "temperature": "",
+    "contrast": "",
+    "saturation": "",
+    "grading_style": ""
+  },
+  "finishing_treatment": {
+    "tonal_curve": "",
+    "clarity_or_sharpness": "",
+    "grain_or_texture": "",
+    "vignette_or_falloff": "",
+    "overall_finish": "flat | cinematic | editorial | illustrative"
+  },
+  "mood": "",
+  "media_type_alignment": "3D_render | photographic | illustration | product_UI | hybrid",
+  "complexity_level": "minimal | moderate | detailed"
+}`;
 
     const compositionAnalysisPrompt = `Analyze this reference image and generate a comprehensive SYSTEM PROMPT (200-350 words) that an AI image generator should follow to replicate the spatial composition and layout.
 
@@ -1582,7 +1634,7 @@ ${userContext ? `User context: ${userContext}` : ''}`;
     console.log('=== EXTRACTING THREE PROMPTS IN PARALLEL ===');
     
     const [styleResult, compositionResult, conceptResult] = await Promise.all([
-      // 1. Extract STYLE PROMPT
+      // 1. Extract STYLE PROMPT (JSON format)
       openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -1600,7 +1652,7 @@ ${userContext ? `User context: ${userContext}` : ''}`;
             ]
           }
         ],
-        max_tokens: 500,
+        max_tokens: 1000,
         temperature: 0.7,
       }),
       
