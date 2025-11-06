@@ -25,6 +25,17 @@ Preferred communication style: Simple, everyday language.
   - **Product/UI Design**: Digital interface imagery emphasizing clarity, hierarchy, and layering
 - Enforced single-default adapter invariant: exactly one default adapter at all times through atomic updates
 - Updated extraction endpoint to accept `mediaAdapterId` parameter and inject adapter-specific adjustments into style and concept prompts
+- **UI Implementation**:
+  - Added media adapter selector dropdown in AIStyleExtractorModal with default selection and adapter descriptions
+  - Fixed race conditions in extraction modal to preserve media adapter across create/edit workflows
+  - Created MediaAdaptersManagement page (/media-adapters) with full CRUD interface for admin users
+  - Updated StyleWorkspace to display selected media adapter as badge and detailed card in sidebar
+  - Added media adapter information display showing name, description, and usage context
+- **Runtime Integration**:
+  - Updated image generation endpoint to fetch media adapter at runtime
+  - Modified prompt construction to merge all three core prompts (style, composition, concept)
+  - Injected media adapter adjustments (vocabulary, lighting, surface, conceptual) into final system instructions
+  - Added graceful fallback and logging for adapter retrieval failures
 - Architecture pattern: **Core Prompt + Media Adapter → Final System Prompt**
 
 ### November 4, 2025
