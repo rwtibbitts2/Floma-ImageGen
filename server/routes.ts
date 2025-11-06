@@ -1652,6 +1652,7 @@ ${userContext ? `User context: ${userContext}` : ''}`;
             ]
           }
         ],
+        response_format: { type: "json_object" },
         max_tokens: 1000,
         temperature: 0.7,
       }),
@@ -2127,11 +2128,18 @@ router.post('/generate-new-concept', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Style does not have a concept prompt' });
     }
 
-    // Build style context from the style's aiStyleData for text-only concept generation
+    // Build style context from the style's stylePrompt for text-only concept generation
     let styleContext = '';
-    if (style.aiStyleData) {
-      styleContext = buildStyleContextForConcepts(style.aiStyleData);
-      console.log('Style context for new concept generation:', styleContext);
+    if (style.stylePrompt) {
+      try {
+        // Try to parse as JSON first
+        const styleData = JSON.parse(style.stylePrompt);
+        styleContext = buildStyleContextForConcepts(styleData);
+      } catch {
+        // If not JSON, use the text directly
+        styleContext = style.stylePrompt;
+      }
+      console.log('Style context for new concept generation:', styleContext.substring(0, 200));
     }
 
     // Generate new concept using text-only (no image to avoid safety filters)
