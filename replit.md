@@ -14,6 +14,26 @@ Preferred communication style: Simple, everyday language.
 
 ### November 6, 2025
 
+**Test Concept Generation Feature** - Implemented automatic test concept generation during extraction:
+- Added `testConcepts` jsonb array field to `imageStyles` database schema to store 3 generated concepts
+- Updated `/api/extract-style` endpoint to generate 3 test concepts using the newly created concept prompt
+- Created `/api/regenerate-test-concepts` endpoint for regenerating concepts after prompt refinement
+- Test concepts are generated via 4th GPT-4 API call after extracting the 3 prompts, using concept prompt as system instructions
+- **UI Implementation**:
+  - Added test concepts display card with left/right arrow navigation in AIStyleExtractorModal review step
+  - Added Test Concepts section in StyleWorkspace Concept tab with:
+    - Navigation arrows to browse through 3 concepts (showing "Concept X of 3")
+    - Regenerate button to generate new test concepts using current concept prompt
+    - Concepts help validate that the concept prompt generates appropriate ideas
+- **Security & Persistence**:
+  - Fixed critical security vulnerability: sanitized OpenAI responses to prevent API key exposure in error messages
+  - Fixed persistence issue: testConcepts now properly included in create/update payloads from frontend
+  - Graceful fallback with generic test concepts on JSON parse failure
+- **User Experience**:
+  - During extraction: System automatically generates 3 example concepts for immediate validation
+  - In extraction modal: User can preview concepts with arrow navigation before saving
+  - In workspace: User can view concepts and regenerate them after refining the concept prompt
+
 **Modular Media Adapter System** - Added media-specific adjustment architecture:
 - Created `mediaAdapters` database table with vocabulary, lighting, surface, and conceptual adjustment fields
 - Added `mediaAdapterId` foreign key to `imageStyles` to track which adapter was used during extraction
