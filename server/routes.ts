@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from 'express';
-import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, InsertConceptList, GenerationSettings, generationSettingsSchema, Concept } from '@shared/schema';
+import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, insertMediaAdapterSchema, InsertConceptList, GenerationSettings, generationSettingsSchema, Concept } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI, { toFile } from 'openai';
@@ -1523,6 +1523,7 @@ router.post('/extract-style', requireAuth, async (req, res) => {
     const schema = z.object({
       imageUrl: z.string().min(1),
       userContext: z.string().optional(), // Optional context about what the user wants
+      mediaAdapterId: z.string().optional(), // Media adapter to apply adjustments
     });
 
     const validation = schema.safeParse(req.body);
@@ -1533,10 +1534,22 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       });
     }
 
-    const { imageUrl, userContext } = validation.data;
+    const { imageUrl, userContext, mediaAdapterId } = validation.data;
+
+    // Load media adapter if provided, otherwise use default
+    let mediaAdapter;
+    if (mediaAdapterId) {
+      mediaAdapter = await storage.getMediaAdapterById(mediaAdapterId);
+      if (!mediaAdapter) {
+        return res.status(404).json({ error: 'Media adapter not found' });
+      }
+    } else {
+      // Use default media adapter if none specified
+      mediaAdapter = await storage.getDefaultMediaAdapter();
+    }
 
     // Define the three system prompts for parallel extraction
-    // Each analysis should be 200-350 words of focused system instructions
+    // Inject media adapter adjustments into prompts
     
     const styleAnalysisPrompt = `You are a visual systems analyst who defines the visual treatment and aesthetic language of brand-aligned imagery.
 Your task is to extract or generate a style framework that describes how an image should look — not what it depicts.
@@ -1559,7 +1572,7 @@ You may reference archetypes relevant to the brand or medium (e.g., photographic
 
 Your goal is to produce a reusable style definition that guides consistent image generation or replication across any media type.
 
-${userContext ? `Additional context: ${userContext}\n\n` : ''}Output as JSON:
+${mediaAdapter ? `\n=== MEDIA-SPECIFIC ADJUSTMENTS (${mediaAdapter.name}) ===\n\nVocabulary guidance: ${mediaAdapter.vocabularyAdjustments}\n\nLighting guidance: ${mediaAdapter.lightingAdjustments}\n\nSurface guidance: ${mediaAdapter.surfaceAdjustments}\n\n` : ''}${userContext ? `Additional context: ${userContext}\n\n` : ''}Output as JSON:
 
 {
   "style_name": "",
@@ -1628,7 +1641,7 @@ Focus on:
 
 Write in second-person imperative as direct instructions to an AI: "Generate concepts that use visual metaphors..." "Create subjects that convey..." etc.
 
-${userContext ? `User context: ${userContext}` : ''}`;
+${mediaAdapter ? `\n=== MEDIA-SPECIFIC CONCEPTUAL ADJUSTMENTS (${mediaAdapter.name}) ===\n${mediaAdapter.conceptualAdjustments}\n\n` : ''}${userContext ? `User context: ${userContext}` : ''}`;
 
     // Make THREE parallel GPT-4 vision calls
     console.log('=== EXTRACTING THREE PROMPTS IN PARALLEL ===');
@@ -1713,11 +1726,13 @@ ${userContext ? `User context: ${userContext}` : ''}`;
     console.log('✓ Style Prompt Length:', stylePrompt.length, 'chars');
     console.log('✓ Composition Prompt Length:', compositionPrompt.length, 'chars');
     console.log('✓ Concept Prompt Length:', conceptPrompt.length, 'chars');
+    console.log('✓ Media Adapter:', mediaAdapter?.name || 'None');
     
     res.json({
       stylePrompt,
       compositionPrompt,
-      conceptPrompt
+      conceptPrompt,
+      mediaAdapterId: mediaAdapter?.id || null
     });
   } catch (error) {
     console.error('Error extracting style:', error);
@@ -2606,6 +2621,104 @@ router.delete('/prompts/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting system prompt:', error);
     res.status(500).json({ error: 'Failed to delete system prompt' });
+  }
+});
+
+// Media Adapter Routes
+
+// GET /api/media-adapters - Get all media adapters (Protected)
+router.get('/media-adapters', requireAuth, async (req, res) => {
+  try {
+    const adapters = await storage.getAllMediaAdapters();
+    res.json(adapters);
+  } catch (error) {
+    console.error('Error fetching media adapters:', error);
+    res.status(500).json({ error: 'Failed to fetch media adapters' });
+  }
+});
+
+// GET /api/media-adapters/:id - Get a specific media adapter (Protected)
+router.get('/media-adapters/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adapter = await storage.getMediaAdapterById(id);
+    
+    if (!adapter) {
+      return res.status(404).json({ error: 'Media adapter not found' });
+    }
+    
+    res.json(adapter);
+  } catch (error) {
+    console.error('Error fetching media adapter:', error);
+    res.status(500).json({ error: 'Failed to fetch media adapter' });
+  }
+});
+
+// POST /api/media-adapters - Create a new media adapter (Protected)
+router.post('/media-adapters', requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const validation = insertMediaAdapterSchema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+    
+    const adapter = await storage.createMediaAdapter({
+      ...validation.data,
+      createdBy: userId
+    });
+    
+    res.status(201).json(adapter);
+  } catch (error) {
+    console.error('Error creating media adapter:', error);
+    res.status(500).json({ error: 'Failed to create media adapter' });
+  }
+});
+
+// PATCH /api/media-adapters/:id - Update a media adapter (Protected)
+router.patch('/media-adapters/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validation = insertMediaAdapterSchema.partial().safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+    
+    const adapter = await storage.updateMediaAdapter(id, validation.data);
+    
+    if (!adapter) {
+      return res.status(404).json({ error: 'Media adapter not found' });
+    }
+    
+    res.json(adapter);
+  } catch (error) {
+    console.error('Error updating media adapter:', error);
+    res.status(500).json({ error: 'Failed to update media adapter' });
+  }
+});
+
+// DELETE /api/media-adapters/:id - Delete a media adapter (Protected)
+router.delete('/media-adapters/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteMediaAdapter(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Media adapter not found' });
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting media adapter:', error);
+    res.status(500).json({ error: 'Failed to delete media adapter' });
   }
 });
 

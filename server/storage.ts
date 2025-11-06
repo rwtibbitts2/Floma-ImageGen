@@ -1,7 +1,7 @@
-import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, type SystemPrompt, type InsertSystemPrompt, type ConceptList, type InsertConceptList, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences, systemPrompts, conceptLists } from "@shared/schema";
+import { type ImageStyle, type InsertImageStyle, type GenerationJob, type InsertGenerationJob, type GeneratedImage, type InsertGeneratedImage, type ProjectSession, type InsertProjectSession, type GenerationSettings, type User, type InsertUser, type UserPreferences, type InsertUserPreferences, type SystemPrompt, type InsertSystemPrompt, type ConceptList, type InsertConceptList, type MediaAdapter, type InsertMediaAdapter, imageStyles, generationJobs, generatedImages, projectSessions, users, userPreferences, systemPrompts, conceptLists, mediaAdapters } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db, pool } from "./db";
-import { eq, desc, inArray, and, isNull } from "drizzle-orm";
+import { eq, desc, inArray, and, isNull, ne } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import createMemoryStore from "memorystore";
@@ -71,6 +71,14 @@ export interface IStorage {
   updateSystemPrompt(id: string, updates: Partial<InsertSystemPrompt>): Promise<SystemPrompt | undefined>;
   deleteSystemPrompt(id: string): Promise<boolean>;
   
+  // Media Adapter management
+  getMediaAdapterById(id: string): Promise<MediaAdapter | undefined>;
+  getAllMediaAdapters(): Promise<MediaAdapter[]>;
+  getDefaultMediaAdapter(): Promise<MediaAdapter | undefined>;
+  createMediaAdapter(adapter: InsertMediaAdapter): Promise<MediaAdapter>;
+  updateMediaAdapter(id: string, updates: Partial<InsertMediaAdapter>): Promise<MediaAdapter | undefined>;
+  deleteMediaAdapter(id: string): Promise<boolean>;
+  
   // Concept List management
   getConceptListById(id: string): Promise<ConceptList | undefined>;
   getAllConceptLists(): Promise<ConceptList[]>;
@@ -87,6 +95,7 @@ export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private userPreferences: Map<string, UserPreferences>;
   private systemPrompts: Map<string, SystemPrompt>;
+  private mediaAdapters: Map<string, MediaAdapter>;
   private conceptLists: Map<string, ConceptList>;
   sessionStore: SessionStore;
 
@@ -98,6 +107,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.userPreferences = new Map();
     this.systemPrompts = new Map();
+    this.mediaAdapters = new Map();
     this.conceptLists = new Map();
     
     // Initialize memory session store - From blueprint:javascript_auth_all_persistance
@@ -495,6 +505,73 @@ export class MemStorage implements IStorage {
 
   async deleteSystemPrompt(id: string): Promise<boolean> {
     return this.systemPrompts.delete(id);
+  }
+
+  // Media Adapter methods
+  async getMediaAdapterById(id: string): Promise<MediaAdapter | undefined> {
+    return this.mediaAdapters.get(id);
+  }
+
+  async getAllMediaAdapters(): Promise<MediaAdapter[]> {
+    return Array.from(this.mediaAdapters.values());
+  }
+
+  async getDefaultMediaAdapter(): Promise<MediaAdapter | undefined> {
+    return Array.from(this.mediaAdapters.values()).find(adapter => adapter.isDefault);
+  }
+
+  async createMediaAdapter(insertAdapter: InsertMediaAdapter): Promise<MediaAdapter> {
+    // If setting as default, unset all other defaults
+    if (insertAdapter.isDefault) {
+      for (const [adapterId, adapter] of this.mediaAdapters.entries()) {
+        if (adapter.isDefault) {
+          this.mediaAdapters.set(adapterId, { ...adapter, isDefault: false, updatedAt: new Date() });
+        }
+      }
+    }
+    
+    const id = randomUUID();
+    const adapter: MediaAdapter = {
+      ...insertAdapter,
+      id,
+      description: insertAdapter.description || null,
+      vocabularyAdjustments: insertAdapter.vocabularyAdjustments || null,
+      lightingAdjustments: insertAdapter.lightingAdjustments || null,
+      surfaceAdjustments: insertAdapter.surfaceAdjustments || null,
+      conceptualAdjustments: insertAdapter.conceptualAdjustments || null,
+      isDefault: insertAdapter.isDefault || false,
+      createdBy: insertAdapter.createdBy || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.mediaAdapters.set(id, adapter);
+    return adapter;
+  }
+
+  async updateMediaAdapter(id: string, updates: Partial<InsertMediaAdapter>): Promise<MediaAdapter | undefined> {
+    const adapter = this.mediaAdapters.get(id);
+    if (!adapter) return undefined;
+
+    // If setting as default, unset all other defaults
+    if (updates.isDefault === true) {
+      for (const [adapterId, adapter] of this.mediaAdapters.entries()) {
+        if (adapterId !== id && adapter.isDefault) {
+          this.mediaAdapters.set(adapterId, { ...adapter, isDefault: false, updatedAt: new Date() });
+        }
+      }
+    }
+
+    const updatedAdapter: MediaAdapter = {
+      ...adapter,
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.mediaAdapters.set(id, updatedAdapter);
+    return updatedAdapter;
+  }
+
+  async deleteMediaAdapter(id: string): Promise<boolean> {
+    return this.mediaAdapters.delete(id);
   }
 
   async getConceptListById(id: string): Promise<ConceptList | undefined> {
@@ -1015,6 +1092,99 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Media Adapter methods
+  async getMediaAdapterById(id: string): Promise<MediaAdapter | undefined> {
+    try {
+      const [adapter] = await db
+        .select()
+        .from(mediaAdapters)
+        .where(eq(mediaAdapters.id, id))
+        .limit(1);
+      return adapter;
+    } catch (error) {
+      console.error('Error fetching media adapter by id:', error);
+      return undefined;
+    }
+  }
+
+  async getAllMediaAdapters(): Promise<MediaAdapter[]> {
+    try {
+      return await db.select().from(mediaAdapters).orderBy(desc(mediaAdapters.createdAt));
+    } catch (error) {
+      console.error('Error fetching all media adapters:', error);
+      return [];
+    }
+  }
+
+  async getDefaultMediaAdapter(): Promise<MediaAdapter | undefined> {
+    try {
+      const [adapter] = await db
+        .select()
+        .from(mediaAdapters)
+        .where(eq(mediaAdapters.isDefault, true))
+        .limit(1);
+      return adapter;
+    } catch (error) {
+      console.error('Error fetching default media adapter:', error);
+      return undefined;
+    }
+  }
+
+  async createMediaAdapter(adapter: InsertMediaAdapter): Promise<MediaAdapter> {
+    try {
+      // If setting as default, unset all other defaults first
+      if (adapter.isDefault) {
+        await db
+          .update(mediaAdapters)
+          .set({ isDefault: false, updatedAt: new Date() })
+          .where(eq(mediaAdapters.isDefault, true));
+      }
+      
+      const [created] = await db
+        .insert(mediaAdapters)
+        .values(adapter)
+        .returning();
+      return created;
+    } catch (error) {
+      console.error('Error creating media adapter:', error);
+      throw new Error('Failed to create media adapter');
+    }
+  }
+
+  async updateMediaAdapter(id: string, updates: Partial<InsertMediaAdapter>): Promise<MediaAdapter | undefined> {
+    try {
+      // If setting as default, unset all other defaults first
+      if (updates.isDefault === true) {
+        await db
+          .update(mediaAdapters)
+          .set({ isDefault: false, updatedAt: new Date() })
+          .where(and(eq(mediaAdapters.isDefault, true), ne(mediaAdapters.id, id)));
+      }
+      
+      const [updated] = await db
+        .update(mediaAdapters)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(mediaAdapters.id, id))
+        .returning();
+      return updated;
+    } catch (error) {
+      console.error('Error updating media adapter:', error);
+      return undefined;
+    }
+  }
+
+  async deleteMediaAdapter(id: string): Promise<boolean> {
+    try {
+      await db
+        .delete(mediaAdapters)
+        .where(eq(mediaAdapters.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting media adapter:', error);
+      return false;
+    }
+  }
+
   async getConceptListById(id: string): Promise<ConceptList | undefined> {
     try {
       const [conceptList] = await db
@@ -1124,6 +1294,54 @@ export const storage = new DatabaseStorage();
       await storage.createImageStyle(style);
     }
     console.log('Initialized storage with default image styles');
+  }
+
+  // Seed initial media adapters
+  const existingAdapters = await storage.getAllMediaAdapters();
+  if (existingAdapters.length === 0) {
+    const mediaAdaptersSeed = [
+      {
+        name: 'Photography',
+        description: 'Professional photography with realistic lighting, depth of field, and camera-specific characteristics',
+        vocabularyAdjustments: 'Use photography-specific terms: aperture, bokeh, depth of field, exposure, ISO, shutter speed, lens characteristics, focal length. Avoid illustration terms like "illustration", "drawn", "painted".',
+        lightingAdjustments: 'Describe natural and artificial light sources with photographic precision. Specify lighting ratios, key/fill/rim light placement, golden hour qualities, studio lighting setups. Reference real-world lighting conditions.',
+        surfaceAdjustments: 'Focus on physically accurate material properties: reflectivity, translucency, texture detail captured by camera sensors. Describe how materials interact with light in realistic ways (subsurface scattering, specular highlights, diffuse reflection).',
+        conceptualAdjustments: 'Generate concepts that work as real-world photography subjects. Consider camera angles, composition rules (rule of thirds, leading lines), and what can actually be photographed or staged.',
+        isDefault: true
+      },
+      {
+        name: 'Illustration',
+        description: 'Digital or traditional illustration with artistic interpretation, stylization, and design flexibility',
+        vocabularyAdjustments: 'Use illustration and art terms: brushstrokes, linework, stylized, artistic interpretation, digital painting, hand-drawn. Embrace non-photorealistic descriptors. Avoid photography-specific technical terms.',
+        lightingAdjustments: 'Describe lighting as artistic choices rather than physical accuracy. Use terms like "dramatic shadow shapes", "cel-shaded", "painterly light", "graphic contrast". Lighting can be stylized, impossible, or symbolic.',
+        surfaceAdjustments: 'Focus on artistic rendering techniques: flat colors, gradient fills, texture overlays, pattern work, line art definition. Surfaces can be simplified, exaggerated, or abstracted for visual impact.',
+        conceptualAdjustments: 'Generate concepts that leverage illustration freedoms: impossible perspectives, symbolic representations, exaggerated proportions, fantastical elements. Think in terms of visual metaphors and graphic storytelling.',
+        isDefault: false
+      },
+      {
+        name: '3D Render',
+        description: 'Computer-generated 3D imagery with precise geometric control, perfect lighting, and material rendering',
+        vocabularyAdjustments: 'Use 3D rendering terms: ray tracing, PBR materials, mesh, topology, global illumination, HDRI lighting, normal maps, subsurface scattering. Reference render engines (Arnold, V-Ray, Cycles) when relevant.',
+        lightingAdjustments: 'Describe technical lighting setups: HDRI environments, three-point lighting rigs, area lights, IES profiles. Specify rendering techniques like path tracing, caustics, ambient occlusion. Embrace perfect, controlled lighting impossible in photography.',
+        surfaceAdjustments: 'Focus on shader properties: metallic/roughness values, IOR (index of refraction), normal/bump mapping, displacement. Describe materials with technical precision (0.8 metallic, 0.2 roughness, 1.5 IOR).',
+        conceptualAdjustments: 'Generate concepts optimized for 3D creation: clean geometric forms, product shots, architectural visualization, impossible objects, perfectly clean environments. Consider what benefits from 3D precision and control.',
+        isDefault: false
+      },
+      {
+        name: 'Product/UI Design',
+        description: 'Clean, professional product and interface design with emphasis on clarity, usability, and modern aesthetics',
+        vocabularyAdjustments: 'Use design and UX terms: UI elements, product shots, clean backgrounds, professional presentation, marketing imagery. Focus on clarity and visual hierarchy. Avoid artistic or abstract descriptors.',
+        lightingAdjustments: 'Describe clean, even lighting that showcases products clearly. Studio lighting, soft shadows, minimal drama, white/gradient backgrounds. Lighting should enhance visibility and appeal without dominating the composition.',
+        surfaceAdjustments: 'Focus on pristine, perfect surfaces: clean materials, subtle reflections, professional finish. Products should appear flawless. UI elements should be crisp with clean edges and modern glass/metal effects.',
+        conceptualAdjustments: 'Generate concepts for product marketing and UI presentations: hero shots, feature highlights, app interfaces, product comparisons, lifestyle contexts. Think e-commerce and marketing materials.',
+        isDefault: false
+      }
+    ];
+
+    for (const adapter of mediaAdaptersSeed) {
+      await storage.createMediaAdapter(adapter);
+    }
+    console.log('Initialized storage with default media adapters');
   }
 
   // Create test users for login
