@@ -1,5 +1,5 @@
 // API helper functions for image generation
-import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt, ConceptList, Concept } from '@shared/schema';
+import { ImageStyle, GenerationJob, GeneratedImage, GenerationSettings, ProjectSession, SystemPrompt, ConceptList, Concept, MediaAdapter } from '@shared/schema';
 
 const API_BASE = '/api';
 
@@ -280,6 +280,76 @@ export const duplicateImageStyle = async (id: string): Promise<ImageStyle> => {
     throw new Error('Failed to duplicate image style');
   }
   return response.json();
+};
+
+// Media Adapter API
+export const getMediaAdapters = async (): Promise<MediaAdapter[]> => {
+  const response = await authenticatedFetch(`${API_BASE}/media-adapters`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch media adapters');
+  }
+  return response.json();
+};
+
+export const getMediaAdapter = async (id: string): Promise<MediaAdapter> => {
+  const response = await authenticatedFetch(`${API_BASE}/media-adapters/${id}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch media adapter');
+  }
+  return response.json();
+};
+
+export const createMediaAdapter = async (adapter: {
+  name: string;
+  description?: string;
+  vocabularyAdjustments?: string;
+  lightingAdjustments?: string;
+  surfaceAdjustments?: string;
+  conceptualAdjustments?: string;
+  isDefault?: boolean;
+}): Promise<MediaAdapter> => {
+  const response = await authenticatedFetch(`${API_BASE}/media-adapters`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(adapter),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create media adapter');
+  }
+  return response.json();
+};
+
+export const updateMediaAdapter = async (id: string, adapter: Partial<{
+  name: string;
+  description?: string;
+  vocabularyAdjustments?: string;
+  lightingAdjustments?: string;
+  surfaceAdjustments?: string;
+  conceptualAdjustments?: string;
+  isDefault?: boolean;
+}>): Promise<MediaAdapter> => {
+  const response = await authenticatedFetch(`${API_BASE}/media-adapters/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(adapter),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update media adapter');
+  }
+  return response.json();
+};
+
+export const deleteMediaAdapter = async (id: string): Promise<void> => {
+  const response = await authenticatedFetch(`${API_BASE}/media-adapters/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete media adapter');
+  }
 };
 
 // Generation Job API

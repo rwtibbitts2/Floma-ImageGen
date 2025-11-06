@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import {
   Dialog,
@@ -14,10 +14,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Upload,
   X,
   Sparkles,
   Loader2,
+  Info,
 } from 'lucide-react';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
@@ -40,15 +48,33 @@ export default function AIStyleExtractorModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [userContext, setUserContext] = useState('');
+  const [selectedMediaAdapterId, setSelectedMediaAdapterId] = useState<string>('');
   const [extractedStylePrompt, setExtractedStylePrompt] = useState('');
   const [extractedCompositionPrompt, setExtractedCompositionPrompt] = useState('');
   const [extractedConceptPrompt, setExtractedConceptPrompt] = useState('');
+  const [extractedMediaAdapterId, setExtractedMediaAdapterId] = useState<string | null>(null);
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+
+  // Fetch media adapters
+  const { data: mediaAdapters, isLoading: isLoadingAdapters } = useQuery({
+    queryKey: ['/api/media-adapters'],
+    queryFn: api.getMediaAdapters,
+  });
+
+  // Set default adapter when adapters load (only if not editing)
+  useEffect(() => {
+    if (mediaAdapters && mediaAdapters.length > 0 && !selectedMediaAdapterId && !editingStyle) {
+      const defaultAdapter = mediaAdapters.find(a => a.isDefault);
+      if (defaultAdapter) {
+        setSelectedMediaAdapterId(defaultAdapter.id);
+      }
+    }
+  }, [mediaAdapters, selectedMediaAdapterId, editingStyle]);
 
   // Initialize editing mode
   useEffect(() => {
@@ -58,8 +84,21 @@ export default function AIStyleExtractorModal({
       setExtractedStylePrompt(editingStyle.stylePrompt || '');
       setExtractedCompositionPrompt(editingStyle.compositionPrompt || '');
       setExtractedConceptPrompt(editingStyle.conceptPrompt || '');
+      
+      // Initialize media adapter from editing style
+      if (editingStyle.mediaAdapterId) {
+        setSelectedMediaAdapterId(editingStyle.mediaAdapterId);
+        setExtractedMediaAdapterId(editingStyle.mediaAdapterId);
+      } else if (mediaAdapters && mediaAdapters.length > 0) {
+        // Fallback to default adapter if style has no adapter set
+        const defaultAdapter = mediaAdapters.find(a => a.isDefault);
+        if (defaultAdapter) {
+          setSelectedMediaAdapterId(defaultAdapter.id);
+          setExtractedMediaAdapterId(defaultAdapter.id);
+        }
+      }
     }
-  }, [editingStyle, isOpen]);
+  }, [editingStyle, isOpen, mediaAdapters]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -98,6 +137,7 @@ export default function AIStyleExtractorModal({
         body: JSON.stringify({
           imageUrl: referenceImageUrl,
           userContext: userContext || undefined,
+          mediaAdapterId: selectedMediaAdapterId || undefined,
         }),
       });
       if (!response.ok) throw new Error('Style extraction failed');
@@ -113,6 +153,7 @@ export default function AIStyleExtractorModal({
         compositionPrompt: extractedCompositionPrompt,
         conceptPrompt: extractedConceptPrompt,
         referenceImageUrl,
+        mediaAdapterId: extractedMediaAdapterId,
         isAiExtracted: true,
       };
 
@@ -170,6 +211,7 @@ export default function AIStyleExtractorModal({
       setExtractedStylePrompt(result.stylePrompt);
       setExtractedCompositionPrompt(result.compositionPrompt);
       setExtractedConceptPrompt(result.conceptPrompt);
+      setExtractedMediaAdapterId(result.mediaAdapterId || null);
       
       // Save and navigate directly to workspace (skip preview)
       const stylePayload = {
@@ -178,6 +220,7 @@ export default function AIStyleExtractorModal({
         compositionPrompt: result.compositionPrompt,
         conceptPrompt: result.conceptPrompt,
         referenceImageUrl,
+        mediaAdapterId: result.mediaAdapterId || null,
         isAiExtracted: true,
       };
 
@@ -235,9 +278,11 @@ export default function AIStyleExtractorModal({
     setSelectedFile(null);
     setPreviewUrl('');
     setUserContext('');
+    setSelectedMediaAdapterId('');
     setExtractedStylePrompt('');
     setExtractedCompositionPrompt('');
     setExtractedConceptPrompt('');
+    setExtractedMediaAdapterId(null);
     setReferenceImageUrl('');
     onClose();
   };
@@ -325,64 +370,96 @@ export default function AIStyleExtractorModal({
     </div>
   );
 
-  const renderConfigureStep = () => (
-    <div className="space-y-6">
-      {referenceImageUrl && (
-        <div className="space-y-2">
-          <Label>Reference Image</Label>
-          <div 
-            className="aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
-            onClick={() => setZoomedImageUrl(referenceImageUrl)}
-          >
-            <img
-              src={referenceImageUrl}
-              alt="Reference"
-              className="w-full h-full object-cover"
-              data-testid="img-reference-final"
-            />
+  const renderConfigureStep = () => {
+    const selectedAdapter = mediaAdapters?.find(a => a.id === selectedMediaAdapterId);
+    
+    return (
+      <div className="space-y-6">
+        {referenceImageUrl && (
+          <div className="space-y-2">
+            <Label>Reference Image</Label>
+            <div 
+              className="aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setZoomedImageUrl(referenceImageUrl)}
+            >
+              <img
+                src={referenceImageUrl}
+                alt="Reference"
+                className="w-full h-full object-cover"
+                data-testid="img-reference-final"
+              />
+            </div>
           </div>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="media-adapter">Media Type</Label>
+          <Select 
+            value={selectedMediaAdapterId} 
+            onValueChange={setSelectedMediaAdapterId}
+            disabled={isLoadingAdapters}
+          >
+            <SelectTrigger id="media-adapter" data-testid="select-media-adapter">
+              <SelectValue placeholder="Select media type" />
+            </SelectTrigger>
+            <SelectContent>
+              {mediaAdapters?.map((adapter) => (
+                <SelectItem key={adapter.id} value={adapter.id} data-testid={`option-adapter-${adapter.name.toLowerCase().replace(/\s+/g, '-')}`}>
+                  {adapter.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedAdapter && (
+            <div className="flex gap-2 items-start p-3 bg-muted/50 rounded-lg border text-sm">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+              <p className="text-muted-foreground">
+                {selectedAdapter.description}
+              </p>
+            </div>
+          )}
         </div>
-      )}
 
-      <div className="p-4 bg-muted/50 rounded-lg border">
-        <p className="text-sm text-muted-foreground">
-          The AI will analyze your reference image and extract three distinct prompts: 
-          Style (visual elements), Composition (spatial layout), and Concept (subject generation).
-        </p>
-      </div>
+        <div className="p-4 bg-muted/50 rounded-lg border">
+          <p className="text-sm text-muted-foreground">
+            The AI will analyze your reference image and extract three distinct prompts: 
+            Style (visual elements), Composition (spatial layout), and Concept (subject generation).
+          </p>
+        </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="user-context">Additional Context (Optional)</Label>
-        <Textarea
-          id="user-context"
-          value={userContext}
-          onChange={(e) => setUserContext(e.target.value)}
-          rows={3}
-          placeholder='e.g., "Focus on the lighting and color palette, ignore the background"'
-          className="resize-none"
-          data-testid="textarea-user-context"
-        />
-        <p className="text-xs text-muted-foreground">
-          Provide any specific guidance for the AI during style extraction
-        </p>
-      </div>
+        <div className="space-y-2">
+          <Label htmlFor="user-context">Additional Context (Optional)</Label>
+          <Textarea
+            id="user-context"
+            value={userContext}
+            onChange={(e) => setUserContext(e.target.value)}
+            rows={3}
+            placeholder='e.g., "Focus on the lighting and color palette, ignore the background"'
+            className="resize-none"
+            data-testid="textarea-user-context"
+          />
+          <p className="text-xs text-muted-foreground">
+            Provide any specific guidance for the AI during style extraction
+          </p>
+        </div>
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={handleClose} className="flex-1">
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleExtractStyle}
-          disabled={extractStyleMutation.isPending}
-          className="flex-1 gap-2"
-          data-testid="button-extract-style"
-        >
-          <Sparkles className="w-4 h-4" />
-          Extract Style
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handleClose} className="flex-1">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleExtractStyle}
+            disabled={extractStyleMutation.isPending || !selectedMediaAdapterId}
+            className="flex-1 gap-2"
+            data-testid="button-extract-style"
+          >
+            <Sparkles className="w-4 h-4" />
+            Extract Style
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderExtractStep = () => (
     <div className="text-center space-y-6 py-8">
