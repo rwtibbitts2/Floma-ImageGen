@@ -1657,18 +1657,53 @@ Write in second-person imperative as direct instructions to an AI: "Frame the su
 
 ${userContext ? `User context: ${userContext}` : ''}`;
 
-    const conceptAnalysisPrompt = `Analyze this reference image and generate a comprehensive SYSTEM PROMPT (200-350 words) that an AI should follow for concept ideation and subject generation.
+    const conceptAnalysisPrompt = `🧠 System Prompt: Concept System Prompt Generator
 
-Focus on:
-- Subject matter approach (what kinds of subjects work well)
-- Metaphorical vs literal representation style
-- Brand tone and messaging approach
-- Conceptual themes and ideas that fit the style
-- How to generate creative concepts that match this aesthetic
+Role:
+You are a visual systems analyst and concept strategist.
+Your task is to analyze a reference image and generate a structured Concept System Prompt — a reusable framework that defines how an AI should ideate and describe visual subjects consistent with the reference's aesthetic.
 
-Write in second-person imperative as direct instructions to an AI: "Generate concepts that use visual metaphors..." "Create subjects that convey..." etc.
+Task Definition:
+You are not describing the image content.
+You are extracting the conceptual design language — how ideas are represented, what subject matter fits the style, and how to generate new concepts that feel true to the same tone and structure.
 
-${mediaAdapter ? `\n=== MEDIA-SPECIFIC CONCEPTUAL ADJUSTMENTS (${mediaAdapter.name}) ===\n${mediaAdapter.conceptualAdjustments}\n\n` : ''}${userContext ? `User context: ${userContext}` : ''}`;
+Your goal is to produce a structured JSON output that defines:
+- What types of subjects belong in this world
+- How metaphor and abstraction operate
+- What tone, emotion, and brand energy are conveyed
+- What conceptual or thematic ideas can be visualized
+- How to generate creative concepts aligned with this aesthetic
+
+Instructions:
+1. Analyze visual grammar: form, rhythm, texture, abstraction, and symbolic logic.
+2. Extract the underlying conceptual DNA — not literal content.
+3. Write as if defining instructions for another AI that will later ideate subjects in this style.
+4. Use descriptive yet concise language for each field.
+5. Produce only the JSON output below — no commentary or explanation.
+6. Write in a neutral but directive tone (imperative, instructional).
+7. Output length target for each section: brief but complete, readable in production systems.
+
+Output Schema:
+{
+  "concept_prompt_name": "",
+  "description": "",
+  "concept_framework": {
+    "subject_approach": "Describe the kinds of subjects or objects that fit this aesthetic.",
+    "representation_style": "Explain whether ideas should be depicted literally or metaphorically, and how abstraction works in this style.",
+    "brand_tone_alignment": "Describe the emotional or brand tone that visuals should communicate.",
+    "thematic_scope": "Outline recurring conceptual themes or topics that match the reference style.",
+    "visual_devices": "List the visual tools or patterns used to communicate ideas (e.g., grids, light, color, geometry, repetition).",
+    "ideation_guidelines": "Write direct, imperative instructions for generating new visual concepts that align with this aesthetic."
+  },
+  "media_specific_adjustments": "${mediaAdapter ? mediaAdapter.conceptualAdjustments : ''}",
+  "user_context": "${userContext || ''}",
+  "final_instruction_prompt": "Summarize the entire concept as a single directive, written in second-person imperative"
+}
+
+Output Requirements:
+- Always output valid JSON following the above schema.
+- Each string field should contain 1–3 concise sentences.
+- The "final_instruction_prompt" field must summarize the entire concept as a single directive, written in second-person imperative (200-350 words), e.g. "Generate concepts that visualize clarity and organization through minimal geometric forms and rhythmic repetition."`;
 
     // Make THREE parallel GPT-4 vision calls
     console.log('=== EXTRACTING THREE PROMPTS IN PARALLEL ===');
@@ -1719,7 +1754,7 @@ ${mediaAdapter ? `\n=== MEDIA-SPECIFIC CONCEPTUAL ADJUSTMENTS (${mediaAdapter.na
         temperature: 0.7,
       }),
       
-      // 3. Extract CONCEPT PROMPT
+      // 3. Extract CONCEPT PROMPT (JSON format)
       openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -1737,14 +1772,26 @@ ${mediaAdapter ? `\n=== MEDIA-SPECIFIC CONCEPTUAL ADJUSTMENTS (${mediaAdapter.na
             ]
           }
         ],
-        max_tokens: 500,
+        response_format: { type: "json_object" },
+        max_tokens: 1500,
         temperature: 0.7,
       })
     ]);
 
     const stylePrompt = styleResult.choices[0]?.message?.content?.trim();
     const compositionPrompt = compositionResult.choices[0]?.message?.content?.trim();
-    const conceptPrompt = conceptResult.choices[0]?.message?.content?.trim();
+    const conceptResultRaw = conceptResult.choices[0]?.message?.content?.trim();
+    
+    // Parse the concept JSON response and extract final_instruction_prompt
+    let conceptPrompt: string;
+    try {
+      const conceptJson = JSON.parse(conceptResultRaw || '{}');
+      conceptPrompt = conceptJson.final_instruction_prompt || conceptResultRaw || '';
+      console.log('✓ Parsed concept framework with name:', conceptJson.concept_prompt_name || 'N/A');
+    } catch (parseError) {
+      console.warn('Failed to parse concept JSON, using raw response');
+      conceptPrompt = conceptResultRaw || '';
+    }
     
     if (!stylePrompt || !compositionPrompt || !conceptPrompt) {
       throw new Error('Failed to generate all three prompts from OpenAI');
