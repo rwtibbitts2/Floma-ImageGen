@@ -16,13 +16,29 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login"),
 });
 
+// Media Adapters - for media-specific prompt adjustments
+export const mediaAdapters = pgTable("media_adapters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  vocabularyAdjustments: text("vocabulary_adjustments"), // Specific terminology to use/avoid for this media type
+  lightingAdjustments: text("lighting_adjustments"), // Lighting-specific rules and considerations
+  surfaceAdjustments: text("surface_adjustments"), // Surface behavior rules for this media type
+  conceptualAdjustments: text("conceptual_adjustments"), // Concept generation rules specific to this media
+  isDefault: boolean("is_default").default(false),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Image Style Configuration
 export const imageStyles = pgTable("image_styles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  stylePrompt: text("style_prompt"), // System prompt for visual style (lighting, colors, materials)
-  compositionPrompt: text("composition_prompt"), // System prompt for spatial composition (layout, perspective, depth)
-  conceptPrompt: text("concept_prompt"), // System prompt for concept generation (metaphors, subject ideation)
+  stylePrompt: text("style_prompt"), // Core system prompt for visual style (lighting, colors, materials)
+  compositionPrompt: text("composition_prompt"), // Core system prompt for spatial composition (layout, perspective, depth)
+  conceptPrompt: text("concept_prompt"), // Core system prompt for concept generation (metaphors, subject ideation)
+  mediaAdapterId: varchar("media_adapter_id").references(() => mediaAdapters.id), // Media-specific adapter to merge with core prompts
   referenceImageUrl: text("reference_image_url"), // URL to reference image in object storage
   isAiExtracted: boolean("is_ai_extracted").default(false), // Track if style was AI-extracted
   previewImageUrl: text("preview_image_url"), // URL to preview image generated during extraction
@@ -132,6 +148,7 @@ export const visualConceptsSchema = z.array(z.string().min(1));
 
 // Insert Schemas - From blueprint:javascript_auth_all_persistance  
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true, lastLogin: true });
+export const insertMediaAdapterSchema = createInsertSchema(mediaAdapters).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertImageStyleSchema = createInsertSchema(imageStyles).omit({ id: true, createdAt: true });
 export const insertGenerationJobSchema = createInsertSchema(generationJobs).omit({ id: true, createdAt: true, status: true, progress: true });
 export const insertGeneratedImageSchema = createInsertSchema(generatedImages).omit({ id: true, createdAt: true, status: true });
@@ -147,6 +164,15 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   generatedImages: many(generatedImages),
   conceptLists: many(conceptLists),
   preferences: one(userPreferences),
+  mediaAdapters: many(mediaAdapters),
+}));
+
+export const mediaAdaptersRelations = relations(mediaAdapters, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [mediaAdapters.createdBy],
+    references: [users.id],
+  }),
+  imageStyles: many(imageStyles),
 }));
 
 export const imageStylesRelations = relations(imageStyles, ({ many, one }) => ({
@@ -154,6 +180,10 @@ export const imageStylesRelations = relations(imageStyles, ({ many, one }) => ({
   createdBy: one(users, {
     fields: [imageStyles.createdBy],
     references: [users.id],
+  }),
+  mediaAdapter: one(mediaAdapters, {
+    fields: [imageStyles.mediaAdapterId],
+    references: [mediaAdapters.id],
   }),
 }));
 
@@ -234,6 +264,8 @@ export const conceptListsRelations = relations(conceptLists, ({ one }) => ({
 export type GenerationSettings = z.infer<typeof generationSettingsSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type MediaAdapter = typeof mediaAdapters.$inferSelect;
+export type InsertMediaAdapter = z.infer<typeof insertMediaAdapterSchema>;
 export type ImageStyle = typeof imageStyles.$inferSelect;
 export type InsertImageStyle = z.infer<typeof insertImageStyleSchema>;
 export type GenerationJob = typeof generationJobs.$inferSelect;
