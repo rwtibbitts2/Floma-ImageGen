@@ -170,11 +170,36 @@ export default function AIStyleExtractorModal({
       setExtractedStylePrompt(result.stylePrompt);
       setExtractedCompositionPrompt(result.compositionPrompt);
       setExtractedConceptPrompt(result.conceptPrompt);
-      setStep('review');
+      
+      // Save and navigate directly to workspace (skip preview)
+      const stylePayload = {
+        name: editingStyle?.name || 'AI Extracted Style',
+        stylePrompt: result.stylePrompt,
+        compositionPrompt: result.compositionPrompt,
+        conceptPrompt: result.conceptPrompt,
+        referenceImageUrl,
+        isAiExtracted: true,
+      };
+
+      const savedStyle = editingStyle 
+        ? await api.updateImageStyle(editingStyle.id, stylePayload)
+        : await api.createImageStyle(stylePayload);
+      
+      setLocation(`/workspace?id=${savedStyle.id}`);
+      
+      setTimeout(() => {
+        onStyleSaved();
+        handleClose();
+        toast({
+          title: 'Style Extracted!',
+          description: 'Your style has been saved and opened in the workspace.'
+        });
+      }, 100);
+      
     } catch (error) {
       toast({
         title: 'Extraction Failed',
-        description: 'Failed to extract style from the image. Please try again.',
+        description: 'Failed to extract and save style. Please try again.',
         variant: 'destructive'
       });
       setStep('configure');

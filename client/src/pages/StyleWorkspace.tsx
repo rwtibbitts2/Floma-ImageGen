@@ -381,7 +381,15 @@ export default function StyleWorkspace() {
                   <Label className="text-sm font-medium">Current style definition</Label>
                   {(() => {
                     try {
-                      const styleData = JSON.parse(stylePrompt);
+                      // Strip markdown code blocks if present
+                      let cleanedPrompt = stylePrompt.trim();
+                      if (cleanedPrompt.startsWith('```json')) {
+                        cleanedPrompt = cleanedPrompt.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+                      } else if (cleanedPrompt.startsWith('```')) {
+                        cleanedPrompt = cleanedPrompt.replace(/```\s*/g, '').replace(/```/g, '').trim();
+                      }
+                      
+                      const styleData = JSON.parse(cleanedPrompt);
                       return (
                         <div className="bg-muted rounded-lg p-4 space-y-4 max-h-96 overflow-y-auto" data-testid="style-structured-view">
                           {styleData.style_name && (
