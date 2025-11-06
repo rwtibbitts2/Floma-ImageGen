@@ -1825,10 +1825,12 @@ Output Requirements:
     const compositionResultRaw = compositionResult.choices[0]?.message?.content?.trim();
     const conceptResultRaw = conceptResult.choices[0]?.message?.content?.trim();
     
-    // Parse the composition JSON response and extract final_instruction_prompt
+    // Parse the composition JSON response and extract both the framework and final_instruction_prompt
     let compositionPrompt: string;
+    let compositionFramework: Record<string, any> | null = null;
     try {
       const compositionJson = JSON.parse(compositionResultRaw || '{}');
+      compositionFramework = compositionJson;
       compositionPrompt = compositionJson.final_instruction_prompt || compositionResultRaw || '';
       console.log('✓ Parsed composition framework with name:', compositionJson.composition_prompt_name || 'N/A');
     } catch (parseError) {
@@ -1836,10 +1838,12 @@ Output Requirements:
       compositionPrompt = compositionResultRaw || '';
     }
     
-    // Parse the concept JSON response and extract final_instruction_prompt
+    // Parse the concept JSON response and extract both the framework and final_instruction_prompt
     let conceptPrompt: string;
+    let conceptFramework: Record<string, any> | null = null;
     try {
       const conceptJson = JSON.parse(conceptResultRaw || '{}');
+      conceptFramework = conceptJson;
       conceptPrompt = conceptJson.final_instruction_prompt || conceptResultRaw || '';
       console.log('✓ Parsed concept framework with name:', conceptJson.concept_prompt_name || 'N/A');
     } catch (parseError) {
@@ -1856,10 +1860,27 @@ Output Requirements:
     console.log('✓ Concept Prompt Length:', conceptPrompt.length, 'chars');
     console.log('✓ Media Adapter:', mediaAdapter?.name || 'None');
     
-    // Generate 3 test concepts using the concept prompt
+    // Generate 3 test concepts using the full concept framework
     console.log('=== GENERATING TEST CONCEPTS ===');
     
-    const testConceptSystemPrompt = `${conceptPrompt}
+    // Use the full conceptFramework JSON for more detailed concept generation
+    const testConceptSystemPrompt = conceptFramework 
+      ? `You are generating visual concepts based on the following structured framework:
+
+${JSON.stringify(conceptFramework, null, 2)}
+
+Follow ALL the guidelines in the concept_framework, especially:
+- Subject approach: ${conceptFramework.concept_framework?.subject_approach || ''}
+- Representation style: ${conceptFramework.concept_framework?.representation_style || ''}
+- Brand tone alignment: ${conceptFramework.concept_framework?.brand_tone_alignment || ''}
+- Visual devices: ${conceptFramework.concept_framework?.visual_devices || ''}
+- Ideation guidelines: ${conceptFramework.concept_framework?.ideation_guidelines || ''}
+
+IMPORTANT OUTPUT FORMAT:
+Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
+Example format: ["Concept 1 description", "Concept 2 description", "Concept 3 description"]
+Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`
+      : `${conceptPrompt}
 
 IMPORTANT OUTPUT FORMAT:
 Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
@@ -1903,6 +1924,8 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
       stylePrompt,
       compositionPrompt,
       conceptPrompt,
+      compositionFramework,
+      conceptFramework,
       mediaAdapterId: mediaAdapter?.id || null,
       testConcepts
     });

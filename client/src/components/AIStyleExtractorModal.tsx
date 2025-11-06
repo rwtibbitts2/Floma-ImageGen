@@ -228,6 +228,8 @@ export default function AIStyleExtractorModal({
         stylePrompt: result.stylePrompt,
         compositionPrompt: result.compositionPrompt,
         conceptPrompt: result.conceptPrompt,
+        compositionFramework: result.compositionFramework || undefined,
+        conceptFramework: result.conceptFramework || undefined,
         referenceImageUrl,
         mediaAdapterId: result.mediaAdapterId || null,
         testConcepts: result.testConcepts || undefined,
