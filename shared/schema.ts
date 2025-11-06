@@ -42,6 +42,7 @@ export const imageStyles = pgTable("image_styles", {
   referenceImageUrl: text("reference_image_url"), // URL to reference image in object storage
   isAiExtracted: boolean("is_ai_extracted").default(false), // Track if style was AI-extracted
   previewImageUrl: text("preview_image_url"), // URL to preview image generated during extraction
+  testConcepts: jsonb("test_concepts").$type<string[]>(), // 3 test concepts generated during extraction
   createdAt: timestamp("created_at").defaultNow(),
   createdBy: varchar("created_by").references(() => users.id), // Optional: track who created the style
 });

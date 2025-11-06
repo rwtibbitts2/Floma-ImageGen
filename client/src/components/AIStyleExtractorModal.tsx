@@ -26,6 +26,8 @@ import {
   Sparkles,
   Loader2,
   Info,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
@@ -55,6 +57,8 @@ export default function AIStyleExtractorModal({
   const [extractedMediaAdapterId, setExtractedMediaAdapterId] = useState<string | null>(null);
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
+  const [testConcepts, setTestConcepts] = useState<string[]>([]);
+  const [currentConceptIndex, setCurrentConceptIndex] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -84,6 +88,8 @@ export default function AIStyleExtractorModal({
       setExtractedStylePrompt(editingStyle.stylePrompt || '');
       setExtractedCompositionPrompt(editingStyle.compositionPrompt || '');
       setExtractedConceptPrompt(editingStyle.conceptPrompt || '');
+      setTestConcepts(editingStyle.testConcepts || []);
+      setCurrentConceptIndex(0);
       
       // Initialize media adapter from editing style
       if (editingStyle.mediaAdapterId) {
@@ -154,6 +160,7 @@ export default function AIStyleExtractorModal({
         conceptPrompt: extractedConceptPrompt,
         referenceImageUrl,
         mediaAdapterId: extractedMediaAdapterId,
+        testConcepts: testConcepts.length > 0 ? testConcepts : undefined,
         isAiExtracted: true,
       };
 
@@ -212,6 +219,8 @@ export default function AIStyleExtractorModal({
       setExtractedCompositionPrompt(result.compositionPrompt);
       setExtractedConceptPrompt(result.conceptPrompt);
       setExtractedMediaAdapterId(result.mediaAdapterId || null);
+      setTestConcepts(result.testConcepts || []);
+      setCurrentConceptIndex(0);
       
       // Save and navigate directly to workspace (skip preview)
       const stylePayload = {
@@ -221,6 +230,7 @@ export default function AIStyleExtractorModal({
         conceptPrompt: result.conceptPrompt,
         referenceImageUrl,
         mediaAdapterId: result.mediaAdapterId || null,
+        testConcepts: result.testConcepts || undefined,
         isAiExtracted: true,
       };
 
@@ -548,6 +558,46 @@ export default function AIStyleExtractorModal({
             </p>
           </CardContent>
         </Card>
+
+        {testConcepts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Test Concepts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentConceptIndex((prev) => Math.max(0, prev - 1))}
+                    disabled={currentConceptIndex === 0}
+                    data-testid="button-prev-concept"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="flex-1 p-3 bg-muted rounded-md min-h-[60px] flex items-center">
+                    <p className="text-sm" data-testid="text-test-concept">
+                      {testConcepts[currentConceptIndex]}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentConceptIndex((prev) => Math.min(testConcepts.length - 1, prev + 1))}
+                    disabled={currentConceptIndex === testConcepts.length - 1}
+                    data-testid="button-next-concept"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Concept {currentConceptIndex + 1} of {testConcepts.length}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="flex gap-3">

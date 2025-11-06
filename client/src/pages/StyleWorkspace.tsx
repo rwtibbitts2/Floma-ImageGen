@@ -18,7 +18,9 @@ import {
   Image as ImageIcon,
   Settings,
   Layers,
-  Info
+  Info,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageStyle } from '@shared/schema';
@@ -49,6 +51,8 @@ export default function StyleWorkspace() {
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [generatedConcept, setGeneratedConcept] = useState('');
+  const [testConcepts, setTestConcepts] = useState<string[]>([]);
+  const [currentConceptIndex, setCurrentConceptIndex] = useState(0);
   
   // Refinement feedback state (per tab)
   const [styleFeedback, setStyleFeedback] = useState('');
@@ -90,6 +94,8 @@ export default function StyleWorkspace() {
       setConceptPrompt(style.conceptPrompt || '');
       setPreviewImageUrl(style.previewImageUrl || '');
       setReferenceImageUrl(style.referenceImageUrl || '');
+      setTestConcepts(style.testConcepts || []);
+      setCurrentConceptIndex(0);
       setGeneratedConcept('A creative concept for preview'); // Default concept
     }
   }, [style]);
@@ -106,6 +112,7 @@ export default function StyleWorkspace() {
         conceptPrompt,
         previewImageUrl,
         referenceImageUrl,
+        testConcepts: testConcepts.length > 0 ? testConcepts : undefined,
       };
       
       return api.updateImageStyle(styleId, updateData);
@@ -119,6 +126,44 @@ export default function StyleWorkspace() {
         queryClient.invalidateQueries({ queryKey: ['imageStyle', styleId] });
       }
       queryClient.invalidateQueries({ queryKey: ['imageStyles'] });
+    },
+  });
+
+  // Regenerate test concepts mutation
+  const regenerateConceptsMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem('authToken');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch('/api/regenerate-test-concepts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          conceptPrompt,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to regenerate test concepts');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTestConcepts(data.testConcepts || []);
+      setCurrentConceptIndex(0);
+      toast({
+        title: 'Test concepts regenerated',
+        description: 'Successfully generated new test concepts',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Regeneration failed',
+        description: 'Failed to regenerate test concepts',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -625,6 +670,63 @@ export default function StyleWorkspace() {
                     data-testid="textarea-concept-prompt"
                   />
                 </div>
+
+                {testConcepts.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Test Concepts</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => regenerateConceptsMutation.mutate()}
+                        disabled={regenerateConceptsMutation.isPending}
+                        className="gap-2"
+                        data-testid="button-regenerate-concepts"
+                      >
+                        {regenerateConceptsMutation.isPending ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-3 h-3" />
+                            Regenerate
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCurrentConceptIndex((prev) => Math.max(0, prev - 1))}
+                        disabled={currentConceptIndex === 0}
+                        data-testid="button-prev-concept"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <div className="flex-1 p-3 bg-muted rounded-md min-h-[60px] flex items-center">
+                        <p className="text-sm" data-testid="text-test-concept">
+                          {testConcepts[currentConceptIndex]}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCurrentConceptIndex((prev) => Math.min(testConcepts.length - 1, prev + 1))}
+                        disabled={currentConceptIndex === testConcepts.length - 1}
+                        data-testid="button-next-concept"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Concept {currentConceptIndex + 1} of {testConcepts.length}
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Refinement feedback</Label>
                   <Textarea

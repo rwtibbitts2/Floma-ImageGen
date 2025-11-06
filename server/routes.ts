@@ -1755,15 +1755,126 @@ ${mediaAdapter ? `\n=== MEDIA-SPECIFIC CONCEPTUAL ADJUSTMENTS (${mediaAdapter.na
     console.log('✓ Concept Prompt Length:', conceptPrompt.length, 'chars');
     console.log('✓ Media Adapter:', mediaAdapter?.name || 'None');
     
+    // Generate 3 test concepts using the concept prompt
+    console.log('=== GENERATING TEST CONCEPTS ===');
+    
+    const testConceptSystemPrompt = `${conceptPrompt}
+
+IMPORTANT OUTPUT FORMAT:
+Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
+Example format: ["Concept 1 description", "Concept 2 description", "Concept 3 description"]
+Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
+
+    const testConceptUserMessage = userContext 
+      ? `Generate 3 diverse visual concepts that align with this context: ${userContext}`
+      : 'Generate 3 diverse visual concepts that showcase the style and composition approach.';
+
+    const testConceptCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: testConceptSystemPrompt },
+        { role: "user", content: testConceptUserMessage }
+      ],
+      temperature: 0.8,
+      max_tokens: 300,
+    });
+
+    let testConcepts: string[] = [];
+    try {
+      let responseText = testConceptCompletion.choices[0]?.message?.content || '[]';
+      responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      
+      const parsed = JSON.parse(responseText);
+      if (Array.isArray(parsed) && parsed.length >= 3) {
+        testConcepts = parsed.slice(0, 3).map(c => typeof c === 'string' ? c : String(c));
+      }
+      console.log('✓ Generated test concepts:', testConcepts.length);
+    } catch (parseError) {
+      console.warn('Failed to parse test concepts, using fallbacks');
+      testConcepts = [
+        'A minimalist composition showcasing the extracted visual style',
+        'An abstract representation using the identified compositional principles',
+        'A conceptual interpretation following the generated guidelines'
+      ];
+    }
+    
     res.json({
       stylePrompt,
       compositionPrompt,
       conceptPrompt,
-      mediaAdapterId: mediaAdapter?.id || null
+      mediaAdapterId: mediaAdapter?.id || null,
+      testConcepts
     });
   } catch (error) {
     console.error('Error extracting style:', error);
     res.status(500).json({ error: 'Failed to extract style from image' });
+  }
+});
+
+// POST /api/regenerate-test-concepts - Regenerate test concepts for a concept prompt (Protected)
+router.post('/regenerate-test-concepts', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      conceptPrompt: z.string().min(1),
+      userContext: z.string().optional(),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+
+    const { conceptPrompt, userContext } = validation.data;
+
+    console.log('=== REGENERATING TEST CONCEPTS ===');
+    
+    const testConceptSystemPrompt = `${conceptPrompt}
+
+IMPORTANT OUTPUT FORMAT:
+Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
+Example format: ["Concept 1 description", "Concept 2 description", "Concept 3 description"]
+Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
+
+    const testConceptUserMessage = userContext 
+      ? `Generate 3 diverse visual concepts that align with this context: ${userContext}`
+      : 'Generate 3 diverse visual concepts that showcase the style and composition approach.';
+
+    const testConceptCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: testConceptSystemPrompt },
+        { role: "user", content: testConceptUserMessage }
+      ],
+      temperature: 0.8,
+      max_tokens: 300,
+    });
+
+    let testConcepts: string[] = [];
+    try {
+      let responseText = testConceptCompletion.choices[0]?.message?.content || '[]';
+      responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      
+      const parsed = JSON.parse(responseText);
+      if (Array.isArray(parsed) && parsed.length >= 3) {
+        testConcepts = parsed.slice(0, 3).map(c => typeof c === 'string' ? c : String(c));
+      }
+      console.log('✓ Regenerated test concepts:', testConcepts.length);
+    } catch (parseError) {
+      console.warn('Failed to parse test concepts, using fallbacks');
+      testConcepts = [
+        'A minimalist composition showcasing the extracted visual style',
+        'An abstract representation using the identified compositional principles',
+        'A conceptual interpretation following the generated guidelines'
+      ];
+    }
+    
+    res.json({ testConcepts });
+  } catch (error) {
+    console.error('Error regenerating test concepts:', error);
+    res.status(500).json({ error: 'Failed to regenerate test concepts' });
   }
 });
 
