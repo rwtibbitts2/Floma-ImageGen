@@ -8,6 +8,38 @@ This enterprise-grade batch image generation application, built with React and E
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### November 6, 2025
+
+**Structured JSON Prompt Extraction System** - Updated composition and concept extraction to use comprehensive JSON schemas:
+
+**Composition Prompt Enhancement**:
+- Replaced simple text-based composition extraction with structured JSON schema approach
+- Extracts detailed composition framework with 10 specialized fields: subject archetype, frame geometry, camera/perspective, spatial balance, focal structure, directional flow, depth/layers, negative space/density, motion/energy, and arrangement guidelines
+- Each framework field provides 1-3 sentences of focused analysis
+- Final output: comprehensive 200-350 word `final_instruction_prompt` synthesizing all compositional insights
+
+**Concept Prompt Enhancement**:
+- Replaced simple text-based concept extraction with comprehensive JSON schema approach  
+- Extracts detailed concept framework with 6 specialized fields: subject approach, representation style, brand tone alignment, thematic scope, visual devices, and ideation guidelines
+- Each framework field provides 1-3 sentences of focused analysis
+- Final output: comprehensive 200-350 word `final_instruction_prompt` synthesizing all conceptual insights
+
+**Technical Implementation**:
+- Both prompts use `response_format: { type: "json_object" }` for structured GPT-4 output
+- Increased max_tokens to 1500 to accommodate comprehensive JSON responses
+- Robust JSON parsing extracts `final_instruction_prompt` field as the stored prompt
+- Graceful fallbacks if JSON parsing fails
+- Framework names logged for debugging and validation
+
+**Test Concept Generation Feature**:
+- Added `testConcepts` jsonb array field to `imageStyles` database schema
+- Automatically generates 3 test concepts during extraction using the concept prompt
+- Test concepts displayed with navigation in extraction modal and workspace
+- Regenerate button allows re-generating concepts after prompt refinement
+- Security fix: sanitized OpenAI responses to prevent API key exposure
+
 ## System Architecture
 
 ### Core Design Principles

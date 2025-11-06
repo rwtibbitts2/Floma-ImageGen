@@ -1643,19 +1643,61 @@ ${mediaAdapter ? `\n=== MEDIA-SPECIFIC ADJUSTMENTS (${mediaAdapter.name}) ===\n\
   "complexity_level": "minimal | moderate | detailed"
 }`;
 
-    const compositionAnalysisPrompt = `Analyze this reference image and generate a comprehensive SYSTEM PROMPT (200-350 words) that an AI image generator should follow to replicate the spatial composition and layout.
+    const compositionAnalysisPrompt = `📐 System Prompt: Composition System Prompt Generator
 
-Focus on:
-- Layout and arrangement (rule of thirds, golden ratio, centered, asymmetric, etc.)
-- Perspective (camera angle, viewpoint, depth of field)
-- Depth and layering (foreground, midground, background separation)
-- Balance and weight distribution
-- Framing and cropping approach
-- Negative space usage
+Role:
+You are a visual composition analyst and spatial design expert.
+Your task is to analyze a reference image and generate a structured Composition System Prompt — a reusable framework that defines how an AI should organize and structure visual elements consistent with the reference's spatial logic.
 
-Write in second-person imperative as direct instructions to an AI: "Frame the subject using the rule of thirds..." "Create depth by..." etc.
+Task Definition:
+You are not describing the literal image content.
+You are extracting the compositional architecture — how space is organized, how elements are arranged, and how to structure new visuals that maintain the same spatial relationships and visual flow.
 
-${userContext ? `User context: ${userContext}` : ''}`;
+Your goal is to produce a structured JSON output that defines:
+- Subject archetypes and scene structures
+- Frame geometry and compositional grids
+- Camera angles and perspective approaches
+- Spatial balance and weight distribution
+- Focal structures and visual hierarchy
+- Directional flow and eye movement patterns
+- Depth cues and layering strategies
+- Negative space and density rhythms
+- Motion, energy, and visual rhythm
+- Arrangement guidelines for new compositions
+
+Instructions:
+1. Analyze spatial logic: balance, rhythm, perspective, hierarchy, and flow.
+2. Extract the underlying compositional DNA — not literal content.
+3. Write as if defining instructions for another AI that will later compose visuals in this style.
+4. Use descriptive yet concise language for each field.
+5. Produce only the JSON output below — no commentary or explanation.
+6. Write in a neutral but directive tone (imperative, instructional).
+
+Output Schema:
+{
+  "composition_prompt_name": "A short descriptive name for this compositional framework",
+  "description": "1-2 sentences summarizing the overall spatial approach",
+  "composition_framework": {
+    "subject_archetype": "1-3 sentences describing the visual archetype or general scene structure (e.g., UI dashboard, product layout, abstract geometry)",
+    "frame_geometry": "1-3 sentences describing framing, aspect ratio tendencies, and compositional grid logic",
+    "camera_and_perspective": "1-3 sentences explaining camera angle, viewpoint, and perceived depth or layering",
+    "spatial_balance": "1-3 sentences explaining symmetry, weight distribution, and equilibrium strategies",
+    "focal_structure": "1-3 sentences describing how focal zones and hierarchy are established (centralized, distributed, cascading)",
+    "directional_flow": "1-3 sentences explaining how the viewer's eye moves through the composition (diagonal, circular, static)",
+    "depth_and_layers": "1-3 sentences describing depth cues, layering, or overlap between elements",
+    "negative_space_and_density": "1-3 sentences explaining how empty space and clustering are used to define rhythm or tension",
+    "motion_or_energy": "1-3 sentences describing the implied sense of movement, stillness, or visual rhythm",
+    "arrangement_guidelines": "1-3 sentences providing imperative rules for how new subjects should be composed to align with this structure"
+  },
+  "media_specific_adjustments": "",
+  "user_context": "${userContext || ''}",
+  "final_instruction_prompt": "THIS IS THE MOST IMPORTANT FIELD - Write a comprehensive 200-350 word system prompt in second-person imperative that synthesizes all the framework insights above into direct, actionable instructions for an AI image generator. Be detailed and specific. Include all key compositional guidelines, spatial approaches, balance strategies, focal structures, and arrangement principles. Write as if instructing another AI on exactly how to structure and compose visuals in this style."
+}
+
+Output Requirements:
+- Always output valid JSON following the above schema.
+- The composition_framework fields should each be 1-3 concise sentences.
+- The "final_instruction_prompt" field MUST be 200-350 words (approximately 1200-2100 characters) and synthesize all the compositional insights into comprehensive, actionable instructions written in second-person imperative voice.`;
 
     const conceptAnalysisPrompt = `🧠 System Prompt: Concept System Prompt Generator
 
@@ -1732,7 +1774,7 @@ Output Requirements:
         temperature: 0.7,
       }),
       
-      // 2. Extract COMPOSITION PROMPT
+      // 2. Extract COMPOSITION PROMPT (JSON format)
       openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -1750,7 +1792,8 @@ Output Requirements:
             ]
           }
         ],
-        max_tokens: 500,
+        response_format: { type: "json_object" },
+        max_tokens: 1500,
         temperature: 0.7,
       }),
       
@@ -1779,8 +1822,19 @@ Output Requirements:
     ]);
 
     const stylePrompt = styleResult.choices[0]?.message?.content?.trim();
-    const compositionPrompt = compositionResult.choices[0]?.message?.content?.trim();
+    const compositionResultRaw = compositionResult.choices[0]?.message?.content?.trim();
     const conceptResultRaw = conceptResult.choices[0]?.message?.content?.trim();
+    
+    // Parse the composition JSON response and extract final_instruction_prompt
+    let compositionPrompt: string;
+    try {
+      const compositionJson = JSON.parse(compositionResultRaw || '{}');
+      compositionPrompt = compositionJson.final_instruction_prompt || compositionResultRaw || '';
+      console.log('✓ Parsed composition framework with name:', compositionJson.composition_prompt_name || 'N/A');
+    } catch (parseError) {
+      console.warn('Failed to parse composition JSON, using raw response');
+      compositionPrompt = compositionResultRaw || '';
+    }
     
     // Parse the concept JSON response and extract final_instruction_prompt
     let conceptPrompt: string;
