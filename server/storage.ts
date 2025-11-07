@@ -490,7 +490,7 @@ export class MemStorage implements IStorage {
       ...insertPrompt,
       id,
       description: insertPrompt.description || null,
-      isDefault: insertPrompt.isDefault || false,
+      isActive: insertPrompt.isActive ?? true,
       createdBy: insertPrompt.createdBy || null,
       createdAt: new Date(),
       updatedAt: new Date()

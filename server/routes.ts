@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI, { toFile } from 'openai';
 import { nanoid } from 'nanoid';
-import { setupAuth, requireAuth } from './auth'; // From blueprint:javascript_auth_all_persistance
+import { setupAuth, requireAuth, requireAdmin } from './auth'; // From blueprint:javascript_auth_all_persistance
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
@@ -2999,6 +2999,152 @@ router.delete('/media-adapters/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting media adapter:', error);
     res.status(500).json({ error: 'Failed to delete media adapter' });
+  }
+});
+
+// System Prompts Routes - Admin-only routes for managing extraction prompts
+
+// GET /api/system-prompts - Get all system prompts (Admin only)
+router.get('/system-prompts', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const prompts = await storage.getAllSystemPrompts();
+    res.json(prompts);
+  } catch (error) {
+    console.error('Error fetching system prompts:', error);
+    res.status(500).json({ error: 'Failed to fetch system prompts' });
+  }
+});
+
+// GET /api/system-prompts/:id - Get a specific system prompt (Admin only)
+router.get('/system-prompts/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const prompt = await storage.getSystemPromptById(id);
+    
+    if (!prompt) {
+      return res.status(404).json({ error: 'System prompt not found' });
+    }
+    
+    res.json(prompt);
+  } catch (error) {
+    console.error('Error fetching system prompt:', error);
+    res.status(500).json({ error: 'Failed to fetch system prompt' });
+  }
+});
+
+// GET /api/system-prompts/type/:promptType - Get prompts by type (Admin only)
+router.get('/system-prompts/type/:promptType', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { promptType } = req.params;
+    const prompts = await storage.getSystemPromptsByType(promptType as any);
+    res.json(prompts);
+  } catch (error) {
+    console.error('Error fetching system prompts by type:', error);
+    res.status(500).json({ error: 'Failed to fetch system prompts' });
+  }
+});
+
+// GET /api/system-prompts/active/:promptType - Get active prompt for a type (Protected)
+router.get('/system-prompts/active/:promptType', requireAuth, async (req, res) => {
+  try {
+    const { promptType } = req.params;
+    const prompt = await storage.getActiveSystemPromptByType(promptType as any);
+    
+    if (!prompt) {
+      return res.status(404).json({ error: 'No active prompt found for this type' });
+    }
+    
+    res.json(prompt);
+  } catch (error) {
+    console.error('Error fetching active system prompt:', error);
+    res.status(500).json({ error: 'Failed to fetch active system prompt' });
+  }
+});
+
+// POST /api/system-prompts - Create a new system prompt (Admin only)
+router.post('/system-prompts', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const validation = insertSystemPromptSchema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+    
+    const prompt = await storage.createSystemPrompt({
+      ...validation.data,
+      createdBy: userId
+    });
+    
+    res.status(201).json(prompt);
+  } catch (error) {
+    console.error('Error creating system prompt:', error);
+    res.status(500).json({ error: 'Failed to create system prompt' });
+  }
+});
+
+// PUT /api/system-prompts/:id - Update a system prompt (Admin only)
+router.put('/system-prompts/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validation = insertSystemPromptSchema.partial().safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: fromZodError(validation.error).toString()
+      });
+    }
+    
+    const updated = await storage.updateSystemPrompt(id, validation.data);
+    
+    if (!updated) {
+      return res.status(404).json({ error: 'System prompt not found' });
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating system prompt:', error);
+    res.status(500).json({ error: 'Failed to update system prompt' });
+  }
+});
+
+// PUT /api/system-prompts/:id/activate - Set a prompt as active for its type (Admin only)
+router.put('/system-prompts/:id/activate', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const prompt = await storage.getSystemPromptById(id);
+    
+    if (!prompt) {
+      return res.status(404).json({ error: 'System prompt not found' });
+    }
+    
+    await storage.setActiveSystemPrompt(id, prompt.promptType);
+    
+    res.json({ message: 'Prompt activated successfully' });
+  } catch (error) {
+    console.error('Error activating system prompt:', error);
+    res.status(500).json({ error: 'Failed to activate system prompt' });
+  }
+});
+
+// DELETE /api/system-prompts/:id - Delete a system prompt (Admin only)
+router.delete('/system-prompts/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await storage.deleteSystemPrompt(id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'System prompt not found' });
+    }
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting system prompt:', error);
+    res.status(500).json({ error: 'Failed to delete system prompt' });
   }
 });
 
