@@ -65,11 +65,12 @@ export interface IStorage {
   // System Prompts management
   getSystemPromptById(id: string): Promise<SystemPrompt | undefined>;
   getAllSystemPrompts(): Promise<SystemPrompt[]>;
-  getSystemPromptsByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt[]>;
-  getDefaultSystemPromptByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt | undefined>;
+  getSystemPromptsByType(promptType: SystemPrompt['promptType']): Promise<SystemPrompt[]>;
+  getActiveSystemPromptByType(promptType: SystemPrompt['promptType']): Promise<SystemPrompt | undefined>;
   createSystemPrompt(prompt: InsertSystemPrompt): Promise<SystemPrompt>;
   updateSystemPrompt(id: string, updates: Partial<InsertSystemPrompt>): Promise<SystemPrompt | undefined>;
   deleteSystemPrompt(id: string): Promise<boolean>;
+  setActiveSystemPrompt(id: string, promptType: SystemPrompt['promptType']): Promise<void>;
   
   // Media Adapter management
   getMediaAdapterById(id: string): Promise<MediaAdapter | undefined>;
@@ -467,12 +468,20 @@ export class MemStorage implements IStorage {
     return Array.from(this.systemPrompts.values());
   }
 
-  async getSystemPromptsByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt[]> {
-    return Array.from(this.systemPrompts.values()).filter(prompt => prompt.category === category);
+  async getSystemPromptsByType(promptType: SystemPrompt['promptType']): Promise<SystemPrompt[]> {
+    return Array.from(this.systemPrompts.values()).filter(prompt => prompt.promptType === promptType);
   }
 
-  async getDefaultSystemPromptByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt | undefined> {
-    return Array.from(this.systemPrompts.values()).find(prompt => prompt.category === category && prompt.isDefault);
+  async getActiveSystemPromptByType(promptType: SystemPrompt['promptType']): Promise<SystemPrompt | undefined> {
+    return Array.from(this.systemPrompts.values()).find(prompt => prompt.promptType === promptType && prompt.isActive);
+  }
+  
+  async setActiveSystemPrompt(id: string, promptType: SystemPrompt['promptType']): Promise<void> {
+    this.systemPrompts.forEach(prompt => {
+      if (prompt.promptType === promptType) {
+        prompt.isActive = prompt.id === id;
+      }
+    });
   }
 
   async createSystemPrompt(insertPrompt: InsertSystemPrompt): Promise<SystemPrompt> {
@@ -1027,29 +1036,48 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getSystemPromptsByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt[]> {
+  async getSystemPromptsByType(promptType: SystemPrompt['promptType']): Promise<SystemPrompt[]> {
     try {
       return await db
         .select()
         .from(systemPrompts)
-        .where(eq(systemPrompts.category, category));
+        .where(eq(systemPrompts.promptType, promptType));
     } catch (error) {
-      console.error('Error fetching system prompts by category:', error);
+      console.error('Error fetching system prompts by type:', error);
       return [];
     }
   }
 
-  async getDefaultSystemPromptByCategory(category: "style_extraction" | "concept_generation"): Promise<SystemPrompt | undefined> {
+  async getActiveSystemPromptByType(promptType: SystemPrompt['promptType']): Promise<SystemPrompt | undefined> {
     try {
       const [prompt] = await db
         .select()
         .from(systemPrompts)
-        .where(and(eq(systemPrompts.category, category), eq(systemPrompts.isDefault, true)))
+        .where(and(eq(systemPrompts.promptType, promptType), eq(systemPrompts.isActive, true)))
         .limit(1);
       return prompt;
     } catch (error) {
-      console.error('Error fetching default system prompt:', error);
+      console.error('Error fetching active system prompt:', error);
       return undefined;
+    }
+  }
+  
+  async setActiveSystemPrompt(id: string, promptType: SystemPrompt['promptType']): Promise<void> {
+    try {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(systemPrompts)
+          .set({ isActive: false })
+          .where(eq(systemPrompts.promptType, promptType));
+        
+        await tx
+          .update(systemPrompts)
+          .set({ isActive: true })
+          .where(eq(systemPrompts.id, id));
+      });
+    } catch (error) {
+      console.error('Error setting active system prompt:', error);
+      throw error;
     }
   }
 
