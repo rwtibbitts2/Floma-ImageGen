@@ -15,6 +15,7 @@ import ConceptManagement from "@/pages/ConceptManagement";
 import ConceptWorkspace from "@/pages/ConceptWorkspace";
 import MediaAdaptersManagement from "@/pages/MediaAdaptersManagement";
 import AdminPanel from "@/pages/AdminPanel";
+import SystemPromptsManagement from "@/pages/SystemPromptsManagement";
 import NotFound from "@/pages/not-found";
 import LoginForm from "@/components/LoginForm";
 
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/workspace" component={StyleWorkspace} />
       <Route path="/media-adapters" component={MediaAdaptersManagement} />
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/system-prompts" component={SystemPromptsManagement} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

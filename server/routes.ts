@@ -1575,177 +1575,34 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       mediaAdapter = await storage.getDefaultMediaAdapter();
     }
 
-    // Define the three system prompts for parallel extraction
-    // Inject media adapter adjustments into prompts
+    // Load active system prompts from database
+    const [stylePromptTemplate, compositionPromptTemplate, conceptPromptTemplate] = await Promise.all([
+      storage.getActiveSystemPromptByType('style_extraction_instructions'),
+      storage.getActiveSystemPromptByType('composition_extraction_instructions'),
+      storage.getActiveSystemPromptByType('concept_extraction_schema'),
+    ]);
+
+    if (!stylePromptTemplate || !compositionPromptTemplate || !conceptPromptTemplate) {
+      return res.status(500).json({ error: 'Required system prompts not found in database' });
+    }
+
+    // Build the final prompts by appending media adapter and user context sections
+    let styleAnalysisPrompt = stylePromptTemplate.promptText;
+    let compositionAnalysisPrompt = compositionPromptTemplate.promptText;
+    let conceptAnalysisPrompt = conceptPromptTemplate.promptText;
     
-    const styleAnalysisPrompt = `You are a visual systems analyst who defines the visual treatment and aesthetic language of brand-aligned imagery.
-Your task is to extract or generate a style framework that describes how an image should look — not what it depicts.
-
-Focus exclusively on:
-
-Camera setup and spatial perception — how viewpoint, angle, and depth shape the scene.
-
-Light behavior and tonal atmosphere — how illumination defines mood, contrast, and dimensionality.
-
-Surface and material characteristics — how textures, edges, and finishes interact with light.
-
-Color palette and grading — how hues, temperature, and contrast are balanced.
-
-Finishing treatment — how tone, sharpness, and grain or clarity are refined after capture or rendering.
-
-Overall visual mood — the emotional or atmospheric quality the image conveys.
-
-You may reference archetypes relevant to the brand or medium (e.g., photographic editorial, flat vector illustration, product UI, 3D render), but never describe literal subjects, objects, or text.
-
-Your goal is to produce a reusable style definition that guides consistent image generation or replication across any media type.
-
-${mediaAdapter ? `\n=== MEDIA-SPECIFIC ADJUSTMENTS (${mediaAdapter.name}) ===\n\nVocabulary guidance: ${mediaAdapter.vocabularyAdjustments}\n\nLighting guidance: ${mediaAdapter.lightingAdjustments}\n\nSurface guidance: ${mediaAdapter.surfaceAdjustments}\n\n` : ''}${userContext ? `Additional context: ${userContext}\n\n` : ''}Output as JSON:
-
-{
-  "style_name": "",
-  "style_summary": "",
-  "camera": {
-    "type": "",
-    "angle": "",
-    "depth_cues": "",
-    "focal_length_style": ""
-  },
-  "lighting": {
-    "type": "",
-    "direction": "",
-    "intensity": "",
-    "shadow_behavior": "",
-    "ambient_tone": "",
-    "exposure": ""
-  },
-  "surface_behavior": {
-    "finish": "matte | glossy | textured | blended | luminous",
-    "light_interaction": "soft diffusion | hard reflection | painted highlight | screen glow",
-    "edge_behavior": "crisp | rounded | feathered",
-    "detail_treatment": "minimal | tactile | grainy | gradient-based"
-  },
-  "color_treatment": {
-    "palette": ["#RRGGBB"],
-    "temperature": "",
-    "contrast": "",
-    "saturation": "",
-    "grading_style": ""
-  },
-  "finishing_treatment": {
-    "tonal_curve": "",
-    "clarity_or_sharpness": "",
-    "grain_or_texture": "",
-    "vignette_or_falloff": "",
-    "overall_finish": "flat | cinematic | editorial | illustrative"
-  },
-  "mood": "",
-  "media_type_alignment": "3D_render | photographic | illustration | product_UI | hybrid",
-  "complexity_level": "minimal | moderate | detailed"
-}`;
-
-    const compositionAnalysisPrompt = `📐 System Prompt: Composition System Prompt Generator
-
-Role:
-You are a visual composition analyst and spatial design expert.
-Your task is to analyze a reference image and generate a structured Composition System Prompt — a reusable framework that defines how an AI should organize and structure visual elements consistent with the reference's spatial logic.
-
-Task Definition:
-You are not describing the literal image content.
-You are extracting the compositional architecture — how space is organized, how elements are arranged, and how to structure new visuals that maintain the same spatial relationships and visual flow.
-
-Your goal is to produce a structured JSON output that defines:
-- Subject archetypes and scene structures
-- Frame geometry and compositional grids
-- Camera angles and perspective approaches
-- Spatial balance and weight distribution
-- Focal structures and visual hierarchy
-- Directional flow and eye movement patterns
-- Depth cues and layering strategies
-- Negative space and density rhythms
-- Motion, energy, and visual rhythm
-- Arrangement guidelines for new compositions
-
-Instructions:
-1. Analyze spatial logic: balance, rhythm, perspective, hierarchy, and flow.
-2. Extract the underlying compositional DNA — not literal content.
-3. Write as if defining instructions for another AI that will later compose visuals in this style.
-4. Use descriptive yet concise language for each field.
-5. Produce only the JSON output below — no commentary or explanation.
-6. Write in a neutral but directive tone (imperative, instructional).
-
-Output Schema:
-{
-  "composition_prompt_name": "A short descriptive name for this compositional framework",
-  "description": "1-2 sentences summarizing the overall spatial approach",
-  "composition_framework": {
-    "subject_archetype": "1-3 sentences describing the visual archetype or general scene structure (e.g., UI dashboard, product layout, abstract geometry)",
-    "frame_geometry": "1-3 sentences describing framing, aspect ratio tendencies, and compositional grid logic",
-    "camera_and_perspective": "1-3 sentences explaining camera angle, viewpoint, and perceived depth or layering",
-    "spatial_balance": "1-3 sentences explaining symmetry, weight distribution, and equilibrium strategies",
-    "focal_structure": "1-3 sentences describing how focal zones and hierarchy are established (centralized, distributed, cascading)",
-    "directional_flow": "1-3 sentences explaining how the viewer's eye moves through the composition (diagonal, circular, static)",
-    "depth_and_layers": "1-3 sentences describing depth cues, layering, or overlap between elements",
-    "negative_space_and_density": "1-3 sentences explaining how empty space and clustering are used to define rhythm or tension",
-    "motion_or_energy": "1-3 sentences describing the implied sense of movement, stillness, or visual rhythm",
-    "arrangement_guidelines": "1-3 sentences providing imperative rules for how new subjects should be composed to align with this structure"
-  },
-  "media_specific_adjustments": "",
-  "user_context": "${userContext || ''}",
-  "final_instruction_prompt": "THIS IS THE MOST IMPORTANT FIELD - Write a comprehensive 200-350 word system prompt in second-person imperative that synthesizes all the framework insights above into direct, actionable instructions for an AI image generator. Be detailed and specific. Include all key compositional guidelines, spatial approaches, balance strategies, focal structures, and arrangement principles. Write as if instructing another AI on exactly how to structure and compose visuals in this style."
-}
-
-Output Requirements:
-- Always output valid JSON following the above schema.
-- The composition_framework fields should each be 1-3 concise sentences.
-- The "final_instruction_prompt" field MUST be 200-350 words (approximately 1200-2100 characters) and synthesize all the compositional insights into comprehensive, actionable instructions written in second-person imperative voice.`;
-
-    const conceptAnalysisPrompt = `🧠 System Prompt: Concept System Prompt Generator
-
-Role:
-You are a visual systems analyst and concept strategist.
-Your task is to analyze a reference image and generate a structured Concept System Prompt — a reusable framework that defines how an AI should ideate and describe visual subjects consistent with the reference's aesthetic.
-
-Task Definition:
-You are not describing the image content.
-You are extracting the conceptual design language — how ideas are represented, what subject matter fits the style, and how to generate new concepts that feel true to the same tone and structure.
-
-Your goal is to produce a structured JSON output that defines:
-- What types of subjects belong in this world
-- How metaphor and abstraction operate
-- What tone, emotion, and brand energy are conveyed
-- What conceptual or thematic ideas can be visualized
-- How to generate creative concepts aligned with this aesthetic
-
-Instructions:
-1. Analyze visual grammar: form, rhythm, texture, abstraction, and symbolic logic.
-2. Extract the underlying conceptual DNA — not literal content.
-3. Write as if defining instructions for another AI that will later ideate subjects in this style.
-4. Use descriptive yet concise language for each field.
-5. Produce only the JSON output below — no commentary or explanation.
-6. Write in a neutral but directive tone (imperative, instructional).
-7. Output length target for each section: brief but complete, readable in production systems.
-
-Output Schema:
-{
-  "concept_prompt_name": "A short descriptive name for this concept framework",
-  "description": "1-2 sentences summarizing the overall conceptual approach",
-  "concept_framework": {
-    "subject_approach": "1-3 sentences describing the kinds of subjects or objects that fit this aesthetic",
-    "representation_style": "1-3 sentences explaining whether ideas should be depicted literally or metaphorically, and how abstraction works in this style",
-    "brand_tone_alignment": "1-3 sentences describing the emotional or brand tone that visuals should communicate",
-    "thematic_scope": "1-3 sentences outlining recurring conceptual themes or topics that match the reference style",
-    "visual_devices": "1-3 sentences listing the visual tools or patterns used to communicate ideas (e.g., grids, light, color, geometry, repetition)",
-    "ideation_guidelines": "1-3 sentences with direct, imperative instructions for generating new visual concepts that align with this aesthetic"
-  },
-  "media_specific_adjustments": "${mediaAdapter ? mediaAdapter.conceptualAdjustments : ''}",
-  "user_context": "${userContext || ''}",
-  "final_instruction_prompt": "THIS IS THE MOST IMPORTANT FIELD - Write a comprehensive 200-350 word system prompt in second-person imperative that synthesizes all the framework insights above into direct, actionable instructions for an AI image generator. Be detailed and specific. Include all key conceptual guidelines, subject approaches, representation styles, visual devices, and thematic elements. Write as if instructing another AI on exactly how to ideate and generate concepts in this style."
-}
-
-Output Requirements:
-- Always output valid JSON following the above schema.
-- The concept_framework fields should each be 1-3 concise sentences.
-- The "final_instruction_prompt" field MUST be 200-350 words (approximately 1200-2100 characters) and synthesize all the conceptual insights into comprehensive, actionable instructions written in second-person imperative voice.`;
+    // Append media adapter adjustments to style prompt if available
+    if (mediaAdapter) {
+      styleAnalysisPrompt += `\n\n=== MEDIA-SPECIFIC ADJUSTMENTS (${mediaAdapter.name}) ===\n\nVocabulary guidance: ${mediaAdapter.vocabularyAdjustments}\n\nLighting guidance: ${mediaAdapter.lightingAdjustments}\n\nSurface guidance: ${mediaAdapter.surfaceAdjustments}\n\n`;
+      conceptAnalysisPrompt += `\n\nMedia-Specific Conceptual Adjustments: ${mediaAdapter.conceptualAdjustments}\n\n`;
+    }
+    
+    // Append user context to all prompts if provided
+    if (userContext) {
+      styleAnalysisPrompt += `\nAdditional context: ${userContext}\n\n`;
+      compositionAnalysisPrompt += `\nAdditional context: ${userContext}\n\n`;
+      conceptAnalysisPrompt += `\nAdditional context: ${userContext}\n\n`;
+    }
 
     // Make THREE parallel GPT-4 vision calls
     console.log('=== EXTRACTING THREE PROMPTS IN PARALLEL ===');

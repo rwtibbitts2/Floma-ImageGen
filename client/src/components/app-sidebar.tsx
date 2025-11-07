@@ -48,6 +48,11 @@ const adminItems = [
     icon: Layers,
   },
   {
+    title: "System Prompts",
+    url: "/system-prompts",
+    icon: FileText,
+  },
+  {
     title: "Admin Panel",
     url: "/admin",
     icon: Settings,
