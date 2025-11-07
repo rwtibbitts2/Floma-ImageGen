@@ -10,6 +10,44 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 7, 2025
+
+**Componentized System Prompts Architecture** - Migrated from hardcoded prompts to database-backed system with admin management:
+
+**Database Schema**:
+- Added `systemPrompts` table with granular prompt type categorization
+- 7 prompt types: style_extraction_instructions, style_extraction_schema, composition_extraction_instructions, composition_extraction_schema, concept_extraction_instructions, concept_extraction_schema, test_concept_generation
+- Each prompt has name, description, promptText, isActive flag, and audit fields (createdBy, createdAt, updatedAt)
+- Single-active constraint: only one prompt per type can be active at a time
+
+**Storage Layer**:
+- Full CRUD operations for system prompts with type-safe interfaces
+- `setActiveSystemPrompt` uses database transactions to atomically enforce single-active-per-type constraint
+- `getActiveSystemPromptByType` retrieves the currently active prompt for extraction/generation
+
+**API Routes**:
+- Admin-protected endpoints: GET /api/system-prompts, POST /api/system-prompts, PUT /api/system-prompts/:id, DELETE /api/system-prompts/:id
+- Activation endpoint: POST /api/system-prompts/:id/activate with transactional safety
+- All routes require admin authentication via requireAdmin middleware
+
+**Extraction Endpoint Update**:
+- Modified /extract-style to load active prompts from database instead of hardcoded strings
+- Appends media adapter adjustments and user context dynamically to database prompts
+- Returns 500 error if required active prompts are missing, preventing silent failures
+- Maintains same functionality as previous hardcoded implementation
+
+**Admin UI**:
+- SystemPromptsManagement page with tabbed interface for managing all 7 prompt types
+- Create, edit, view, activate, and delete operations for each prompt type
+- Active prompt highlighted in green for easy identification
+- Navigation added to admin sidebar for admin-only access
+
+**Benefits**:
+- Enables rapid iteration on extraction quality without code deployments
+- Admin users can A/B test different prompt strategies
+- Version control through database records with audit trails
+- Graceful error handling prevents extraction failures from missing prompts
+
 ### November 6, 2025
 
 **Structured JSON Prompt Extraction System** - Updated composition and concept extraction to use comprehensive JSON schemas:
@@ -75,7 +113,7 @@ The system extracts three independent, specialized system prompts from reference
 
 *   **Frontend**: React 18 with TypeScript, component-based using shadcn/ui and Radix UI primitives. Styling with Tailwind CSS, state management with React hooks and React Query, and routing with Wouter.
 *   **Backend**: Express.js server with TypeScript, providing RESTful API endpoints, modular route registration, and centralized error handling. Employs session-based architecture with JWT authentication.
-*   **Database**: PostgreSQL with Drizzle ORM for type-safe operations. Key entities include ImageStyles (for the three prompts), MediaAdapters, GenerationJobs, GeneratedImages, and ConceptLists. A single-default invariant is enforced for MediaAdapters.
+*   **Database**: PostgreSQL with Drizzle ORM for type-safe operations. Key entities include ImageStyles (for the three prompts), SystemPrompts (database-backed extraction prompts), MediaAdapters, GenerationJobs, GeneratedImages, and ConceptLists. A single-default invariant is enforced for MediaAdapters, and single-active-per-type constraint for SystemPrompts.
 *   **Component Architecture**: Includes StyleWorkspace, AIStyleExtractorModal, StyleSelector, VisualConceptsInput, BatchProgressTracker, ResultsGallery, and ConceptGeneratorModal.
 *   **Design System**: Custom Tailwind configuration with an enterprise-focused color palette, consistent spacing, Inter font family, and light/dark mode support.
 
