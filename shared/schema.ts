@@ -102,14 +102,22 @@ export const userPreferences = pgTable("user_preferences", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// System Prompts - reusable prompts for different purposes
+// System Prompts - configurable prompts for the extraction pipeline
 export const systemPrompts = pgTable("system_prompts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
   promptText: text("prompt_text").notNull(),
-  category: text("category").$type<"style_extraction" | "concept_generation">().notNull(),
-  isDefault: boolean("is_default").default(false),
+  promptType: text("prompt_type").$type<
+    "style_extraction_instructions" | 
+    "style_extraction_schema" | 
+    "composition_extraction_instructions" | 
+    "composition_extraction_schema" | 
+    "concept_extraction_instructions" | 
+    "concept_extraction_schema" |
+    "test_concept_generation"
+  >().notNull(),
+  isActive: boolean("is_active").default(true), // Only one active prompt per type
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
