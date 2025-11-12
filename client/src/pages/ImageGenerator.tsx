@@ -284,7 +284,8 @@ export default function ImageGenerator() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${image.visualConcept.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`;
+      const conceptStr = conceptToDisplayString(image.visualConcept);
+      link.download = `${conceptStr.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -292,7 +293,7 @@ export default function ImageGenerator() {
       
       toast({
         title: 'Download Started',
-        description: `Downloading "${image.visualConcept}"`
+        description: `Downloading "${conceptStr}"`
       });
     } catch (error) {
       console.error('Download failed:', error);
@@ -852,20 +853,20 @@ export default function ImageGenerator() {
         <Dialog open={!!zoomedImage} onOpenChange={() => setZoomedImage(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{zoomedImage?.visualConcept}</DialogTitle>
+              <DialogTitle>{zoomedImage && conceptToDisplayString(zoomedImage.visualConcept)}</DialogTitle>
             </DialogHeader>
             {zoomedImage && (
               <div className="space-y-4 overflow-y-auto">
                 <div className="flex justify-center bg-muted rounded-lg overflow-hidden max-h-[60vh]">
                   <img
                     src={zoomedImage.imageUrl}
-                    alt={zoomedImage.visualConcept}
+                    alt={conceptToDisplayString(zoomedImage.visualConcept)}
                     className="max-w-full max-h-full object-contain"
                   />
                 </div>
                 <div className="space-y-2">
                   <div className="text-sm">
-                    <strong>Concept:</strong> {zoomedImage.visualConcept}
+                    <strong>Concept:</strong> {conceptToDisplayString(zoomedImage.visualConcept)}
                   </div>
                   <div className="text-sm">
                     <strong>Full Prompt:</strong> {zoomedImage.prompt}

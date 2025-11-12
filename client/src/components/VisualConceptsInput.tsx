@@ -33,7 +33,8 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
     try {
       const parsed = JSON.parse(value);
       const validated = visualConceptsSchema.parse(parsed);
-      onConceptsChange(validated);
+      const conceptStrings = validated.map(conceptToDisplayString);
+      onConceptsChange(conceptStrings);
       setValidationError(undefined);
     } catch (error) {
       if (error instanceof SyntaxError) {
