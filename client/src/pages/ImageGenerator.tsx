@@ -160,7 +160,20 @@ export default function ImageGenerator() {
           // Update current concept being processed
           const processingImages = images.filter(img => img.status === 'generating');
           if (processingImages.length > 0) {
-            setCurrentConcept(processingImages[0].visualConcept);
+            const concept = processingImages[0].visualConcept;
+            // Convert concept object to string for display
+            if (typeof concept === 'string') {
+              setCurrentConcept(concept);
+            } else if (concept && typeof concept === 'object') {
+              const conceptObj = concept as any;
+              if (conceptObj.visual_concept && conceptObj.core_graphic) {
+                setCurrentConcept(`${conceptObj.visual_concept} | ${conceptObj.core_graphic}`);
+              } else if (conceptObj.concept) {
+                setCurrentConcept(conceptObj.concept);
+              } else {
+                setCurrentConcept(JSON.stringify(concept));
+              }
+            }
           }
         },
         async (job, images) => {
