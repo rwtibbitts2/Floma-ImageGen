@@ -12,13 +12,15 @@ import { Upload, X, Sparkles, Loader2, RefreshCw, Check, Undo, Plus, Wand2 } fro
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import PromptSelector from '@/components/PromptSelector';
+import { ImageStyle } from '@shared/schema';
 
 interface InlineConceptGeneratorProps {
   onConceptsGenerated: (concepts: string[]) => void;
   onCancel: () => void;
+  selectedStyle?: ImageStyle;
 }
 
-export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }: InlineConceptGeneratorProps) {
+export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, selectedStyle }: InlineConceptGeneratorProps) {
   const [mode, setMode] = useState<'input' | 'results'>('input');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
@@ -144,6 +146,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
         referenceImageUrl: imageUrl,
         promptId: selectedPromptId,
         promptText: promptText,
+        conceptFramework: selectedStyle?.conceptFramework,
         quantity: 5,
         temperature,
         literalMetaphorical,
@@ -211,6 +214,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
           referenceImageUrl,
           promptId: selectedPromptId,
           promptText: promptText,
+          conceptFramework: selectedStyle?.conceptFramework,
           quantity: selectedIndices.size,
           temperature,
           literalMetaphorical,
@@ -228,6 +232,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
           referenceImageUrl,
           promptId: selectedPromptId,
           promptText: promptText,
+          conceptFramework: selectedStyle?.conceptFramework,
           quantity: generatedConcepts.length,
           temperature,
           literalMetaphorical,
@@ -415,6 +420,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel }
         referenceImageUrl,
         promptId: selectedPromptId,
         promptText: promptText,
+        conceptFramework: selectedStyle?.conceptFramework,
         quantity: 3, // Generate 3 new concepts to add
         temperature,
         literalMetaphorical,

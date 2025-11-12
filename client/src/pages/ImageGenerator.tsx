@@ -743,6 +743,7 @@ export default function ImageGenerator() {
                           concepts={concepts}
                           onConceptsChange={setConcepts}
                           onUploadFile={handleUploadConceptsFile}
+                          selectedStyle={selectedStyle}
                         />
                         
                         <GenerationSummaryAction
@@ -786,6 +787,7 @@ export default function ImageGenerator() {
                           concepts={concepts}
                           onConceptsChange={setConcepts}
                           onUploadFile={handleUploadConceptsFile}
+                          selectedStyle={selectedStyle}
                         />
                         
                         <GenerationSummaryAction

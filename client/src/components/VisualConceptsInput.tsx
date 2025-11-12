@@ -5,16 +5,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle2, X, Sparkles, Edit3 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { visualConceptsSchema } from '@shared/schema';
+import { visualConceptsSchema, ImageStyle } from '@shared/schema';
 import InlineConceptGenerator from '@/components/InlineConceptGenerator';
 
 interface VisualConceptsInputProps {
   concepts: string[];
   onConceptsChange: (concepts: string[]) => void;
   onUploadFile?: () => void;
+  selectedStyle?: ImageStyle;
 }
 
-export default function VisualConceptsInput({ concepts, onConceptsChange, onUploadFile }: VisualConceptsInputProps) {
+export default function VisualConceptsInput({ concepts, onConceptsChange, onUploadFile, selectedStyle }: VisualConceptsInputProps) {
   const [mode, setMode] = useState<'manual' | 'generate'>('manual');
   const [jsonInput, setJsonInput] = useState(JSON.stringify(concepts, null, 2));
   const [validationError, setValidationError] = useState<string>();
@@ -93,6 +94,7 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
           <InlineConceptGenerator 
             onConceptsGenerated={handleConceptsGenerated}
             onCancel={handleCancelGeneration}
+            selectedStyle={selectedStyle}
           />
         ) : (
           <>
