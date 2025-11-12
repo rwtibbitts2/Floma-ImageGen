@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import express from 'express';
-import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, insertMediaAdapterSchema, InsertConceptList, GenerationSettings, generationSettingsSchema, Concept } from '@shared/schema';
+import { insertImageStyleSchema, insertGenerationJobSchema, insertGeneratedImageSchema, insertSystemPromptSchema, insertMediaAdapterSchema, InsertConceptList, GenerationSettings, generationSettingsSchema, Concept, visualConceptsSchema } from '@shared/schema';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import OpenAI, { toFile } from 'openai';
@@ -19,6 +19,18 @@ import type { Request } from 'express';
 import { buildStyleDescription } from '@shared/utils';
 
 const router = express.Router();
+
+// Helper to convert concept (string or object) to string for image generation
+function conceptToString(concept: Concept): string {
+  if (typeof concept === 'string') {
+    return concept;
+  }
+  if (concept && typeof concept === 'object' && 'visual_concept' in concept && 'core_graphic' in concept) {
+    return `${concept.visual_concept} | ${concept.core_graphic}`;
+  }
+  // Fallback for unknown object formats
+  return JSON.stringify(concept);
+}
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -604,7 +616,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     const schema = z.object({
       jobName: z.string().min(1),
       styleId: z.string(),
-      concepts: z.array(z.string()).min(1),
+      concepts: visualConceptsSchema.min(1),
       settings: z.object({
         model: z.enum(['dall-e-2', 'dall-e-3', 'gpt-image-1']).default('gpt-image-1'),
         quality: z.enum(['standard', 'hd']),
@@ -667,8 +679,11 @@ router.post('/generate', requireAuth, async (req, res) => {
     // Update job to running status
     await storage.updateGenerationJob(job.id, { status: 'running' });
 
+    // Convert concepts to strings for generation
+    const conceptStrings = concepts.map(conceptToString);
+
     // Start generation process asynchronously
-    generateImagesAsync(job.id, style, concepts, settings);
+    generateImagesAsync(job.id, style, conceptStrings, settings);
 
     res.status(201).json({ 
       jobId: job.id,
