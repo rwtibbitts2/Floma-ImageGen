@@ -38,6 +38,7 @@ export const imageStyles = pgTable("image_styles", {
   stylePrompt: text("style_prompt"), // Core system prompt for visual style (lighting, colors, materials)
   compositionPrompt: text("composition_prompt"), // Core system prompt for spatial composition (layout, perspective, depth)
   conceptPrompt: text("concept_prompt"), // Core system prompt for concept generation (metaphors, subject ideation)
+  styleFramework: jsonb("style_framework").$type<Record<string, any>>(), // Full structured JSON for style analysis
   compositionFramework: jsonb("composition_framework").$type<Record<string, any>>(), // Full structured JSON for composition analysis
   conceptFramework: jsonb("concept_framework").$type<Record<string, any>>(), // Full structured JSON for concept analysis
   mediaAdapterId: varchar("media_adapter_id").references(() => mediaAdapters.id), // Media-specific adapter to merge with core prompts
