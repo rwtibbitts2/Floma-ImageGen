@@ -10,6 +10,44 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 12, 2025
+
+**Concept Framework Integration into Generation Pipeline** - Connected extracted concept frameworks to the concept generation workflow:
+
+**Problem Solved**:
+- Previously, concept generation in Image Generator Workspace used only simple `promptText` string, ignoring the rich structured `conceptFramework` extracted during style creation
+- Generated concepts didn't align with the extracted concept meta-prompt
+- Users saw generic concepts instead of concepts following their carefully extracted conceptual guidelines
+
+**Data Flow Implementation**:
+- Updated `ImageGenerator` → `VisualConceptsInput` → `InlineConceptGenerator` component chain to propagate `selectedStyle` with embedded `conceptFramework`
+- All concept generation API calls now include `conceptFramework` parameter
+- Frontend components convert null to undefined for type safety
+
+**API Client Update**:
+- Added `conceptFramework?: Record<string, any>` parameter to `generateConceptList` function signature in `client/src/lib/api.ts`
+
+**Backend Endpoint Enhancement (`/api/generate-concept-list`)**:
+- Accepts `conceptFramework` parameter from request body
+- Implements prioritized prompt building logic:
+  1. Primary: Use `conceptFramework.final_instruction_prompt` if available (new framework-based styles)
+  2. Legacy: Fall back to `promptText` if provided (backward compatibility)
+  3. Fallback: Use default prompt as last resort
+- Added console logging to track which prompt source is used for debugging
+- Maintains full backward compatibility with legacy styles
+
+**Graceful Degradation**:
+- New styles with frameworks: Concepts generated using structured framework instructions
+- Legacy styles without frameworks: Continue using existing promptText seamlessly
+- No breaking changes to existing functionality
+- All code paths protected against null/undefined edge cases
+
+**Benefits**:
+- Concept generation now aligns with extracted concept meta-prompts
+- Users see concepts that follow the structured framework guidelines (subject approach, representation style, brand tone alignment, visual devices, ideation guidelines)
+- Legacy styles continue to work without modification
+- Clean separation between framework-driven and text-driven generation paths
+
 ### November 7, 2025
 
 **Componentized System Prompts Architecture** - Migrated from hardcoded prompts to database-backed system with admin management:
