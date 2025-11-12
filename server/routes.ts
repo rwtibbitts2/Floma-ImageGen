@@ -1717,12 +1717,23 @@ router.post('/extract-style', requireAuth, async (req, res) => {
     console.log('✓ Concept Prompt Length:', conceptPrompt.length, 'chars');
     console.log('✓ Media Adapter:', mediaAdapter?.name || 'None');
     
-    // Generate 3 test concepts using the full concept framework
+    // Generate 3 test concepts using the Concept Schema prompt from database
     console.log('=== GENERATING TEST CONCEPTS ===');
     
-    // Use the full conceptFramework JSON for more detailed concept generation
-    const testConceptSystemPrompt = conceptFramework 
-      ? `You are generating visual concepts based on the following structured framework:
+    // Load the active concept schema prompt for test concept generation
+    const conceptSchemaPrompt = await storage.getActiveSystemPromptByType('concept_extraction_schema');
+    if (!conceptSchemaPrompt) {
+      console.warn('No active concept_extraction_schema found, using fallback for test concepts');
+    }
+    
+    // Build the system prompt from database template + framework context
+    let testConceptSystemPrompt = conceptSchemaPrompt?.promptText || conceptPrompt;
+    
+    // Append the concept framework details if available
+    if (conceptFramework) {
+      testConceptSystemPrompt += `
+
+You are generating visual concepts based on the following structured framework:
 
 ${JSON.stringify(conceptFramework, null, 2)}
 
@@ -1731,13 +1742,11 @@ Follow ALL the guidelines in the concept_framework, especially:
 - Representation style: ${conceptFramework.concept_framework?.representation_style || ''}
 - Brand tone alignment: ${conceptFramework.concept_framework?.brand_tone_alignment || ''}
 - Visual devices: ${conceptFramework.concept_framework?.visual_devices || ''}
-- Ideation guidelines: ${conceptFramework.concept_framework?.ideation_guidelines || ''}
-
-IMPORTANT OUTPUT FORMAT:
-Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
-Example format: ["Concept 1 description", "Concept 2 description", "Concept 3 description"]
-Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`
-      : `${conceptPrompt}
+- Ideation guidelines: ${conceptFramework.concept_framework?.ideation_guidelines || ''}`;
+    }
+    
+    // Always append output format instructions
+    testConceptSystemPrompt += `
 
 IMPORTANT OUTPUT FORMAT:
 Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
