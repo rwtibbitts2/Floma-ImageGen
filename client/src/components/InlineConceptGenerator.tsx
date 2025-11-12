@@ -15,10 +15,20 @@ import PromptSelector from '@/components/PromptSelector';
 import { ImageStyle } from '@shared/schema';
 
 interface InlineConceptGeneratorProps {
-  onConceptsGenerated: (concepts: string[]) => void;
+  onConceptsGenerated: (concepts: any[]) => void;
   onCancel: () => void;
   selectedStyle?: ImageStyle;
 }
+
+// Helper function to convert concept objects to strings
+const conceptToString = (c: any): string => {
+  if (typeof c === 'string') return c;
+  if (c.visual_concept && c.core_graphic) {
+    return `${c.visual_concept} | ${c.core_graphic}`;
+  }
+  if (c.concept) return c.concept;
+  return JSON.stringify(c);
+};
 
 export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, selectedStyle }: InlineConceptGeneratorProps) {
   const [mode, setMode] = useState<'input' | 'results'>('input');
@@ -38,8 +48,8 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
   const [literalMetaphorical, setLiteralMetaphorical] = useState(0);
   const [simpleComplex, setSimpleComplex] = useState(0);
   
-  // Generated data
-  const [generatedConcepts, setGeneratedConcepts] = useState<string[]>([]);
+  // Generated data - can be strings or structured objects
+  const [generatedConcepts, setGeneratedConcepts] = useState<any[]>([]);
   const [feedbackText, setFeedbackText] = useState('');
   
   // Checkbox selection state for selective refinement
@@ -50,7 +60,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
   
   // Previous state for undo
   const [previousState, setPreviousState] = useState<{
-    concepts: string[];
+    concepts: any[];
     history: Array<{ role: 'user' | 'assistant', content: string }>;
   } | null>(null);
   
@@ -154,8 +164,11 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       });
     },
     onSuccess: (data) => {
-      const concepts = data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
-      setGeneratedConcepts(concepts);
+      // Keep the full concept objects to support structured formats (visual_concept + core_graphic)
+      setGeneratedConcepts(data.concepts);
+      
+      // Convert concepts to strings for conversation history
+      const conceptStrings = data.concepts.map(conceptToString);
       
       // Initialize conversation history with the original request and response
       const initialHistory = [
@@ -167,7 +180,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
         },
         {
           role: 'assistant' as const,
-          content: concepts.join('\n')
+          content: conceptStrings.join('\n')
         }
       ];
       setConversationHistory(initialHistory);
@@ -205,7 +218,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
         const selectedIndicesArray = Array.from(selectedIndices);
         const selectedConcepts = selectedIndicesArray.map(idx => generatedConcepts[idx]);
         
-        const refinementInstruction = `Apply the following feedback ONLY to these specific concepts:\n${selectedConcepts.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nFeedback: ${feedbackText}\n\nKeep all other concepts unchanged.`;
+        const refinementInstruction = `Apply the following feedback ONLY to these specific concepts:\n${selectedConcepts.map((c, i) => `${i + 1}. ${conceptToString(c)}`).join('\n')}\n\nFeedback: ${feedbackText}\n\nKeep all other concepts unchanged.`;
         const fullContent = `${conversationContext}\n\nUSER: ${refinementInstruction}`;
 
         const data = await api.generateConceptList({
@@ -243,7 +256,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       }
     },
     onSuccess: (result) => {
-      const refinedConcepts = result.data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
+      const refinedConcepts = result.data.concepts;
       
       // Save current state for undo
       setPreviousState({
@@ -252,7 +265,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       });
       
       // Apply refined concepts
-      let newConcepts: string[];
+      let newConcepts: any[];
       if (result.isSelective) {
         // Replace only the selected concepts using the original order
         newConcepts = [...generatedConcepts];
@@ -269,10 +282,11 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       setGeneratedConcepts(newConcepts);
       
       // Update conversation history with the refinement exchange
+      const refinedConceptStrings = refinedConcepts.map(conceptToString);
       setConversationHistory(prev => [
         ...prev,
         { role: 'user', content: feedbackText },
-        { role: 'assistant', content: refinedConcepts.join('\n') }
+        { role: 'assistant', content: refinedConceptStrings.join('\n') }
       ]);
       
       setFeedbackText('');
