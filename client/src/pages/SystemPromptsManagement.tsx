@@ -25,8 +25,7 @@ type PromptType =
   | 'composition_extraction_instructions'
   | 'composition_extraction_schema'
   | 'concept_extraction_instructions'
-  | 'concept_extraction_schema'
-  | 'test_concept_generation';
+  | 'concept_extraction_schema';
 
 interface SystemPrompt {
   id: string;
@@ -50,7 +49,6 @@ const systemPromptSchema = z.object({
     'composition_extraction_schema',
     'concept_extraction_instructions',
     'concept_extraction_schema',
-    'test_concept_generation',
   ]),
 });
 
@@ -63,7 +61,6 @@ const promptTypeLabels: Record<PromptType, string> = {
   composition_extraction_schema: 'Composition Schema',
   concept_extraction_instructions: 'Concept Extraction',
   concept_extraction_schema: 'Concept Schema',
-  test_concept_generation: 'Test Concepts',
 };
 
 const promptTypeDescriptions: Record<PromptType, string> = {
@@ -73,7 +70,6 @@ const promptTypeDescriptions: Record<PromptType, string> = {
   composition_extraction_schema: 'JSON schema for composition extraction responses',
   concept_extraction_instructions: 'Instructions for extracting conceptual design language',
   concept_extraction_schema: 'JSON schema for concept extraction responses',
-  test_concept_generation: 'Instructions for generating test visual concepts',
 };
 
 export default function SystemPromptsManagement() {
@@ -304,7 +300,7 @@ export default function SystemPromptsManagement() {
 
         {/* Tabs */}
         <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as PromptType)}>
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="composition_extraction_instructions" data-testid="tab-composition">
               Composition
             </TabsTrigger>
@@ -313,9 +309,6 @@ export default function SystemPromptsManagement() {
             </TabsTrigger>
             <TabsTrigger value="style_extraction_instructions" data-testid="tab-style">
               Style
-            </TabsTrigger>
-            <TabsTrigger value="test_concept_generation" data-testid="tab-test">
-              Test Concepts
             </TabsTrigger>
           </TabsList>
 
