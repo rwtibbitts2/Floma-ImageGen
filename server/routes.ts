@@ -1689,9 +1689,22 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       })
     ]);
 
-    const stylePrompt = styleResult.choices[0]?.message?.content?.trim();
+    const styleResultRaw = styleResult.choices[0]?.message?.content?.trim();
     const compositionResultRaw = compositionResult.choices[0]?.message?.content?.trim();
     const conceptResultRaw = conceptResult.choices[0]?.message?.content?.trim();
+    
+    // Parse the style JSON response and extract both the framework and final_instruction_prompt
+    let stylePrompt: string;
+    let styleFramework: Record<string, any> | null = null;
+    try {
+      const styleJson = JSON.parse(styleResultRaw || '{}');
+      styleFramework = styleJson;
+      stylePrompt = styleJson.final_instruction_prompt || styleResultRaw || '';
+      console.log('✓ Parsed style framework with name:', styleJson.style_prompt_name || 'N/A');
+    } catch (parseError) {
+      console.warn('Failed to parse style JSON, using raw response');
+      stylePrompt = styleResultRaw || '';
+    }
     
     // Parse the composition JSON response and extract both the framework and final_instruction_prompt
     let compositionPrompt: string;
@@ -1801,6 +1814,7 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
       stylePrompt,
       compositionPrompt,
       conceptPrompt,
+      styleFramework,
       compositionFramework,
       conceptFramework,
       mediaAdapterId: mediaAdapter?.id || null,
