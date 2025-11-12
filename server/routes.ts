@@ -3004,6 +3004,14 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
 
     // Call OpenAI API to generate concepts
     
+    // Load the active concept output schema prompt to define output structure
+    let outputSchemaPrompt = null;
+    try {
+      outputSchemaPrompt = await storage.getActiveSystemPromptByType('concept_output_schema');
+    } catch (error) {
+      console.warn('No active concept_output_schema found, using legacy format');
+    }
+    
     // Build the system prompt with prioritized logic:
     // 1. Use conceptFramework.final_instruction_prompt if available
     // 2. Fall back to promptText if provided
@@ -3041,12 +3049,29 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
       styleGuidance += '\n\nCOMPOSITION: Create multi-layered compositions with multiple elements. Combine various visual components to create rich, detailed scenes.';
     }
     
-    const systemPrompt = `${baseSystemPrompt}${styleGuidance}
+    // Build output format instructions based on whether we have a schema
+    let outputFormatInstructions: string;
+    if (outputSchemaPrompt) {
+      // Use the schema from the database to define output structure
+      console.log('Using concept_output_schema for structured output');
+      outputFormatInstructions = `
+
+IMPORTANT OUTPUT FORMAT:
+You must return JSON matching this exact schema:
+${outputSchemaPrompt.promptText}
+
+Do NOT wrap in markdown code blocks. Return only the raw JSON.`;
+    } else {
+      // Legacy format: simple array of strings
+      outputFormatInstructions = `
 
 IMPORTANT OUTPUT FORMAT:
 Return ONLY a JSON array of strings. Each string should be a complete concept description.
 Example format: ["Concept 1 description...", "Concept 2 description...", "Concept 3 description..."]
 Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
+    }
+    
+    const systemPrompt = `${baseSystemPrompt}${styleGuidance}${outputFormatInstructions}`;
     
     // Build the user message
     let userMessage = `Company: ${companyName}\n\nMarketing Content:\n${marketingContent}\n\nGenerate ${quantity} distinct visual marketing concepts that would effectively communicate this message.`;
