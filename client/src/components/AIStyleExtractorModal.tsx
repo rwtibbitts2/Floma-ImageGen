@@ -54,6 +54,9 @@ export default function AIStyleExtractorModal({
   const [extractedStylePrompt, setExtractedStylePrompt] = useState('');
   const [extractedCompositionPrompt, setExtractedCompositionPrompt] = useState('');
   const [extractedConceptPrompt, setExtractedConceptPrompt] = useState('');
+  const [extractedStyleFramework, setExtractedStyleFramework] = useState<Record<string, any> | undefined>();
+  const [extractedCompositionFramework, setExtractedCompositionFramework] = useState<Record<string, any> | undefined>();
+  const [extractedConceptFramework, setExtractedConceptFramework] = useState<Record<string, any> | undefined>();
   const [extractedMediaAdapterId, setExtractedMediaAdapterId] = useState<string | null>(null);
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
@@ -88,6 +91,9 @@ export default function AIStyleExtractorModal({
       setExtractedStylePrompt(editingStyle.stylePrompt || '');
       setExtractedCompositionPrompt(editingStyle.compositionPrompt || '');
       setExtractedConceptPrompt(editingStyle.conceptPrompt || '');
+      setExtractedStyleFramework(editingStyle.styleFramework || undefined);
+      setExtractedCompositionFramework(editingStyle.compositionFramework || undefined);
+      setExtractedConceptFramework(editingStyle.conceptFramework || undefined);
       setTestConcepts(editingStyle.testConcepts || []);
       setCurrentConceptIndex(0);
       
@@ -158,6 +164,9 @@ export default function AIStyleExtractorModal({
         stylePrompt: extractedStylePrompt,
         compositionPrompt: extractedCompositionPrompt,
         conceptPrompt: extractedConceptPrompt,
+        styleFramework: extractedStyleFramework,
+        compositionFramework: extractedCompositionFramework,
+        conceptFramework: extractedConceptFramework,
         referenceImageUrl,
         mediaAdapterId: extractedMediaAdapterId,
         testConcepts: testConcepts.length > 0 ? testConcepts : undefined,
@@ -218,6 +227,9 @@ export default function AIStyleExtractorModal({
       setExtractedStylePrompt(result.stylePrompt);
       setExtractedCompositionPrompt(result.compositionPrompt);
       setExtractedConceptPrompt(result.conceptPrompt);
+      setExtractedStyleFramework(result.styleFramework);
+      setExtractedCompositionFramework(result.compositionFramework);
+      setExtractedConceptFramework(result.conceptFramework);
       setExtractedMediaAdapterId(result.mediaAdapterId || null);
       setTestConcepts(result.testConcepts || []);
       setCurrentConceptIndex(0);
@@ -228,6 +240,7 @@ export default function AIStyleExtractorModal({
         stylePrompt: result.stylePrompt,
         compositionPrompt: result.compositionPrompt,
         conceptPrompt: result.conceptPrompt,
+        styleFramework: result.styleFramework || undefined,
         compositionFramework: result.compositionFramework || undefined,
         conceptFramework: result.conceptFramework || undefined,
         referenceImageUrl,

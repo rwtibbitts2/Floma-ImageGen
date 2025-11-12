@@ -48,6 +48,7 @@ export default function StyleWorkspace() {
   const [stylePrompt, setStylePrompt] = useState('');
   const [compositionPrompt, setCompositionPrompt] = useState('');
   const [conceptPrompt, setConceptPrompt] = useState('');
+  const [styleFramework, setStyleFramework] = useState<Record<string, any> | null>(null);
   const [compositionFramework, setCompositionFramework] = useState<Record<string, any> | null>(null);
   const [conceptFramework, setConceptFramework] = useState<Record<string, any> | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState('');
@@ -94,6 +95,7 @@ export default function StyleWorkspace() {
       setStylePrompt(style.stylePrompt || '');
       setCompositionPrompt(style.compositionPrompt || '');
       setConceptPrompt(style.conceptPrompt || '');
+      setStyleFramework(style.styleFramework || null);
       setCompositionFramework(style.compositionFramework || null);
       setConceptFramework(style.conceptFramework || null);
       setPreviewImageUrl(style.previewImageUrl || '');
@@ -114,6 +116,7 @@ export default function StyleWorkspace() {
         stylePrompt,
         compositionPrompt,
         conceptPrompt,
+        styleFramework: styleFramework || undefined,
         compositionFramework: compositionFramework || undefined,
         conceptFramework: conceptFramework || undefined,
         previewImageUrl,
@@ -472,126 +475,19 @@ export default function StyleWorkspace() {
               <TabsContent value="style" className="space-y-4" data-testid="tab-content-style">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Current style definition</Label>
-                  {(() => {
-                    try {
-                      // Strip markdown code blocks if present
-                      let cleanedPrompt = stylePrompt.trim();
-                      if (cleanedPrompt.startsWith('```json')) {
-                        cleanedPrompt = cleanedPrompt.replace(/```json\s*/g, '').replace(/```/g, '').trim();
-                      } else if (cleanedPrompt.startsWith('```')) {
-                        cleanedPrompt = cleanedPrompt.replace(/```\s*/g, '').replace(/```/g, '').trim();
-                      }
-                      
-                      const styleData = JSON.parse(cleanedPrompt);
-                      return (
-                        <div className="bg-muted rounded-lg p-4 space-y-4 max-h-96 overflow-y-auto" data-testid="style-structured-view">
-                          {styleData.style_name && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Style Name</div>
-                              <div className="text-sm">{styleData.style_name}</div>
-                            </div>
-                          )}
-                          {styleData.style_summary && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Summary</div>
-                              <div className="text-sm">{styleData.style_summary}</div>
-                            </div>
-                          )}
-                          {styleData.camera && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Camera</div>
-                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
-                                {Object.entries(styleData.camera).map(([key, value]) => (
-                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {styleData.lighting && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Lighting</div>
-                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
-                                {Object.entries(styleData.lighting).map(([key, value]) => (
-                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {styleData.surface_behavior && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Surface Behavior</div>
-                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
-                                {Object.entries(styleData.surface_behavior).map(([key, value]) => (
-                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {styleData.color_treatment && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Color Treatment</div>
-                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
-                                {Object.entries(styleData.color_treatment).map(([key, value]) => (
-                                  <div key={key}>
-                                    <span className="font-medium">{key.replace(/_/g, ' ')}:</span>{' '}
-                                    {key === 'palette' && Array.isArray(value) ? (
-                                      <div className="flex gap-1 mt-1">
-                                        {value.map((color, i) => (
-                                          <div key={i} className="flex items-center gap-1">
-                                            <div className="w-6 h-6 rounded border border-border" style={{ backgroundColor: color }}></div>
-                                            <span className="text-xs text-muted-foreground">{color}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : String(value)}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {styleData.finishing_treatment && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Finishing Treatment</div>
-                              <div className="text-sm space-y-1 pl-3 border-l-2 border-border">
-                                {Object.entries(styleData.finishing_treatment).map(([key, value]) => (
-                                  <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {String(value)}</div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {styleData.mood && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Mood</div>
-                              <div className="text-sm">{styleData.mood}</div>
-                            </div>
-                          )}
-                          {styleData.media_type_alignment && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Media Type</div>
-                              <div className="text-sm">{styleData.media_type_alignment}</div>
-                            </div>
-                          )}
-                          {styleData.complexity_level && (
-                            <div>
-                              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Complexity</div>
-                              <div className="text-sm">{styleData.complexity_level}</div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    } catch {
-                      // Fall back to raw text if not valid JSON
-                      return (
-                        <Textarea
-                          value={stylePrompt}
-                          readOnly
-                          rows={10}
-                          className="resize-none bg-muted"
-                          data-testid="textarea-style-prompt"
-                        />
-                      );
-                    }
-                  })()}
+                  {styleFramework ? (
+                    <div className="bg-muted rounded-lg p-4 space-y-3 max-h-96 overflow-y-auto" data-testid="style-structured-view">
+                      <pre className="text-xs whitespace-pre-wrap font-mono">{JSON.stringify(styleFramework, null, 2)}</pre>
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={stylePrompt}
+                      readOnly
+                      rows={10}
+                      className="resize-none bg-muted"
+                      data-testid="textarea-style-prompt"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Refinement feedback</Label>
@@ -627,13 +523,19 @@ export default function StyleWorkspace() {
               <TabsContent value="composition" className="space-y-4" data-testid="tab-content-composition">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Current composition prompt</Label>
-                  <Textarea
-                    value={compositionPrompt}
-                    readOnly
-                    rows={10}
-                    className="resize-none bg-muted"
-                    data-testid="textarea-composition-prompt"
-                  />
+                  {compositionFramework ? (
+                    <div className="bg-muted rounded-lg p-4 space-y-3 max-h-96 overflow-y-auto" data-testid="composition-structured-view">
+                      <pre className="text-xs whitespace-pre-wrap font-mono">{JSON.stringify(compositionFramework, null, 2)}</pre>
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={compositionPrompt}
+                      readOnly
+                      rows={10}
+                      className="resize-none bg-muted"
+                      data-testid="textarea-composition-prompt"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Refinement feedback</Label>
@@ -669,13 +571,19 @@ export default function StyleWorkspace() {
               <TabsContent value="concept" className="space-y-4" data-testid="tab-content-concept">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Current concept prompt</Label>
-                  <Textarea
-                    value={conceptPrompt}
-                    readOnly
-                    rows={10}
-                    className="resize-none bg-muted"
-                    data-testid="textarea-concept-prompt"
-                  />
+                  {conceptFramework ? (
+                    <div className="bg-muted rounded-lg p-4 space-y-3 max-h-96 overflow-y-auto" data-testid="concept-structured-view">
+                      <pre className="text-xs whitespace-pre-wrap font-mono">{JSON.stringify(conceptFramework, null, 2)}</pre>
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={conceptPrompt}
+                      readOnly
+                      rows={10}
+                      className="resize-none bg-muted"
+                      data-testid="textarea-concept-prompt"
+                    />
+                  )}
                 </div>
 
                 {testConcepts.length > 0 && (
