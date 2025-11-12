@@ -12,6 +12,7 @@ import { GeneratedImage, GenerationSettings, generationSettingsSchema } from '@s
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { conceptToDisplayString } from '@shared/utils';
 
 interface RegenerateModalProps {
   image: GeneratedImage | null;
@@ -179,14 +180,14 @@ export default function RegenerateModal({ image, open, onOpenChange, sessionId, 
               <div className="flex-shrink-0">
                 <img
                   src={image.imageUrl}
-                  alt={image.visualConcept}
+                  alt={conceptToDisplayString(image.visualConcept)}
                   className="w-24 h-24 object-cover rounded-lg border"
                 />
               </div>
               <div className="flex-1 space-y-2">
                 <div>
                   <Label className="text-sm font-medium">Original Concept</Label>
-                  <p className="text-sm text-muted-foreground">{image.visualConcept}</p>
+                  <p className="text-sm text-muted-foreground">{conceptToDisplayString(image.visualConcept)}</p>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="outline" className="text-xs">

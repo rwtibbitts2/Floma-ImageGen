@@ -111,7 +111,7 @@ export function conceptToDisplayString(concept: Concept): string {
       return valueToString(conceptObj.concept);
     }
     
-    return JSON.stringify(concept);
+    return objectToString(conceptObj);
   }
   
   return String(concept);
@@ -131,12 +131,32 @@ function valueToString(value: ConceptValue): string {
   }
   
   if (Array.isArray(value)) {
-    return value.map(v => valueToString(v)).join(', ');
+    const items = value.map(v => valueToString(v)).filter(s => s !== '');
+    return items.join(', ');
   }
   
   if (typeof value === 'object') {
-    return JSON.stringify(value);
+    return objectToString(value as Record<string, unknown>);
   }
   
   return String(value);
+}
+
+function objectToString(obj: Record<string, unknown>): string {
+  const parts: string[] = [];
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || value === undefined || value === '') {
+      continue;
+    }
+    
+    const keyFormatted = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const valueStr = valueToString(value as ConceptValue);
+    
+    if (valueStr) {
+      parts.push(`${keyFormatted}: ${valueStr}`);
+    }
+  }
+  
+  return parts.length > 0 ? parts.join(', ') : '';
 }

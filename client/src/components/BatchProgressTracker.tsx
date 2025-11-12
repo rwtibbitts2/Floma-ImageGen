@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle2, Clock, Pause, Play, Square } from 'lucide-react';
 import { GeneratedImage } from '@shared/schema';
+import { conceptToDisplayString } from '@shared/utils';
 
 interface BatchProgressTrackerProps {
   totalConcepts: number;
@@ -128,7 +129,7 @@ export default function BatchProgressTracker({
                 <div key={image.id} className="aspect-square bg-muted rounded-md overflow-hidden">
                   <img
                     src={image.imageUrl}
-                    alt={image.visualConcept}
+                    alt={conceptToDisplayString(image.visualConcept)}
                     className="w-full h-full object-cover"
                     data-testid={`image-preview-${image.id}`}
                   />

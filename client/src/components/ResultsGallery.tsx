@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Download, ExternalLink, MoreHorizontal, Trash2, Sparkles } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { GeneratedImage } from '@shared/schema';
+import { conceptToDisplayString } from '@shared/utils';
 
 interface ResultsGalleryProps {
   images: GeneratedImage[];
@@ -76,7 +77,7 @@ export default function ResultsGallery({ images, onDownload, onDownloadAll, onDe
                   >
                     <img
                       src={image.imageUrl}
-                      alt={image.visualConcept}
+                      alt={conceptToDisplayString(image.visualConcept)}
                       className="w-full h-full object-cover"
                     />
                     
@@ -126,7 +127,7 @@ export default function ResultsGallery({ images, onDownload, onDownloadAll, onDe
                   {/* Image Info */}
                   <div className="mt-2 space-y-1">
                     <p className="text-xs text-muted-foreground line-clamp-2">
-                      {image.visualConcept}
+                      {conceptToDisplayString(image.visualConcept)}
                     </p>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className="text-xs">
@@ -181,7 +182,7 @@ export default function ResultsGallery({ images, onDownload, onDownloadAll, onDe
               <div className="space-y-1">
                 {failedImages.map((image) => (
                   <div key={image.id} className="text-xs text-muted-foreground p-2 bg-red-50 dark:bg-red-950/20 rounded">
-                    Failed: {image.visualConcept}
+                    Failed: {conceptToDisplayString(image.visualConcept)}
                   </div>
                 ))}
               </div>
@@ -194,20 +195,20 @@ export default function ResultsGallery({ images, onDownload, onDownloadAll, onDe
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>{selectedImage?.visualConcept}</DialogTitle>
+            <DialogTitle>{selectedImage && conceptToDisplayString(selectedImage.visualConcept)}</DialogTitle>
           </DialogHeader>
           {selectedImage && (
             <div className="space-y-4 overflow-y-auto">
               <div className="flex justify-center bg-muted rounded-lg overflow-hidden max-h-[60vh]">
                 <img
                   src={selectedImage.imageUrl}
-                  alt={selectedImage.visualConcept}
+                  alt={conceptToDisplayString(selectedImage.visualConcept)}
                   className="max-w-full max-h-full object-contain"
                 />
               </div>
               <div className="space-y-2">
                 <div className="text-sm">
-                  <strong>Concept:</strong> {selectedImage.visualConcept}
+                  <strong>Concept:</strong> {conceptToDisplayString(selectedImage.visualConcept)}
                 </div>
                 <div className="text-sm">
                   <strong>Full Prompt:</strong> {selectedImage.prompt}
