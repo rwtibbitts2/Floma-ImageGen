@@ -374,12 +374,15 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       // Guard against empty history
       if (prev.length === 0) return prev;
       
+      // Convert deleted concept to string for comparison
+      const deletedConceptStr = conceptToString(deletedConcept);
+      
       return prev.map(msg => {
         if (msg.role === 'assistant') {
           // Parse the assistant message into concept lines
           const concepts = msg.content.split('\n').filter(line => line.trim());
           // Remove the deleted concept if it appears
-          const filteredConcepts = concepts.filter(concept => concept.trim() !== deletedConcept.trim());
+          const filteredConcepts = concepts.filter(concept => concept.trim() !== deletedConceptStr);
           // Return updated message with filtered concepts
           return {
             ...msg,
