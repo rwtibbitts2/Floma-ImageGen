@@ -57,7 +57,7 @@ export const generationJobs = pgTable("generation_jobs", {
   userId: varchar("user_id").references(() => users.id), // Associate job with user (nullable for migration)
   sessionId: varchar("session_id").references(() => projectSessions.id), // Link job to session for image persistence
   styleId: varchar("style_id").references(() => imageStyles.id),
-  visualConcepts: jsonb("visual_concepts").$type<string[]>().notNull(),
+  visualConcepts: jsonb("visual_concepts").$type<ConceptArray>().notNull(),
   settings: jsonb("settings").$type<GenerationSettings>().notNull(),
   status: text("status").$type<"pending" | "running" | "completed" | "failed">().default("pending"),
   progress: integer("progress").default(0),
@@ -85,7 +85,7 @@ export const projectSessions = pgTable("project_sessions", {
   name: text("name"),
   displayName: text("display_name").notNull(), // Auto-generated from date/time or custom name
   styleId: varchar("style_id").references(() => imageStyles.id),
-  visualConcepts: jsonb("visual_concepts").$type<string[]>().notNull(),
+  visualConcepts: jsonb("visual_concepts").$type<ConceptArray>().notNull(),
   settings: jsonb("settings").$type<GenerationSettings>().notNull(),
   isTemporary: jsonb("is_temporary").$type<boolean>().default(false), // For autosave functionality
   hasUnsavedChanges: jsonb("has_unsaved_changes").$type<boolean>().default(false), // Track unsaved changes
@@ -127,7 +127,10 @@ export const systemPrompts = pgTable("system_prompts", {
 // Concept object structure - flexible to support custom prompt formats
 export const conceptSchema = z.record(z.any());
 
-export type Concept = Record<string, any>;
+// Concept can be a string (legacy) or structured object (new format)
+export type StructuredConcept = { visual_concept: string; core_graphic: string; [key: string]: any };
+export type Concept = string | StructuredConcept;
+export type ConceptArray = Concept[];
 
 // Concept Lists - AI-generated marketing concept lists
 export const conceptLists = pgTable("concept_lists", {
@@ -156,7 +159,17 @@ export const generationSettingsSchema = z.object({
   variations: z.number().min(1).max(4).default(1),
 });
 
-export const visualConceptsSchema = z.array(z.string().min(1));
+// Support both legacy string format and new structured format with visual_concept + core_graphic
+export const visualConceptsSchema = z.array(
+  z.union([
+    z.string().min(1), // Legacy format
+    z.object({
+      visual_concept: z.string(),
+      core_graphic: z.string(),
+    }), // New structured format
+    z.record(z.any()) // Flexible for other custom formats
+  ])
+);
 
 // Insert Schemas - From blueprint:javascript_auth_all_persistance  
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true, lastLogin: true });
