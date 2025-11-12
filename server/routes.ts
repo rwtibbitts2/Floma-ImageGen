@@ -2974,6 +2974,7 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
       marketingContent, 
       promptId,
       promptText,
+      conceptFramework,
       quantity = 5,
       temperature = 0.7,
       literalMetaphorical = 0,
@@ -2997,8 +2998,25 @@ router.post('/generate-concept-list', requireAuth, async (req, res) => {
 
     // Call OpenAI API to generate concepts
     
-    // Build the system prompt with hard-coded output instructions for reliability
-    const baseSystemPrompt = promptText || `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
+    // Build the system prompt with prioritized logic:
+    // 1. Use conceptFramework.final_instruction_prompt if available
+    // 2. Fall back to promptText if provided
+    // 3. Use default prompt as last resort
+    let baseSystemPrompt: string;
+    
+    if (conceptFramework && conceptFramework.final_instruction_prompt) {
+      // Use the structured framework's final instruction prompt
+      baseSystemPrompt = conceptFramework.final_instruction_prompt;
+      console.log('Using conceptFramework for concept generation');
+    } else if (promptText) {
+      // Fall back to legacy prompt text
+      baseSystemPrompt = promptText;
+      console.log('Using promptText for concept generation (legacy fallback)');
+    } else {
+      // Default fallback
+      baseSystemPrompt = `You are a creative marketing concept generator. Generate visual concepts based on the company context and marketing content provided.`;
+      console.log('Using default prompt for concept generation');
+    }
     
     // Generate style guidance based on slider values
     let styleGuidance = '';

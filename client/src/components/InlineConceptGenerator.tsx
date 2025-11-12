@@ -63,13 +63,13 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
     queryFn: () => api.getSystemPromptsByCategory('concept_generation'),
   });
 
-  // Auto-select default prompt on mount
+  // Auto-select active prompt on mount
   useEffect(() => {
     if (!promptInitialized && conceptPrompts.length > 0) {
-      const defaultPrompt = conceptPrompts.find(p => p.isDefault);
-      if (defaultPrompt) {
-        setSelectedPromptId(defaultPrompt.id);
-        setPromptText(defaultPrompt.promptText);
+      const activePrompt = conceptPrompts.find(p => p.isActive);
+      if (activePrompt) {
+        setSelectedPromptId(activePrompt.id);
+        setPromptText(activePrompt.promptText);
       }
       setPromptInitialized(true);
     }
@@ -146,7 +146,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
         referenceImageUrl: imageUrl,
         promptId: selectedPromptId,
         promptText: promptText,
-        conceptFramework: selectedStyle?.conceptFramework,
+        conceptFramework: selectedStyle?.conceptFramework || undefined,
         quantity: 5,
         temperature,
         literalMetaphorical,
@@ -214,7 +214,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
           referenceImageUrl,
           promptId: selectedPromptId,
           promptText: promptText,
-          conceptFramework: selectedStyle?.conceptFramework,
+          conceptFramework: selectedStyle?.conceptFramework || undefined,
           quantity: selectedIndices.size,
           temperature,
           literalMetaphorical,
@@ -232,7 +232,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
           referenceImageUrl,
           promptId: selectedPromptId,
           promptText: promptText,
-          conceptFramework: selectedStyle?.conceptFramework,
+          conceptFramework: selectedStyle?.conceptFramework || undefined,
           quantity: generatedConcepts.length,
           temperature,
           literalMetaphorical,
@@ -420,7 +420,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
         referenceImageUrl,
         promptId: selectedPromptId,
         promptText: promptText,
-        conceptFramework: selectedStyle?.conceptFramework,
+        conceptFramework: selectedStyle?.conceptFramework || undefined,
         quantity: 3, // Generate 3 new concepts to add
         temperature,
         literalMetaphorical,

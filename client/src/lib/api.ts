@@ -708,6 +708,7 @@ export const generateConceptList = async (data: {
   marketingContent: string;
   promptId?: string;
   promptText?: string;
+  conceptFramework?: Record<string, any>;
   quantity?: number;
   temperature?: number;
   literalMetaphorical?: number;
