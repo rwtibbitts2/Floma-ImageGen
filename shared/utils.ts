@@ -77,3 +77,66 @@ export function buildStyleDescription(styleData: any): string {
   
   return parts.length > 0 ? parts.join('. ') : 'No style data available';
 }
+
+export type ConceptValue = string | number | boolean | null | undefined | Record<string, unknown> | any[];
+
+export type StructuredConcept = {
+  visual_concept?: ConceptValue;
+  core_graphic?: ConceptValue;
+  concept?: ConceptValue;
+  [key: string]: ConceptValue | undefined;
+};
+
+export type Concept = string | StructuredConcept;
+
+export function conceptToDisplayString(concept: Concept): string {
+  if (typeof concept === 'string') {
+    return concept;
+  }
+  
+  if (concept === null || concept === undefined) {
+    return '';
+  }
+  
+  if (typeof concept === 'object') {
+    const conceptObj = concept as StructuredConcept;
+    
+    if (conceptObj.visual_concept !== undefined && conceptObj.core_graphic !== undefined) {
+      const visualConceptStr = valueToString(conceptObj.visual_concept);
+      const coreGraphicStr = valueToString(conceptObj.core_graphic);
+      return `${visualConceptStr} | ${coreGraphicStr}`;
+    }
+    
+    if (conceptObj.concept !== undefined) {
+      return valueToString(conceptObj.concept);
+    }
+    
+    return JSON.stringify(concept);
+  }
+  
+  return String(concept);
+}
+
+function valueToString(value: ConceptValue): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  if (value === null || value === undefined) {
+    return '';
+  }
+  
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  
+  if (Array.isArray(value)) {
+    return value.map(v => valueToString(v)).join(', ');
+  }
+  
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  
+  return String(value);
+}

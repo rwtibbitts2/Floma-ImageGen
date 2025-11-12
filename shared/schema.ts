@@ -127,9 +127,9 @@ export const systemPrompts = pgTable("system_prompts", {
 // Concept object structure - flexible to support custom prompt formats
 export const conceptSchema = z.record(z.any());
 
-// Concept can be a string (legacy) or structured object (new format)
-export type StructuredConcept = { visual_concept: string; core_graphic: string; [key: string]: any };
-export type Concept = string | StructuredConcept;
+// Import concept types from shared utils
+import type { Concept, StructuredConcept, ConceptValue } from './utils';
+export type { Concept, StructuredConcept, ConceptValue };
 export type ConceptArray = Concept[];
 
 // Concept Lists - AI-generated marketing concept lists

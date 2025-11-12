@@ -16,21 +16,9 @@ import sharp from 'sharp';
 import multer, { type FileFilterCallback } from 'multer';
 import { randomUUID } from 'crypto';
 import type { Request } from 'express';
-import { buildStyleDescription } from '@shared/utils';
+import { buildStyleDescription, conceptToDisplayString } from '@shared/utils';
 
 const router = express.Router();
-
-// Helper to convert concept (string or object) to string for image generation
-function conceptToString(concept: Concept): string {
-  if (typeof concept === 'string') {
-    return concept;
-  }
-  if (concept && typeof concept === 'object' && 'visual_concept' in concept && 'core_graphic' in concept) {
-    return `${concept.visual_concept} | ${concept.core_graphic}`;
-  }
-  // Fallback for unknown object formats
-  return JSON.stringify(concept);
-}
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -680,7 +668,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     await storage.updateGenerationJob(job.id, { status: 'running' });
 
     // Convert concepts to strings for generation
-    const conceptStrings = concepts.map(conceptToString);
+    const conceptStrings = concepts.map(conceptToDisplayString);
 
     // Start generation process asynchronously
     generateImagesAsync(job.id, style, conceptStrings, settings);

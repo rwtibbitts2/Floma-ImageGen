@@ -20,15 +20,7 @@ interface InlineConceptGeneratorProps {
   selectedStyle?: ImageStyle;
 }
 
-// Helper function to convert concept objects to strings
-const conceptToString = (c: any): string => {
-  if (typeof c === 'string') return c;
-  if (c.visual_concept && c.core_graphic) {
-    return `${c.visual_concept} | ${c.core_graphic}`;
-  }
-  if (c.concept) return c.concept;
-  return JSON.stringify(c);
-};
+import { conceptToDisplayString } from '@shared/utils';
 
 export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, selectedStyle }: InlineConceptGeneratorProps) {
   const [mode, setMode] = useState<'input' | 'results'>('input');
@@ -168,7 +160,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       setGeneratedConcepts(data.concepts);
       
       // Convert concepts to strings for conversation history
-      const conceptStrings = data.concepts.map(conceptToString);
+      const conceptStrings = data.concepts.map(conceptToDisplayString);
       
       // Initialize conversation history with the original request and response
       const initialHistory = [
@@ -218,7 +210,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
         const selectedIndicesArray = Array.from(selectedIndices);
         const selectedConcepts = selectedIndicesArray.map(idx => generatedConcepts[idx]);
         
-        const refinementInstruction = `Apply the following feedback ONLY to these specific concepts:\n${selectedConcepts.map((c, i) => `${i + 1}. ${conceptToString(c)}`).join('\n')}\n\nFeedback: ${feedbackText}\n\nKeep all other concepts unchanged.`;
+        const refinementInstruction = `Apply the following feedback ONLY to these specific concepts:\n${selectedConcepts.map((c, i) => `${i + 1}. ${conceptToDisplayString(c)}`).join('\n')}\n\nFeedback: ${feedbackText}\n\nKeep all other concepts unchanged.`;
         const fullContent = `${conversationContext}\n\nUSER: ${refinementInstruction}`;
 
         const data = await api.generateConceptList({
@@ -282,7 +274,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       setGeneratedConcepts(newConcepts);
       
       // Update conversation history with the refinement exchange
-      const refinedConceptStrings = refinedConcepts.map(conceptToString);
+      const refinedConceptStrings = refinedConcepts.map(conceptToDisplayString);
       setConversationHistory(prev => [
         ...prev,
         { role: 'user', content: feedbackText },
@@ -375,7 +367,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       if (prev.length === 0) return prev;
       
       // Convert deleted concept to string for comparison
-      const deletedConceptStr = conceptToString(deletedConcept);
+      const deletedConceptStr = conceptToDisplayString(deletedConcept);
       
       return prev.map(msg => {
         if (msg.role === 'assistant') {
@@ -445,7 +437,7 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
       });
     },
     onSuccess: (data) => {
-      const newConcepts = data.concepts.map(c => c.concept || (typeof c === 'string' ? c : ''));
+      const newConcepts = data.concepts.map(c => conceptToDisplayString(c));
       const allConcepts = [...generatedConcepts, ...newConcepts];
       setGeneratedConcepts(allConcepts);
       
@@ -508,26 +500,8 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
             
             if (typeof concept === 'string') {
               displayContent = concept;
-            } else if (typeof concept === 'object' && concept !== null) {
-              const conceptObj = concept as any;
-              if (conceptObj.visual_concept && conceptObj.core_graphic) {
-                displayContent = (
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-medium text-primary">Visual Concept:</span> {conceptObj.visual_concept}
-                    </div>
-                    <div className="text-muted-foreground">
-                      <span className="font-medium">Core Graphic:</span> {conceptObj.core_graphic}
-                    </div>
-                  </div>
-                );
-              } else if (conceptObj.concept) {
-                displayContent = conceptObj.concept;
-              } else {
-                displayContent = JSON.stringify(concept);
-              }
             } else {
-              displayContent = String(concept);
+              displayContent = conceptToDisplayString(concept);
             }
             
             return (

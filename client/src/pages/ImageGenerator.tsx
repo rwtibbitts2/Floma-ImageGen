@@ -31,6 +31,7 @@ import { ImageStyle, GenerationSettings as GenerationSettingsType, GeneratedImag
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
+import { conceptToDisplayString } from '@shared/utils';
 
 // ThemeToggle component
 function ThemeToggle() {
@@ -164,15 +165,8 @@ export default function ImageGenerator() {
             // Convert concept object to string for display
             if (typeof concept === 'string') {
               setCurrentConcept(concept);
-            } else if (concept && typeof concept === 'object') {
-              const conceptObj = concept as any;
-              if (conceptObj.visual_concept && conceptObj.core_graphic) {
-                setCurrentConcept(`${conceptObj.visual_concept} | ${conceptObj.core_graphic}`);
-              } else if (conceptObj.concept) {
-                setCurrentConcept(conceptObj.concept);
-              } else {
-                setCurrentConcept(JSON.stringify(concept));
-              }
+            } else {
+              setCurrentConcept(conceptToDisplayString(concept));
             }
           }
         },
