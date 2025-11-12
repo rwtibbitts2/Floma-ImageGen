@@ -115,7 +115,8 @@ export const systemPrompts = pgTable("system_prompts", {
     "composition_extraction_instructions" | 
     "composition_extraction_schema" | 
     "concept_extraction_instructions" | 
-    "concept_extraction_schema"
+    "concept_extraction_schema" |
+    "concept_output_schema"
   >().notNull(),
   isActive: boolean("is_active").default(true), // Only one active prompt per type
   createdBy: varchar("created_by").references(() => users.id),
