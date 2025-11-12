@@ -486,44 +486,72 @@ export default function InlineConceptGenerator({ onConceptsGenerated, onCancel, 
 
         {/* Plain Text Concepts with Checkboxes */}
         <div className="space-y-2 rounded-md border bg-muted/30 p-4">
-          {generatedConcepts.map((concept, index) => (
-            <div
-              key={index}
-              className="flex items-start gap-2 group"
-              data-testid={`concept-result-${index}`}
-            >
-              <Checkbox
-                checked={selectedIndices.has(index)}
-                onCheckedChange={() => handleToggleSelect(index)}
-                className="mt-1"
-                data-testid={`checkbox-concept-${index}`}
-              />
-              <div className="text-sm leading-relaxed border-l-2 border-primary/30 pl-3 py-1 flex-1">
-                {concept}
+          {generatedConcepts.map((concept, index) => {
+            let displayContent: React.ReactNode;
+            
+            if (typeof concept === 'string') {
+              displayContent = concept;
+            } else if (typeof concept === 'object' && concept !== null) {
+              const conceptObj = concept as any;
+              if (conceptObj.visual_concept && conceptObj.core_graphic) {
+                displayContent = (
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-medium text-primary">Visual Concept:</span> {conceptObj.visual_concept}
+                    </div>
+                    <div className="text-muted-foreground">
+                      <span className="font-medium">Core Graphic:</span> {conceptObj.core_graphic}
+                    </div>
+                  </div>
+                );
+              } else if (conceptObj.concept) {
+                displayContent = conceptObj.concept;
+              } else {
+                displayContent = JSON.stringify(concept);
+              }
+            } else {
+              displayContent = String(concept);
+            }
+            
+            return (
+              <div
+                key={index}
+                className="flex items-start gap-2 group"
+                data-testid={`concept-result-${index}`}
+              >
+                <Checkbox
+                  checked={selectedIndices.has(index)}
+                  onCheckedChange={() => handleToggleSelect(index)}
+                  className="mt-1"
+                  data-testid={`checkbox-concept-${index}`}
+                />
+                <div className="text-sm leading-relaxed border-l-2 border-primary/30 pl-3 py-1 flex-1">
+                  {displayContent}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => handleRefineSingleConcept(index)}
+                  data-testid={`button-refine-concept-${index}`}
+                  title="Refine this concept"
+                >
+                  <Wand2 className="w-3 h-3" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => handleDeleteConcept(index)}
+                  data-testid={`button-delete-concept-${index}`}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleRefineSingleConcept(index)}
-                data-testid={`button-refine-concept-${index}`}
-                title="Refine this concept"
-              >
-                <Wand2 className="w-3 h-3" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleDeleteConcept(index)}
-                data-testid={`button-delete-concept-${index}`}
-              >
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Generate More Button */}
