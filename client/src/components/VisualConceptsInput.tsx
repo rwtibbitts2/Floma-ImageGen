@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle2, X, Sparkles, Edit3 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { visualConceptsSchema, ImageStyle } from '@shared/schema';
 import InlineConceptGenerator from '@/components/InlineConceptGenerator';
+import { conceptToDisplayString } from '@shared/utils';
 
 interface VisualConceptsInputProps {
   concepts: string[];

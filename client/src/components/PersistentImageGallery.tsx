@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, X, ZoomIn, Sparkles, Loader2 } from 'lucide-react';
 import { GeneratedImage } from '@shared/schema';
+import { conceptToDisplayString } from '@shared/utils';
 
 interface PersistentImageGalleryProps {
   images: GeneratedImage[];
@@ -79,7 +80,7 @@ export default function PersistentImageGallery({
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover-elevate">
                 <img
                   src={image.imageUrl}
-                  alt={image.visualConcept}
+                  alt={conceptToDisplayString(image.visualConcept)}
                   className="w-full h-full object-cover"
                   onClick={() => onImageClick?.(image)}
                   loading="lazy"
@@ -142,7 +143,7 @@ export default function PersistentImageGallery({
               {/* Image info */}
               <div className="mt-2 space-y-1">
                 <p className="text-xs text-muted-foreground line-clamp-2">
-                  {image.visualConcept}
+                  {conceptToDisplayString(image.visualConcept)}
                 </p>
                 <div className="flex items-center justify-between">
                   <Badge variant="outline" className="text-xs">
