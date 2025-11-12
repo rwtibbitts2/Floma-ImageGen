@@ -3107,34 +3107,57 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
     // Strip markdown code blocks if present
     responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse and normalize concepts to simple, consistent format
+    // Parse and validate concepts based on whether we're using the schema
     let concepts: Concept[];
     try {
       const parsed = JSON.parse(responseText);
       
       let rawConcepts: any[];
       
-      // Handle two formats: direct array or object with "concepts" key
-      if (Array.isArray(parsed)) {
-        rawConcepts = parsed;
-      } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concepts)) {
-        rawConcepts = parsed.concepts;
-      } else {
-        throw new Error('Response must be an array or an object with a "concepts" array property');
-      }
-      
-      // Normalize all concepts to simple objects with a "concept" field
-      concepts = rawConcepts.map((concept, index) => {
-        if (typeof concept === 'string') {
-          // Wrap simple string in object for consistent storage
-          return { concept: concept };
-        } else if (typeof concept === 'object' && concept !== null) {
-          // Keep object as-is (supports custom structures)
-          return concept;
+      // If using schema-based output, extract from concept_variations array
+      if (outputSchemaPrompt) {
+        // Schema-based format: validate structure
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concept_variations)) {
+          rawConcepts = parsed.concept_variations;
+          console.log(`Schema validation: extracted ${rawConcepts.length} concept_variations`);
+          
+          // Validate each concept has required fields
+          rawConcepts.forEach((concept, index) => {
+            if (!concept.visual_concept || typeof concept.visual_concept !== 'string') {
+              throw new Error(`Concept ${index + 1} missing required field: visual_concept`);
+            }
+            if (!concept.core_graphic || typeof concept.core_graphic !== 'string') {
+              throw new Error(`Concept ${index + 1} missing required field: core_graphic`);
+            }
+          });
+          
+          concepts = rawConcepts; // Keep structured format with visual_concept + core_graphic
         } else {
-          return { concept: `Concept ${index + 1}` };
+          throw new Error('Schema-based response must have a "concept_variations" array with visual_concept and core_graphic fields');
         }
-      });
+      } else {
+        // Legacy format: handle both array and object with "concepts" key
+        if (Array.isArray(parsed)) {
+          rawConcepts = parsed;
+        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concepts)) {
+          rawConcepts = parsed.concepts;
+        } else {
+          throw new Error('Legacy response must be an array or an object with a "concepts" array property');
+        }
+        
+        // Normalize all concepts to simple objects with a "concept" field
+        concepts = rawConcepts.map((concept, index) => {
+          if (typeof concept === 'string') {
+            // Wrap simple string in object for consistent storage
+            return { concept: concept };
+          } else if (typeof concept === 'object' && concept !== null) {
+            // Keep object as-is (supports custom structures)
+            return concept;
+          } else {
+            return { concept: `Concept ${index + 1}` };
+          }
+        });
+      }
       
       // Validate we have at least some concepts
       if (concepts.length === 0) {
@@ -3145,7 +3168,9 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
       console.error('Response text:', responseText);
       return res.status(500).json({ 
         error: 'Failed to parse AI response',
-        details: 'The AI must return a JSON array of concept strings or objects.'
+        details: outputSchemaPrompt 
+          ? 'The AI must return JSON with concept_variations array containing visual_concept and core_graphic fields.'
+          : 'The AI must return a JSON array of concept strings or objects.'
       });
     }
 
