@@ -91,11 +91,11 @@ export type Concept = string | StructuredConcept;
 
 export function conceptToDisplayString(concept: Concept): string {
   if (typeof concept === 'string') {
-    return concept;
+    return concept.trim() || 'Unnamed Concept';
   }
   
   if (concept === null || concept === undefined) {
-    return '';
+    return 'Unnamed Concept';
   }
   
   if (typeof concept === 'object') {
@@ -104,22 +104,38 @@ export function conceptToDisplayString(concept: Concept): string {
     if (conceptObj.visual_concept !== undefined && conceptObj.core_graphic !== undefined) {
       const visualConceptStr = valueToString(conceptObj.visual_concept);
       const coreGraphicStr = valueToString(conceptObj.core_graphic);
+      
+      if (!visualConceptStr && !coreGraphicStr) {
+        return 'Unnamed Concept';
+      }
+      
+      if (!visualConceptStr) {
+        return coreGraphicStr;
+      }
+      
+      if (!coreGraphicStr) {
+        return visualConceptStr;
+      }
+      
       return `${visualConceptStr} | ${coreGraphicStr}`;
     }
     
     if (conceptObj.concept !== undefined) {
-      return valueToString(conceptObj.concept);
+      const conceptStr = valueToString(conceptObj.concept);
+      return conceptStr || 'Unnamed Concept';
     }
     
-    return objectToString(conceptObj);
+    const objStr = objectToString(conceptObj);
+    return objStr || 'Unnamed Concept';
   }
   
-  return String(concept);
+  return String(concept) || 'Unnamed Concept';
 }
 
 function valueToString(value: ConceptValue): string {
   if (typeof value === 'string') {
-    return value;
+    const normalized = value.trim().replace(/\s+/g, ' ');
+    return normalized;
   }
   
   if (value === null || value === undefined) {
@@ -131,8 +147,11 @@ function valueToString(value: ConceptValue): string {
   }
   
   if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '';
+    }
     const items = value.map(v => valueToString(v)).filter(s => s !== '');
-    return items.join(', ');
+    return items.length > 0 ? items.join(', ') : '';
   }
   
   if (typeof value === 'object') {

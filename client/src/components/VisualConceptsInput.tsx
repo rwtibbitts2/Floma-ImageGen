@@ -48,10 +48,22 @@ export default function VisualConceptsInput({ concepts, onConceptsChange, onUplo
   const deleteConcept = (indexToDelete: number) => {
     const updatedConcepts = concepts.filter((_, index) => index !== indexToDelete);
     onConceptsChange(updatedConcepts);
+    setJsonInput(JSON.stringify(updatedConcepts, null, 2));
   };
 
   const handleConceptsGenerated = (generatedConcepts: any[]) => {
-    onConceptsChange(generatedConcepts);
+    const conceptStrings = generatedConcepts
+      .map(conceptToDisplayString)
+      .filter(s => s && s.trim());
+    
+    if (conceptStrings.length === 0) {
+      setValidationError('Generated concepts are empty. Please try again with different instructions.');
+      return;
+    }
+    
+    onConceptsChange(conceptStrings);
+    setJsonInput(JSON.stringify(conceptStrings, null, 2));
+    setValidationError(undefined);
     // Keep the generator open so user can continue refining
   };
 
