@@ -12,6 +12,32 @@ Preferred communication style: Simple, everyday language.
 
 ### November 12, 2025
 
+**Image Generation Prompt Structure Fix** - Corrected image generation to use proper three-prompt architecture:
+
+**Problem Solved**:
+- Image generation was incorrectly including `conceptPrompt` in system instructions
+- The concept prompt is only for generating concept ideas, NOT for image generation
+- Image generation should combine: style + composition + user's concept (not the concept generator prompt)
+
+**Implementation**:
+- **Removed** `style.conceptPrompt` from image generation system instructions
+- **Prioritized framework instructions** with legacy fallback:
+  - Style: `styleFramework.final_instruction_prompt` → `stylePrompt` → empty string
+  - Composition: `compositionFramework.final_instruction_prompt` → `compositionPrompt` → empty string
+- **Added logging** to track which prompt sources are used (framework vs legacy text)
+- **Maintained** user's concept as the subject (already correct)
+
+**Correct Three-Prompt Architecture for Image Generation**:
+1. **Style Instructions**: Visual appearance (lighting, colors, materials, rendering aesthetics)
+2. **Composition Instructions**: Spatial organization (layout, perspective, depth, balance)
+3. **User's Concept**: The specific subject/idea to generate
+
+**Benefits**:
+- Framework-based styles use richer, structured instructions for higher quality outputs
+- Legacy styles continue working with simple text prompts
+- Clear separation: concept prompt generates ideas, style+composition prompts generate images
+- Server logs show which sources are used for debugging and validation
+
 **Concept Framework Integration into Generation Pipeline** - Connected extracted concept frameworks to the concept generation workflow:
 
 **Problem Solved**:
