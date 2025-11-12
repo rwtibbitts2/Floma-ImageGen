@@ -898,15 +898,21 @@ async function generateImagesAsync(
     for (const concept of concepts) {
       for (let variation = 1; variation <= settings.variations; variation++) {
         try {
-          // Build prompt combining all three system prompts + media adapter + concept
+          // Build prompt combining style + composition prompts + media adapter + concept
           const maxPromptLength = 1000;
           
-          // Combine all three prompts into one comprehensive prompt
-          const systemInstructions = [
-            style.stylePrompt || '',
-            style.compositionPrompt || '',
-            style.conceptPrompt || '',
-          ].filter(p => p).join(' ');
+          // Prioritize framework instructions, fall back to legacy text prompts
+          // Note: conceptPrompt is NOT used here - it's only for generating concepts
+          const styleInstructions = style.styleFramework?.final_instruction_prompt || style.stylePrompt || '';
+          const compositionInstructions = style.compositionFramework?.final_instruction_prompt || style.compositionPrompt || '';
+          
+          // Log which prompt sources are being used
+          const styleSource = style.styleFramework?.final_instruction_prompt ? 'styleFramework' : 'stylePrompt';
+          const compositionSource = style.compositionFramework?.final_instruction_prompt ? 'compositionFramework' : 'compositionPrompt';
+          console.log(`Image generation using: ${styleSource} + ${compositionSource}`);
+          
+          // Combine style and composition instructions
+          const systemInstructions = [styleInstructions, compositionInstructions].filter(p => p).join(' ');
           
           // Inject media adapter adjustments if available
           let enhancedInstructions = systemInstructions;
