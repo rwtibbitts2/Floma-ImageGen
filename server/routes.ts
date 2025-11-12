@@ -1575,6 +1575,16 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       mediaAdapter = await storage.getDefaultMediaAdapter();
     }
 
+    // Helper function to ensure prompts contain "json" for OpenAI's json_object requirement
+    const ensureJsonCompliance = (prompt: string): string => {
+      // Check if prompt already mentions "json" (case-insensitive)
+      if (/\bjson\b/i.test(prompt)) {
+        return prompt;
+      }
+      // Prepend a small preamble if "json" is not found
+      return `IMPORTANT: Respond with valid JSON format.\n\n${prompt}`;
+    };
+
     // Load active system prompts from database
     const [stylePromptTemplate, compositionPromptTemplate, conceptPromptTemplate] = await Promise.all([
       storage.getActiveSystemPromptByType('style_extraction_instructions'),
@@ -1587,9 +1597,10 @@ router.post('/extract-style', requireAuth, async (req, res) => {
     }
 
     // Build the final prompts by appending media adapter and user context sections
-    let styleAnalysisPrompt = stylePromptTemplate.promptText;
-    let compositionAnalysisPrompt = compositionPromptTemplate.promptText;
-    let conceptAnalysisPrompt = conceptPromptTemplate.promptText;
+    // Apply JSON compliance wrapper to prompts that will use json_object response format
+    let styleAnalysisPrompt = ensureJsonCompliance(stylePromptTemplate.promptText);
+    let compositionAnalysisPrompt = ensureJsonCompliance(compositionPromptTemplate.promptText);
+    let conceptAnalysisPrompt = ensureJsonCompliance(conceptPromptTemplate.promptText);
     
     // Append media adapter adjustments to style prompt if available
     if (mediaAdapter) {
