@@ -28,6 +28,7 @@ import type { MediaAdapter } from '@/lib/api';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
+import { conceptToDisplayString } from '@shared/utils';
 
 interface StyleWorkspaceProps {
   styleId?: string;
@@ -54,7 +55,7 @@ export default function StyleWorkspace() {
   const [previewImageUrl, setPreviewImageUrl] = useState('');
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [generatedConcept, setGeneratedConcept] = useState('');
-  const [testConcepts, setTestConcepts] = useState<string[]>([]);
+  const [testConcepts, setTestConcepts] = useState<any[]>([]);
   const [currentConceptIndex, setCurrentConceptIndex] = useState(0);
   
   // Refinement feedback state (per tab)
@@ -623,7 +624,7 @@ export default function StyleWorkspace() {
                       </Button>
                       <div className="flex-1 p-3 bg-muted rounded-md min-h-[60px] flex items-center">
                         <p className="text-sm" data-testid="text-test-concept">
-                          {testConcepts[currentConceptIndex]}
+                          {conceptToDisplayString(testConcepts[currentConceptIndex])}
                         </p>
                       </div>
                       <Button

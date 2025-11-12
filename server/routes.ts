@@ -1750,8 +1750,16 @@ router.post('/extract-style', requireAuth, async (req, res) => {
     console.log('✓ Concept Prompt Length:', conceptPrompt.length, 'chars');
     console.log('✓ Media Adapter:', mediaAdapter?.name || 'None');
     
-    // Generate 3 test concepts using the Concept Schema prompt from database
+    // Generate 3 test concepts using the Concept Output Schema
     console.log('=== GENERATING TEST CONCEPTS ===');
+    
+    // Load the active concept output schema to define output structure
+    let outputSchemaPrompt = null;
+    try {
+      outputSchemaPrompt = await storage.getActiveSystemPromptByType('concept_output_schema');
+    } catch (error) {
+      console.warn('No active concept_output_schema found, using legacy format');
+    }
     
     // Load the active concept schema prompt for test concept generation
     const conceptSchemaPrompt = await storage.getActiveSystemPromptByType('concept_extraction_schema');
@@ -1778,13 +1786,27 @@ Follow ALL the guidelines in the concept_framework, especially:
 - Ideation guidelines: ${conceptFramework.concept_framework?.ideation_guidelines || ''}`;
     }
     
-    // Always append output format instructions
-    testConceptSystemPrompt += `
+    // Build output format instructions based on whether we have a schema
+    let outputFormatInstructions: string;
+    if (outputSchemaPrompt) {
+      console.log('Using concept_output_schema for structured test concepts');
+      outputFormatInstructions = `
+
+IMPORTANT OUTPUT FORMAT:
+You must return JSON matching this exact schema (with exactly 3 concepts):
+${outputSchemaPrompt.promptText}
+
+Do NOT wrap in markdown code blocks. Return only the raw JSON.`;
+    } else {
+      outputFormatInstructions = `
 
 IMPORTANT OUTPUT FORMAT:
 Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
 Example format: ["Concept 1 description", "Concept 2 description", "Concept 3 description"]
 Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
+    }
+    
+    testConceptSystemPrompt += outputFormatInstructions;
 
     const testConceptUserMessage = userContext 
       ? `Generate 3 diverse visual concepts that align with this context: ${userContext}`
@@ -1797,26 +1819,46 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
         { role: "user", content: testConceptUserMessage }
       ],
       temperature: 0.8,
-      max_tokens: 300,
+      max_tokens: 500,
     });
 
-    let testConcepts: string[] = [];
+    let testConcepts: any[] = [];
     try {
       let responseText = testConceptCompletion.choices[0]?.message?.content || '[]';
       responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       
       const parsed = JSON.parse(responseText);
-      if (Array.isArray(parsed) && parsed.length >= 3) {
-        testConcepts = parsed.slice(0, 3).map(c => typeof c === 'string' ? c : String(c));
+      
+      if (outputSchemaPrompt) {
+        // Schema-based format: extract concept_variations
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concept_variations)) {
+          testConcepts = parsed.concept_variations.slice(0, 3);
+          console.log('✓ Generated structured test concepts:', testConcepts.length);
+        } else {
+          throw new Error('Schema-based response must have a "concept_variations" array');
+        }
+      } else {
+        // Legacy format: simple string array
+        if (Array.isArray(parsed) && parsed.length >= 3) {
+          testConcepts = parsed.slice(0, 3).map(c => typeof c === 'string' ? c : String(c));
+          console.log('✓ Generated test concepts:', testConcepts.length);
+        }
       }
-      console.log('✓ Generated test concepts:', testConcepts.length);
     } catch (parseError) {
       console.warn('Failed to parse test concepts, using fallbacks');
-      testConcepts = [
-        'A minimalist composition showcasing the extracted visual style',
-        'An abstract representation using the identified compositional principles',
-        'A conceptual interpretation following the generated guidelines'
-      ];
+      if (outputSchemaPrompt) {
+        testConcepts = [
+          { visual_concept: 'A minimalist composition', core_graphic: 'Showcasing the extracted visual style' },
+          { visual_concept: 'An abstract representation', core_graphic: 'Using the identified compositional principles' },
+          { visual_concept: 'A conceptual interpretation', core_graphic: 'Following the generated guidelines' }
+        ];
+      } else {
+        testConcepts = [
+          'A minimalist composition showcasing the extracted visual style',
+          'An abstract representation using the identified compositional principles',
+          'A conceptual interpretation following the generated guidelines'
+        ];
+      }
     }
     
     res.json({
@@ -1856,6 +1898,14 @@ router.post('/regenerate-test-concepts', requireAuth, async (req, res) => {
 
     console.log('=== REGENERATING TEST CONCEPTS ===');
     
+    // Load the active concept output schema to define output structure
+    let outputSchemaPrompt = null;
+    try {
+      outputSchemaPrompt = await storage.getActiveSystemPromptByType('concept_output_schema');
+    } catch (error) {
+      console.warn('No active concept_output_schema found, using legacy format');
+    }
+    
     // Load the active concept schema prompt for test concept generation
     const conceptSchemaPrompt = await storage.getActiveSystemPromptByType('concept_extraction_schema');
     if (!conceptSchemaPrompt) {
@@ -1881,13 +1931,27 @@ Follow ALL the guidelines in the concept_framework, especially:
 - Ideation guidelines: ${conceptFramework.concept_framework?.ideation_guidelines || ''}`;
     }
     
-    // Always append output format instructions
-    testConceptSystemPrompt += `
+    // Build output format instructions based on whether we have a schema
+    let outputFormatInstructions: string;
+    if (outputSchemaPrompt) {
+      console.log('Using concept_output_schema for structured test concepts');
+      outputFormatInstructions = `
+
+IMPORTANT OUTPUT FORMAT:
+You must return JSON matching this exact schema (with exactly 3 concepts):
+${outputSchemaPrompt.promptText}
+
+Do NOT wrap in markdown code blocks. Return only the raw JSON.`;
+    } else {
+      outputFormatInstructions = `
 
 IMPORTANT OUTPUT FORMAT:
 Return ONLY a JSON array of exactly 3 strings. Each string should be a concise visual concept description (10-20 words).
 Example format: ["Concept 1 description", "Concept 2 description", "Concept 3 description"]
 Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
+    }
+    
+    testConceptSystemPrompt += outputFormatInstructions;
 
     const testConceptUserMessage = userContext 
       ? `Generate 3 diverse visual concepts that align with this context: ${userContext}`
@@ -1900,26 +1964,46 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
         { role: "user", content: testConceptUserMessage }
       ],
       temperature: 0.8,
-      max_tokens: 300,
+      max_tokens: 500,
     });
 
-    let testConcepts: string[] = [];
+    let testConcepts: any[] = [];
     try {
       let responseText = testConceptCompletion.choices[0]?.message?.content || '[]';
       responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       
       const parsed = JSON.parse(responseText);
-      if (Array.isArray(parsed) && parsed.length >= 3) {
-        testConcepts = parsed.slice(0, 3).map(c => typeof c === 'string' ? c : String(c));
+      
+      if (outputSchemaPrompt) {
+        // Schema-based format: extract concept_variations
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.concept_variations)) {
+          testConcepts = parsed.concept_variations.slice(0, 3);
+          console.log('✓ Regenerated structured test concepts:', testConcepts.length);
+        } else {
+          throw new Error('Schema-based response must have a "concept_variations" array');
+        }
+      } else {
+        // Legacy format: simple string array
+        if (Array.isArray(parsed) && parsed.length >= 3) {
+          testConcepts = parsed.slice(0, 3).map(c => typeof c === 'string' ? c : String(c));
+          console.log('✓ Regenerated test concepts:', testConcepts.length);
+        }
       }
-      console.log('✓ Regenerated test concepts:', testConcepts.length);
     } catch (parseError) {
       console.warn('Failed to parse test concepts, using fallbacks');
-      testConcepts = [
-        'A minimalist composition showcasing the extracted visual style',
-        'An abstract representation using the identified compositional principles',
-        'A conceptual interpretation following the generated guidelines'
-      ];
+      if (outputSchemaPrompt) {
+        testConcepts = [
+          { visual_concept: 'A minimalist composition', core_graphic: 'Showcasing the extracted visual style' },
+          { visual_concept: 'An abstract representation', core_graphic: 'Using the identified compositional principles' },
+          { visual_concept: 'A conceptual interpretation', core_graphic: 'Following the generated guidelines' }
+        ];
+      } else {
+        testConcepts = [
+          'A minimalist composition showcasing the extracted visual style',
+          'An abstract representation using the identified compositional principles',
+          'A conceptual interpretation following the generated guidelines'
+        ];
+      }
     }
     
     res.json({ testConcepts });

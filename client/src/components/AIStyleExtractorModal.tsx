@@ -32,6 +32,7 @@ import {
 import { ImageStyle } from '@shared/schema';
 import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { conceptToDisplayString } from '@shared/utils';
 
 interface AIStyleExtractorModalProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ export default function AIStyleExtractorModal({
   const [extractedMediaAdapterId, setExtractedMediaAdapterId] = useState<string | null>(null);
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
-  const [testConcepts, setTestConcepts] = useState<string[]>([]);
+  const [testConcepts, setTestConcepts] = useState<any[]>([]);
   const [currentConceptIndex, setCurrentConceptIndex] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -593,7 +594,7 @@ export default function AIStyleExtractorModal({
                   </Button>
                   <div className="flex-1 p-3 bg-muted rounded-md min-h-[60px] flex items-center">
                     <p className="text-sm" data-testid="text-test-concept">
-                      {testConcepts[currentConceptIndex]}
+                      {conceptToDisplayString(testConcepts[currentConceptIndex])}
                     </p>
                   </div>
                   <Button

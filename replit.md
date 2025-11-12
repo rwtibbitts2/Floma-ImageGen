@@ -25,7 +25,7 @@ The application employs a **Modular Media Adapter System** and a **Three-Prompt 
 -   **Extraction Workflow**: Users upload a reference image, and the system makes three parallel GPT-4 Vision API calls to generate the Style, Composition, and Concept prompts.
 -   **Refinement Workflow**: A tabbed interface in the StyleWorkspace allows iterative, conversational refinement of each prompt independently.
 -   **Image Generation Workflow**: Combines the selected Style, Composition, and user's Concept prompts into a single system instruction for OpenAI's image generation API, using framework instructions where available.
--   **Test Concept Generation**: During extraction, 3 example concepts are automatically generated using the concept prompt, utilizing the full `conceptFramework` JSON for precision.
+-   **Test Concept Generation**: During extraction, 3 example concepts are automatically generated using the concept prompt and `concept_output_schema`, utilizing the full `conceptFramework` JSON for precision. Test concepts use the structured format with `visual_concept` and `core_graphic` properties for consistency with bulk concept generation.
 -   **Componentized System Prompts Architecture**: Migrated from hardcoded prompts to a database-backed system with admin management, allowing rapid iteration on extraction quality and A/B testing different prompt strategies. This includes a `concept_output_schema` for consistent, structured concept output.
 
 ### Technical Architecture
