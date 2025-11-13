@@ -3357,6 +3357,221 @@ router.delete('/concept-lists/:id', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/intelligent-refine - Analyze reference vs preview and suggest prompt refinements
+router.post('/intelligent-refine', requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({
+      referenceImageUrl: z.string().url(),
+      previewImageUrl: z.string().url(),
+      stylePrompt: z.string(),
+      styleFramework: z.record(z.any()).nullable().optional(),
+      compositionPrompt: z.string(),
+      compositionFramework: z.record(z.any()).nullable().optional(),
+      conceptPrompt: z.string(),
+      conceptFramework: z.record(z.any()).nullable().optional(),
+    });
+
+    const validation = schema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        error: 'Invalid input',
+        details: validation.error.errors,
+      });
+    }
+
+    const {
+      referenceImageUrl,
+      previewImageUrl,
+      stylePrompt,
+      styleFramework,
+      compositionPrompt,
+      compositionFramework,
+      conceptPrompt,
+      conceptFramework,
+    } = validation.data;
+
+    console.log('=== INTELLIGENT REFINE REQUEST ===');
+    console.log('Reference image:', referenceImageUrl);
+    console.log('Preview image:', previewImageUrl);
+
+    // Fetch the intelligent refine system prompt from database
+    const intelligentRefinePrompt = await storage.getActiveSystemPromptByType('intelligent_refine');
+    const systemPromptText = intelligentRefinePrompt?.promptText || `Role:
+You are a multimodal refinement analyst who compares two images — a reference image and a generated preview — and determines how to adjust style, composition, and concept prompts to better align the next generation with the reference's visual language.
+
+Task Definition:
+Visually analyze the differences between the two images. Identify where the generated preview diverges in tone, structure, or conceptual fidelity.
+Then produce targeted refinements to each prompt layer — style, composition, concept, and final_generation_prompt — that would reduce those discrepancies in the next generation cycle.
+
+Guidelines:
+
+Focus on how the generated image differs, not whether it's "good."
+
+Be concrete and actionable — modify phrasing, add missing descriptors, or remove conflicting cues.
+
+Maintain coherence with the original brand tone and aesthetic intent.
+
+If multiple fixes overlap, merge them into succinct, harmonized instructions.
+
+Do not rewrite prompts wholesale; only evolve and optimize.
+
+Output Format:
+Return a JSON object with the following structure:
+{
+  "explanation": "Brief explanation of what visual differences you observed and why the changes will help",
+  "refinedStylePrompt": "The updated style prompt text",
+  "refinedStyleFramework": { ...complete updated style framework JSON... },
+  "refinedCompositionPrompt": "The updated composition prompt text",
+  "refinedCompositionFramework": { ...complete updated composition framework JSON... },
+  "refinedConceptPrompt": "The updated concept prompt text",
+  "refinedConceptFramework": { ...complete updated concept framework JSON... }
+}`;
+
+    // Build user message with current prompts and frameworks
+    const userMessage = `Analyze these two images and refine the prompts to better align future generations with the reference image.
+
+Reference Image (what we want to match):
+[First image shown]
+
+Generated Preview (what was actually created):
+[Second image shown]
+
+CURRENT PROMPTS:
+
+Style Prompt:
+${stylePrompt}
+
+Style Framework:
+${styleFramework ? JSON.stringify(styleFramework, null, 2) : 'Not available'}
+
+Composition Prompt:
+${compositionPrompt}
+
+Composition Framework:
+${compositionFramework ? JSON.stringify(compositionFramework, null, 2) : 'Not available'}
+
+Concept Prompt:
+${conceptPrompt}
+
+Concept Framework:
+${conceptFramework ? JSON.stringify(conceptFramework, null, 2) : 'Not available'}
+
+Please analyze the visual differences and provide refined versions of all prompts and frameworks.`;
+
+    // Make GPT-5 vision API call with both images, with fallback to GPT-4o
+    let completion;
+    let modelUsed = "gpt-5";
+    
+    try {
+      console.log('Calling GPT-5 for intelligent refinement...');
+      completion = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "system",
+            content: systemPromptText
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: userMessage
+              },
+              {
+                type: "image_url",
+                image_url: { url: referenceImageUrl }
+              },
+              {
+                type: "image_url",
+                image_url: { url: previewImageUrl }
+              }
+            ]
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000,
+        response_format: { type: "json_object" }
+      });
+      console.log('GPT-5 response received');
+    } catch (gpt5Error) {
+      console.warn('GPT-5 call failed, falling back to GPT-4o:', gpt5Error);
+      modelUsed = "gpt-4o";
+      
+      try {
+        completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: systemPromptText
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: userMessage
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: referenceImageUrl }
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: previewImageUrl }
+                }
+              ]
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 3000,
+          response_format: { type: "json_object" }
+        });
+        console.log('GPT-4o fallback response received');
+      } catch (gpt4oError) {
+        console.error('Both GPT-5 and GPT-4o calls failed:', gpt4oError);
+        return res.status(503).json({ error: 'AI refinement service unavailable. Both GPT-5 and GPT-4o failed.' });
+      }
+    }
+
+    const responseText = completion.choices[0]?.message?.content || '{}';
+    console.log(`Intelligent refinement completed using ${modelUsed}`);
+
+    // Parse the JSON response
+    let refinementResult;
+    try {
+      refinementResult = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse GPT response:', parseError);
+      return res.status(500).json({ error: 'Failed to parse refinement suggestions' });
+    }
+
+    // Validate and normalize the response to ensure all fields are present
+    if (!refinementResult.explanation) {
+      console.error('Missing explanation in response');
+      return res.status(500).json({ error: 'Invalid refinement response format' });
+    }
+
+    // Ensure all prompts and frameworks are present, falling back to originals if missing
+    const normalizedResult = {
+      explanation: refinementResult.explanation,
+      refinedStylePrompt: refinementResult.refinedStylePrompt || stylePrompt,
+      refinedStyleFramework: refinementResult.refinedStyleFramework || styleFramework,
+      refinedCompositionPrompt: refinementResult.refinedCompositionPrompt || compositionPrompt,
+      refinedCompositionFramework: refinementResult.refinedCompositionFramework || compositionFramework,
+      refinedConceptPrompt: refinementResult.refinedConceptPrompt || conceptPrompt,
+      refinedConceptFramework: refinementResult.refinedConceptFramework || conceptFramework,
+    };
+
+    console.log('Intelligent refine completed successfully');
+    res.json(normalizedResult);
+  } catch (error) {
+    console.error('Error in intelligent refine:', error);
+    res.status(500).json({ error: 'Failed to perform intelligent refinement' });
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication system - From blueprint:javascript_auth_all_persistance
   setupAuth(app);

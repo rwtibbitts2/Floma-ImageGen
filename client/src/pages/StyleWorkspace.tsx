@@ -30,6 +30,7 @@ import * as api from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
 import { conceptToDisplayString } from '@shared/utils';
+import IntelligentRefineModal from '@/components/IntelligentRefineModal';
 
 interface StyleWorkspaceProps {
   styleId?: string;
@@ -79,6 +80,9 @@ export default function StyleWorkspace() {
     size: '1024x1024',
     transparency: false
   });
+  
+  // Intelligent refine modal state
+  const [showIntelligentRefineModal, setShowIntelligentRefineModal] = useState(false);
 
   // Fetch style data
   const { data: style, isLoading } = useQuery({
@@ -439,6 +443,29 @@ export default function StyleWorkspace() {
       }
       
       return updated;
+    });
+  };
+
+  const handleAcceptIntelligentRefine = (refinements: any) => {
+    // Save current state to history for undo
+    setStyleHistory(prev => [...prev, { prompt: stylePrompt, framework: styleFramework }]);
+    setCompositionHistory(prev => [...prev, { prompt: compositionPrompt, framework: compositionFramework }]);
+    setConceptHistory(prev => [...prev, { prompt: conceptPrompt, framework: conceptFramework, testConcepts }]);
+    
+    // Apply all refinements atomically
+    setStylePrompt(refinements.refinedStylePrompt || stylePrompt);
+    setStyleFramework(refinements.refinedStyleFramework || styleFramework);
+    setCompositionPrompt(refinements.refinedCompositionPrompt || compositionPrompt);
+    setCompositionFramework(refinements.refinedCompositionFramework || compositionFramework);
+    setConceptPrompt(refinements.refinedConceptPrompt || conceptPrompt);
+    setConceptFramework(refinements.refinedConceptFramework || conceptFramework);
+    
+    // Increment concept version to invalidate any in-flight regeneration
+    conceptRefinementVersionRef.current += 1;
+    
+    toast({
+      title: 'Refinements Applied',
+      description: 'All prompts have been updated based on AI analysis.'
     });
   };
 
@@ -865,13 +892,28 @@ export default function StyleWorkspace() {
             </div>
 
             {previewImageUrl ? (
-              <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
-                <img
-                  src={previewImageUrl}
-                  alt="Style preview"
-                  className="w-full h-full object-cover"
-                  data-testid="img-preview"
-                />
+              <div className="space-y-3">
+                <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
+                  <img
+                    src={previewImageUrl}
+                    alt="Style preview"
+                    className="w-full h-full object-cover"
+                    data-testid="img-preview"
+                  />
+                </div>
+                
+                {referenceImageUrl && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setShowIntelligentRefineModal(true)}
+                    data-testid="button-intelligent-refine"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Intelligent Refine
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="flex items-center justify-center aspect-square rounded-lg border bg-muted text-muted-foreground">
@@ -927,6 +969,21 @@ export default function StyleWorkspace() {
           </div>
         </div>
       </div>
+      
+      {/* Intelligent Refine Modal */}
+      <IntelligentRefineModal
+        isOpen={showIntelligentRefineModal}
+        onClose={() => setShowIntelligentRefineModal(false)}
+        onAccept={handleAcceptIntelligentRefine}
+        referenceImageUrl={referenceImageUrl}
+        previewImageUrl={previewImageUrl}
+        stylePrompt={stylePrompt}
+        styleFramework={styleFramework}
+        compositionPrompt={compositionPrompt}
+        compositionFramework={compositionFramework}
+        conceptPrompt={conceptPrompt}
+        conceptFramework={conceptFramework}
+      />
     </div>
   );
 }
