@@ -63,6 +63,11 @@ export default function StyleWorkspace() {
   const [compositionFeedback, setCompositionFeedback] = useState('');
   const [conceptFeedback, setConceptFeedback] = useState('');
   
+  // Version control history for undo functionality
+  const [styleHistory, setStyleHistory] = useState<Array<{ prompt: string; framework: Record<string, any> | null }>>([]);
+  const [compositionHistory, setCompositionHistory] = useState<Array<{ prompt: string; framework: Record<string, any> | null }>>([]);
+  const [conceptHistory, setConceptHistory] = useState<Array<{ prompt: string; framework: Record<string, any> | null; testConcepts: any[] }>>([]);
+  
   // Generation settings state
   const [generationSettings, setGenerationSettings] = useState({
     model: 'gpt-image-1',
