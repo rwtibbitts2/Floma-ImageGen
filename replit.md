@@ -23,9 +23,9 @@ The application employs a **Modular Media Adapter System** and a **Three-Prompt 
 ### Key Features and Implementations
 
 -   **Extraction Workflow**: Users upload a reference image, and the system makes three parallel GPT-4 Vision API calls to generate the Style, Composition, and Concept prompts.
--   **Refinement Workflow**: A tabbed interface in the StyleWorkspace allows iterative, conversational refinement of each prompt independently.
+-   **Refinement Workflow**: A tabbed interface in the StyleWorkspace allows iterative, conversational refinement of each prompt independently. When the concept prompt is refined, test concepts are automatically regenerated using the new prompt to maintain consistency.
 -   **Image Generation Workflow**: Combines the selected Style, Composition, and user's Concept prompts into a single system instruction for OpenAI's image generation API, using framework instructions where available.
--   **Test Concept Generation**: During extraction, 3 example concepts are automatically generated using the concept prompt and `concept_output_schema`, utilizing the full `conceptFramework` JSON for precision. Test concepts use the structured format with `visual_concept` and `core_graphic` properties for consistency with bulk concept generation.
+-   **Test Concept Generation**: During extraction, 3 example concepts are automatically generated using the concept prompt and `concept_output_schema`, utilizing the full `conceptFramework` JSON for precision. Test concepts use the structured format with `visual_concept` and `core_graphic` properties for consistency with bulk concept generation. When the concept prompt is refined, test concepts automatically regenerate to reflect the updated guidance.
 -   **Componentized System Prompts Architecture**: Migrated from hardcoded prompts to a database-backed system with admin management, allowing rapid iteration on extraction quality and A/B testing different prompt strategies. This includes a `concept_output_schema` for consistent, structured concept output.
 
 ### Technical Architecture
