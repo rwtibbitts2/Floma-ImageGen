@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ import {
   Layers,
   Info,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Undo
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageStyle } from '@shared/schema';
@@ -67,6 +68,9 @@ export default function StyleWorkspace() {
   const [styleHistory, setStyleHistory] = useState<Array<{ prompt: string; framework: Record<string, any> | null }>>([]);
   const [compositionHistory, setCompositionHistory] = useState<Array<{ prompt: string; framework: Record<string, any> | null }>>([]);
   const [conceptHistory, setConceptHistory] = useState<Array<{ prompt: string; framework: Record<string, any> | null; testConcepts: any[] }>>([]);
+  
+  // Track concept refinement version to prevent race conditions with regeneration
+  const conceptRefinementVersionRef = useRef(0);
   
   // Generation settings state
   const [generationSettings, setGenerationSettings] = useState({
@@ -146,7 +150,7 @@ export default function StyleWorkspace() {
 
   // Regenerate test concepts mutation
   const regenerateConceptsMutation = useMutation({
-    mutationFn: async (params?: { conceptPrompt?: string; conceptFramework?: Record<string, any> | null }) => {
+    mutationFn: async (params?: { conceptPrompt?: string; conceptFramework?: Record<string, any> | null; expectedVersion?: number }) => {
       const token = localStorage.getItem('authToken');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -164,9 +168,16 @@ export default function StyleWorkspace() {
         }),
       });
       if (!response.ok) throw new Error('Failed to regenerate test concepts');
-      return response.json();
+      const result = await response.json();
+      return { ...result, expectedVersion: params?.expectedVersion };
     },
     onSuccess: (data) => {
+      // Only apply if version matches (no undo happened while regenerating)
+      if (data.expectedVersion !== undefined && data.expectedVersion !== conceptRefinementVersionRef.current) {
+        console.log('Ignoring stale regeneration result (version mismatch)');
+        return;
+      }
+      
       setTestConcepts(data.testConcepts || []);
       setCurrentConceptIndex(0);
       toast({
@@ -241,6 +252,10 @@ export default function StyleWorkspace() {
   const handleSave = async () => {
     try {
       await saveMutation.mutateAsync();
+      // Clear all history when saving (session-based undo)
+      setStyleHistory([]);
+      setCompositionHistory([]);
+      setConceptHistory([]);
       toast({
         title: 'Style Saved',
         description: 'Your style has been successfully updated.'
@@ -267,6 +282,15 @@ export default function StyleWorkspace() {
     }
 
     try {
+      // Save current state to history before making changes
+      if (promptType === 'style') {
+        setStyleHistory(prev => [...prev, { prompt: stylePrompt, framework: styleFramework }]);
+      } else if (promptType === 'composition') {
+        setCompositionHistory(prev => [...prev, { prompt: compositionPrompt, framework: compositionFramework }]);
+      } else if (promptType === 'concept') {
+        setConceptHistory(prev => [...prev, { prompt: conceptPrompt, framework: conceptFramework, testConcepts }]);
+      }
+
       const result = await refineMutation.mutateAsync({ promptType, feedback });
       
       // Update the appropriate prompt
@@ -280,6 +304,10 @@ export default function StyleWorkspace() {
         setConceptPrompt(result.refinedPrompt);
         setConceptFeedback('');
         
+        // Increment version to mark this refinement
+        conceptRefinementVersionRef.current += 1;
+        const expectedVersion = conceptRefinementVersionRef.current;
+        
         // Show initial success for prompt refinement
         toast({
           title: 'Prompt Refined',
@@ -290,9 +318,11 @@ export default function StyleWorkspace() {
         try {
           await regenerateConceptsMutation.mutateAsync({
             conceptPrompt: result.refinedPrompt,
-            conceptFramework: conceptFramework
+            conceptFramework: conceptFramework,
+            expectedVersion: expectedVersion
           });
           // Mutation's onSuccess already handles updating state and showing success toast
+          // Version checking happens in onSuccess to prevent stale updates
         } catch (regenerateError) {
           console.error('Failed to regenerate test concepts:', regenerateError);
           toast({
@@ -313,6 +343,43 @@ export default function StyleWorkspace() {
         title: 'Refinement Failed',
         description: 'Failed to refine the prompt. Please try again.',
         variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUndo = (promptType: 'style' | 'composition' | 'concept') => {
+    if (promptType === 'style' && styleHistory.length > 0) {
+      const previousState = styleHistory[styleHistory.length - 1];
+      setStylePrompt(previousState.prompt);
+      setStyleFramework(previousState.framework);
+      setStyleHistory(prev => prev.slice(0, -1));
+      toast({
+        title: 'Undo Successful',
+        description: 'Reverted to previous style prompt version.'
+      });
+    } else if (promptType === 'composition' && compositionHistory.length > 0) {
+      const previousState = compositionHistory[compositionHistory.length - 1];
+      setCompositionPrompt(previousState.prompt);
+      setCompositionFramework(previousState.framework);
+      setCompositionHistory(prev => prev.slice(0, -1));
+      toast({
+        title: 'Undo Successful',
+        description: 'Reverted to previous composition prompt version.'
+      });
+    } else if (promptType === 'concept' && conceptHistory.length > 0) {
+      const previousState = conceptHistory[conceptHistory.length - 1];
+      setConceptPrompt(previousState.prompt);
+      setConceptFramework(previousState.framework);
+      setTestConcepts(previousState.testConcepts);
+      setCurrentConceptIndex(0); // Reset index to prevent out-of-bounds access
+      setConceptHistory(prev => prev.slice(0, -1));
+      
+      // Increment version to invalidate any in-flight regeneration
+      conceptRefinementVersionRef.current += 1;
+      
+      toast({
+        title: 'Undo Successful',
+        description: 'Reverted to previous concept prompt version and test concepts.'
       });
     }
   };
@@ -529,24 +596,36 @@ export default function StyleWorkspace() {
                     data-testid="textarea-style-feedback"
                   />
                 </div>
-                <Button
-                  onClick={() => handleRefinePrompt('style')}
-                  disabled={refineMutation.isPending || !styleFeedback.trim()}
-                  className="gap-2"
-                  data-testid="button-refine-style"
-                >
-                  {refineMutation.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Refining...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Refine style prompt
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleRefinePrompt('style')}
+                    disabled={refineMutation.isPending || !styleFeedback.trim()}
+                    className="gap-2 flex-1"
+                    data-testid="button-refine-style"
+                  >
+                    {refineMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Refining...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Refine style prompt
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleUndo('style')}
+                    disabled={styleHistory.length === 0}
+                    className="gap-2"
+                    data-testid="button-undo-style"
+                  >
+                    <Undo className="w-4 h-4" />
+                    Undo
+                  </Button>
+                </div>
               </TabsContent>
 
               <TabsContent value="composition" className="space-y-4" data-testid="tab-content-composition">
@@ -577,15 +656,16 @@ export default function StyleWorkspace() {
                     data-testid="textarea-composition-feedback"
                   />
                 </div>
-                <Button
-                  onClick={() => handleRefinePrompt('composition')}
-                  disabled={refineMutation.isPending || !compositionFeedback.trim()}
-                  className="gap-2"
-                  data-testid="button-refine-composition"
-                >
-                  {refineMutation.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleRefinePrompt('composition')}
+                    disabled={refineMutation.isPending || !compositionFeedback.trim()}
+                    className="gap-2 flex-1"
+                    data-testid="button-refine-composition"
+                  >
+                    {refineMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       Refining...
                     </>
                   ) : (
@@ -595,6 +675,17 @@ export default function StyleWorkspace() {
                     </>
                   )}
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleUndo('composition')}
+                  disabled={compositionHistory.length === 0}
+                  className="gap-2"
+                  data-testid="button-undo-composition"
+                >
+                  <Undo className="w-4 h-4" />
+                  Undo
+                </Button>
+              </div>
               </TabsContent>
 
               <TabsContent value="concept" className="space-y-4" data-testid="tab-content-concept">
@@ -622,7 +713,10 @@ export default function StyleWorkspace() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => regenerateConceptsMutation.mutate(undefined)}
+                        onClick={() => {
+                          conceptRefinementVersionRef.current += 1;
+                          regenerateConceptsMutation.mutate({ expectedVersion: conceptRefinementVersionRef.current });
+                        }}
                         disabled={regenerateConceptsMutation.isPending}
                         className="gap-2"
                         data-testid="button-regenerate-concepts"
@@ -686,7 +780,7 @@ export default function StyleWorkspace() {
                   <Button
                     onClick={() => handleRefinePrompt('concept')}
                     disabled={refineMutation.isPending || !conceptFeedback.trim()}
-                    className="gap-2"
+                    className="gap-2 flex-1"
                     data-testid="button-refine-concept"
                   >
                     {refineMutation.isPending ? (
@@ -701,6 +795,18 @@ export default function StyleWorkspace() {
                       </>
                     )}
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleUndo('concept')}
+                    disabled={conceptHistory.length === 0}
+                    className="gap-2"
+                    data-testid="button-undo-concept"
+                  >
+                    <Undo className="w-4 h-4" />
+                    Undo
+                  </Button>
+                </div>
+                <div className="w-full">
                   <Button
                     onClick={handleGeneratePreview}
                     disabled={previewMutation.isPending}
