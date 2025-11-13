@@ -141,7 +141,7 @@ export default function StyleWorkspace() {
 
   // Regenerate test concepts mutation
   const regenerateConceptsMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (params?: { conceptPrompt?: string; conceptFramework?: Record<string, any> | null }) => {
       const token = localStorage.getItem('authToken');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -154,8 +154,8 @@ export default function StyleWorkspace() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          conceptPrompt,
-          conceptFramework,
+          conceptPrompt: params?.conceptPrompt ?? conceptPrompt,
+          conceptFramework: params?.conceptFramework ?? conceptFramework,
         }),
       });
       if (!response.ok) throw new Error('Failed to regenerate test concepts');
@@ -274,6 +274,29 @@ export default function StyleWorkspace() {
       } else if (promptType === 'concept' && result.refinedPrompt) {
         setConceptPrompt(result.refinedPrompt);
         setConceptFeedback('');
+        
+        // Show initial success for prompt refinement
+        toast({
+          title: 'Prompt Refined',
+          description: 'The concept prompt has been successfully refined.'
+        });
+        
+        // Automatically regenerate test concepts with the new concept prompt
+        try {
+          await regenerateConceptsMutation.mutateAsync({
+            conceptPrompt: result.refinedPrompt,
+            conceptFramework: conceptFramework
+          });
+          // Mutation's onSuccess already handles updating state and showing success toast
+        } catch (regenerateError) {
+          console.error('Failed to regenerate test concepts:', regenerateError);
+          toast({
+            title: 'Warning',
+            description: 'Test concepts regeneration failed. You can manually regenerate them using the button below.',
+            variant: 'default'
+          });
+        }
+        return; // Early return to avoid duplicate toast
       }
       
       toast({
@@ -594,7 +617,7 @@ export default function StyleWorkspace() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => regenerateConceptsMutation.mutate()}
+                        onClick={() => regenerateConceptsMutation.mutate(undefined)}
                         disabled={regenerateConceptsMutation.isPending}
                         className="gap-2"
                         data-testid="button-regenerate-concepts"
