@@ -2013,84 +2013,6 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
   }
 });
 
-// POST /api/refine-style - Refine a specific prompt based on user feedback (Protected)
-router.post('/refine-style', requireAuth, async (req, res) => {
-  try {
-    const schema = z.object({
-      promptType: z.enum(['style', 'composition', 'concept']),
-      currentPrompt: z.string().min(1),
-      feedback: z.string().min(1),
-    });
-
-    const validation = schema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: fromZodError(validation.error).toString()
-      });
-    }
-
-    const { promptType, currentPrompt, feedback } = validation.data;
-
-    const promptTypeLabels = {
-      style: 'visual style (lighting, colors, materials, rendering)',
-      composition: 'spatial composition (layout, perspective, depth, balance)',
-      concept: 'concept ideation (metaphors, subject generation, brand tone)'
-    };
-
-    const systemMessage = `You are refining a system prompt for ${promptTypeLabels[promptType]}.
-
-The user will provide:
-1. The current system prompt (200-350 words of instructions to an AI image generator)
-2. Feedback on how to improve it
-
-Your task:
-- Read the current prompt and feedback carefully
-- Make changes PROPORTIONAL to the feedback (subtle feedback = subtle changes)
-- Keep the prompt length between 200-350 words
-- Write in second-person imperative as direct instructions to an AI
-- Maintain focus on ${promptTypeLabels[promptType]} only
-- Return ONLY the refined prompt text (no explanations, no markdown)`;
-
-    const userMessage = `Current prompt:
-${currentPrompt}
-
-User feedback:
-${feedback}
-
-Please provide the refined prompt (200-350 words).`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: systemMessage
-        },
-        {
-          role: "user",
-          content: userMessage
-        }
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-
-    const refinedPrompt = completion.choices[0]?.message?.content?.trim();
-    if (!refinedPrompt) {
-      throw new Error('No refined prompt returned from OpenAI');
-    }
-
-    console.log(`✓ Refined ${promptType} prompt: ${refinedPrompt.length} chars`);
-    
-    res.json({
-      refinedPrompt
-    });
-  } catch (error) {
-    console.error('Error refining prompt:', error);
-    res.status(500).json({ error: 'Failed to refine prompt' });
-  }
-});
 
 // LEGACY ENDPOINT - Remove after frontend migration
 // POST /api/extract-style-legacy - Old two-call extraction (DEPRECATED)
@@ -2558,15 +2480,14 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/refine-style - Refine style definition and/or concept pattern using GPT-4 based on user feedback (Protected)
+// POST /api/refine-style - Unified endpoint to refine prompts and/or frameworks (Protected)
 router.post('/refine-style', requireAuth, async (req, res) => {
   try {
     const schema = z.object({
-      styleData: z.any(), // Accept any dynamic style structure including nested objects
-      conceptPatternData: z.any().optional(), // Accept concept pattern data
+      promptType: z.enum(['style', 'composition', 'concept']),
+      currentPrompt: z.string().min(1),
+      currentFramework: z.any().optional(), // Optional framework to refine
       feedback: z.string().min(1),
-      refineVisualStyle: z.boolean().default(true),
-      refineConceptPattern: z.boolean().default(true),
     });
 
     const validation = schema.safeParse(req.body);
@@ -2577,157 +2498,148 @@ router.post('/refine-style', requireAuth, async (req, res) => {
       });
     }
 
-    const { styleData, conceptPatternData, feedback, refineVisualStyle, refineConceptPattern } = validation.data;
+    const { promptType, currentPrompt, currentFramework, feedback } = validation.data;
 
-    let refinedStyleData = styleData;
-    let refinedConceptPatternData = conceptPatternData;
+    const promptTypeLabels = {
+      style: 'visual style (lighting, colors, materials, rendering)',
+      composition: 'spatial composition (layout, perspective, depth, balance)',
+      concept: 'concept ideation (metaphors, subject generation, brand tone)'
+    };
 
-    // Refine VISUAL STYLE if requested
-    if (refineVisualStyle && styleData) {
-      const styleSystemMessage = `You are a professional visual style analyst. The user will provide you with a current VISUAL STYLE definition (in JSON format) and feedback for improvement. 
+    // STEP 1: Refine the prompt text
+    const promptSystemMessage = `You are refining a system prompt for ${promptTypeLabels[promptType]}.
+
+The user will provide:
+1. The current system prompt (200-350 words of instructions to an AI image generator)
+2. Feedback on how to improve it
+
+Your task:
+- Read the current prompt and feedback carefully
+- Make changes PROPORTIONAL to the feedback (subtle feedback = subtle changes)
+- Keep the prompt length between 200-350 words
+- Write in second-person imperative as direct instructions to an AI
+- Maintain focus on ${promptTypeLabels[promptType]} only
+- Return ONLY the refined prompt text (no explanations, no markdown)`;
+
+    const promptUserMessage = `Current prompt:
+${currentPrompt}
+
+User feedback:
+${feedback}
+
+Please provide the refined prompt (200-350 words).`;
+
+    const promptCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: promptSystemMessage
+        },
+        {
+          role: "user",
+          content: promptUserMessage
+        }
+      ],
+      max_tokens: 500,
+      temperature: 0.7,
+    });
+
+    const refinedPrompt = promptCompletion.choices[0]?.message?.content?.trim();
+    if (!refinedPrompt) {
+      throw new Error('No refined prompt returned from OpenAI');
+    }
+
+    console.log(`✓ Refined ${promptType} prompt: ${refinedPrompt.length} chars`);
+
+    // STEP 2: Refine the framework if provided
+    let refinedFramework = currentFramework;
+
+    if (currentFramework) {
+      const frameworkSystemMessage = `You are a professional ${promptType} analyst. The user will provide you with a current ${promptType.toUpperCase()} framework definition (in JSON format) and feedback for improvement.
 
 Your task is to:
-1. Carefully read the current style definition structure and user feedback
+1. Carefully read the current framework structure and user feedback
 2. Make changes PROPORTIONAL to the instruction - subtle feedback gets subtle changes, dramatic feedback gets dramatic changes
 3. Update ALL relevant fields that relate to the feedback (not just one field)
 4. Maintain the EXACT SAME JSON structure and field names as the input
 5. Only modify field VALUES - do not add or remove fields or change the structure
 
-CRITICAL - Description Field Requirements:
-- The "description" field is THE MOST IMPORTANT field and MUST ALWAYS be significantly updated
-- ALWAYS expand/rewrite the description to be 2-3 detailed sentences (not just 1 short sentence)
-- The description should incorporate the feedback and paint a comprehensive picture of the visual style
+${promptType === 'style' ? `
+CRITICAL - Name Field Requirements:
+- The "name" field is THE MOST IMPORTANT field and MUST ALWAYS be significantly updated
+- ALWAYS expand/rewrite the name to be descriptive (not just 1-2 words)
+- The name should incorporate the feedback and capture the essence of the visual style
 - Include sensory details, technical aspects, and the overall aesthetic impression
+` : ''}
 
-For other fields:
+For all fields:
 - Make changes appropriate to the feedback intensity
-- Update all related fields consistently (e.g., if changing lighting, also update shadows, contrast, mood, etc.)
+- Update all related fields consistently
 - Use precise, descriptive language
 
 Rules:
 - Respond with ONLY valid JSON (no markdown, no code blocks, no explanations)
-- Match the exact structure of the input styleData
-- ALWAYS expand the description field to 2-3 detailed sentences
+- Match the exact structure of the input framework
 - Update all relevant fields proportionally
 - Keep nested objects and arrays intact`;
 
-      const styleUserMessage = `Current visual style definition:
-${JSON.stringify(styleData, null, 2)}
+      const frameworkUserMessage = `Current ${promptType} framework definition:
+${JSON.stringify(currentFramework, null, 2)}
 
 User feedback for refinement:
 ${feedback}
 
-Please provide the refined visual style definition in the same JSON format.`;
+Please provide the refined framework definition in the same JSON format.`;
 
-      const styleCompletion = await openai.chat.completions.create({
+      const frameworkCompletion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: styleSystemMessage
+            content: frameworkSystemMessage
           },
           {
-            role: "user", 
-            content: styleUserMessage
+            role: "user",
+            content: frameworkUserMessage
           }
         ],
         max_tokens: 2000,
         temperature: 0.7,
       });
 
-      let styleJsonText = styleCompletion.choices[0]?.message?.content?.trim();
-      if (!styleJsonText) {
-        throw new Error('No response from OpenAI for visual style refinement');
-      }
+      let frameworkJsonText = frameworkCompletion.choices[0]?.message?.content?.trim();
+      if (!frameworkJsonText) {
+        console.warn(`No response from OpenAI for ${promptType} framework refinement, using original framework`);
+        refinedFramework = currentFramework;
+      } else {
+        frameworkJsonText = frameworkJsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-      styleJsonText = styleJsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-      try {
-        refinedStyleData = JSON.parse(styleJsonText);
-        console.log('✓ Visual style refined successfully');
-      } catch (parseError) {
-        console.error('Failed to parse refined style JSON:', styleJsonText);
-        throw new Error('Invalid JSON response from visual style refinement');
-      }
-    }
-
-    // Refine CONCEPT PATTERN if requested
-    if (refineConceptPattern && conceptPatternData) {
-      const conceptSystemMessage = `You are a visual composition analyst. The user will provide you with a current CONCEPT PATTERN definition (in JSON format) and feedback for improvement.
-
-Your task is to:
-1. Carefully read the current concept pattern structure and user feedback
-2. Make changes PROPORTIONAL to the instruction - subtle feedback gets subtle changes, dramatic feedback gets dramatic changes
-3. Update ALL relevant fields that relate to the feedback
-4. Maintain the EXACT SAME JSON structure and field names as the input
-5. Only modify field VALUES - do not add or remove fields or change the structure
-
-Focus on:
-- Subject matter and what appears in images
-- Compositional patterns and how elements are arranged
-- Spatial relationships between elements
-- Framing, positioning, and visual flow
-
-Rules:
-- Respond with ONLY valid JSON (no markdown, no code blocks, no explanations)
-- Match the exact structure of the input conceptPatternData
-- Update all relevant fields proportionally
-- Keep nested objects and arrays intact`;
-
-      const conceptUserMessage = `Current concept pattern definition:
-${JSON.stringify(conceptPatternData, null, 2)}
-
-User feedback for refinement:
-${feedback}
-
-Please provide the refined concept pattern definition in the same JSON format.`;
-
-      const conceptCompletion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: conceptSystemMessage
-          },
-          {
-            role: "user", 
-            content: conceptUserMessage
-          }
-        ],
-        max_tokens: 1500,
-        temperature: 0.7,
-      });
-
-      let conceptJsonText = conceptCompletion.choices[0]?.message?.content?.trim();
-      if (!conceptJsonText) {
-        throw new Error('No response from OpenAI for concept pattern refinement');
-      }
-
-      conceptJsonText = conceptJsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-      try {
-        refinedConceptPatternData = JSON.parse(conceptJsonText);
-        console.log('✓ Concept pattern refined successfully');
-      } catch (parseError) {
-        console.error('Failed to parse refined concept pattern JSON:', conceptJsonText);
-        throw new Error('Invalid JSON response from concept pattern refinement');
+        try {
+          refinedFramework = JSON.parse(frameworkJsonText);
+          console.log(`✓ ${promptType} framework refined successfully`);
+        } catch (parseError) {
+          console.error(`Failed to parse refined ${promptType} framework JSON:`, frameworkJsonText);
+          console.warn(`Using original framework due to parse error`);
+          refinedFramework = currentFramework;
+        }
       }
     }
 
     console.log('=== REFINEMENT RESULTS ===');
+    console.log('Type:', promptType);
     console.log('Feedback:', feedback);
-    console.log('Refined visual style:', refineVisualStyle);
-    console.log('Refined concept pattern:', refineConceptPattern);
+    console.log('Refined prompt:', refinedPrompt ? 'Yes' : 'No');
+    console.log('Refined framework:', refinedFramework ? 'Yes' : 'No');
     console.log('==========================');
 
     res.json({
-      refinedStyleData,
-      refinedConceptPatternData,
-      originalFeedback: feedback
+      refinedPrompt,
+      refinedFramework
     });
   } catch (error) {
-    console.error('Error refining style:', error);
-    res.status(500).json({ error: 'Failed to refine style definition' });
+    console.error('Error refining:', error);
+    res.status(500).json({ error: 'Failed to refine prompt/framework' });
   }
 });
 

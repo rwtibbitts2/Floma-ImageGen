@@ -211,6 +211,7 @@ export default function StyleWorkspace() {
         body: JSON.stringify({
           promptType,
           currentPrompt: promptType === 'style' ? stylePrompt : promptType === 'composition' ? compositionPrompt : conceptPrompt,
+          currentFramework: promptType === 'style' ? styleFramework : promptType === 'composition' ? compositionFramework : conceptFramework,
           feedback,
         }),
       });
@@ -293,15 +294,18 @@ export default function StyleWorkspace() {
 
       const result = await refineMutation.mutateAsync({ promptType, feedback });
       
-      // Update the appropriate prompt
-      if (promptType === 'style' && result.refinedPrompt) {
-        setStylePrompt(result.refinedPrompt);
+      // Update the appropriate prompt and framework
+      if (promptType === 'style') {
+        if (result.refinedPrompt) setStylePrompt(result.refinedPrompt);
+        if (result.refinedFramework) setStyleFramework(result.refinedFramework);
         setStyleFeedback('');
-      } else if (promptType === 'composition' && result.refinedPrompt) {
-        setCompositionPrompt(result.refinedPrompt);
+      } else if (promptType === 'composition') {
+        if (result.refinedPrompt) setCompositionPrompt(result.refinedPrompt);
+        if (result.refinedFramework) setCompositionFramework(result.refinedFramework);
         setCompositionFeedback('');
-      } else if (promptType === 'concept' && result.refinedPrompt) {
-        setConceptPrompt(result.refinedPrompt);
+      } else if (promptType === 'concept') {
+        if (result.refinedPrompt) setConceptPrompt(result.refinedPrompt);
+        if (result.refinedFramework) setConceptFramework(result.refinedFramework);
         setConceptFeedback('');
         
         // Increment version to mark this refinement
@@ -314,11 +318,11 @@ export default function StyleWorkspace() {
           description: 'The concept prompt has been successfully refined.'
         });
         
-        // Automatically regenerate test concepts with the new concept prompt
+        // Automatically regenerate test concepts with the new concept prompt and framework
         try {
           await regenerateConceptsMutation.mutateAsync({
-            conceptPrompt: result.refinedPrompt,
-            conceptFramework: conceptFramework,
+            conceptPrompt: result.refinedPrompt || conceptPrompt,
+            conceptFramework: result.refinedFramework || conceptFramework,
             expectedVersion: expectedVersion
           });
           // Mutation's onSuccess already handles updating state and showing success toast
@@ -339,6 +343,15 @@ export default function StyleWorkspace() {
         description: `The ${promptType} prompt has been successfully refined.`
       });
     } catch (error) {
+      // Rollback history on failure
+      if (promptType === 'style') {
+        setStyleHistory(prev => prev.slice(0, -1));
+      } else if (promptType === 'composition') {
+        setCompositionHistory(prev => prev.slice(0, -1));
+      } else if (promptType === 'concept') {
+        setConceptHistory(prev => prev.slice(0, -1));
+      }
+      
       toast({
         title: 'Refinement Failed',
         description: 'Failed to refine the prompt. Please try again.',
