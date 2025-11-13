@@ -2412,6 +2412,8 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       stylePrompt: z.string().optional(),
       compositionPrompt: z.string().optional(),
       conceptPrompt: z.string().optional(),
+      styleFramework: z.any().optional(),
+      compositionFramework: z.any().optional(),
       concept: z.string().min(1), // The specific concept to generate
       model: z.string().optional().default('gpt-image-1'),
       size: z.string().optional().default('1024x1024'),
@@ -2428,13 +2430,20 @@ router.post('/generate-style-preview', requireAuth, async (req, res) => {
       });
     }
 
-    const { stylePrompt, compositionPrompt, conceptPrompt, concept, model, size, quality, transparency, renderText } = validation.data;
+    const { stylePrompt, compositionPrompt, conceptPrompt, styleFramework, compositionFramework, concept, model, size, quality, transparency, renderText } = validation.data;
     
-    // Combine all three prompts into system instructions
-    const systemInstructions = [
-      stylePrompt || '',
-      compositionPrompt || '',
-    ].filter(p => p).join(' ');
+    // Prioritize framework instructions, fall back to legacy text prompts
+    // Note: conceptPrompt is NOT used here - it's only for generating concepts
+    const styleInstructions = styleFramework?.final_instruction_prompt || stylePrompt || '';
+    const compositionInstructions = compositionFramework?.final_instruction_prompt || compositionPrompt || '';
+    
+    // Log which prompt sources are being used
+    const styleSource = styleFramework?.final_instruction_prompt ? 'styleFramework' : 'stylePrompt';
+    const compositionSource = compositionFramework?.final_instruction_prompt ? 'compositionFramework' : 'compositionPrompt';
+    console.log(`Preview generation using: ${styleSource} + ${compositionSource}`);
+    
+    // Combine style and composition instructions
+    const systemInstructions = [styleInstructions, compositionInstructions].filter(p => p).join(' ');
     
     // Build prompt with system instructions + concept
     let fullPrompt = `System instructions:\n${systemInstructions}\n\nSubject: ${concept}`;

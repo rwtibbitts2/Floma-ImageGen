@@ -238,6 +238,8 @@ export default function StyleWorkspace() {
           stylePrompt,
           compositionPrompt,
           conceptPrompt,
+          styleFramework,
+          compositionFramework,
           concept: generatedConcept,
           model: generationSettings.model,
           quality: generationSettings.quality,
