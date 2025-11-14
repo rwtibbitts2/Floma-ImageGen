@@ -153,35 +153,39 @@ export default function IntelligentRefineModal({
 
         <ScrollArea className="max-h-[60vh]">
           <div className="space-y-4 pr-4">
-            {/* Instructions input - shown before analysis */}
-            {!isAnalyzing && !refinementResult && (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="user-instructions">
-                    Instructions (Optional)
-                  </Label>
-                  <Textarea
-                    id="user-instructions"
-                    placeholder="Provide specific feedback or focus areas for the AI to consider during analysis. For example: 'Focus on color temperature differences' or 'The preview should have warmer tones like the reference'"
-                    value={userInstructions}
-                    onChange={(e) => setUserInstructions(e.target.value)}
-                    className="min-h-[100px] resize-none"
-                    data-testid="textarea-refine-instructions"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Add any specific aspects you want the AI to focus on when comparing the images
-                  </p>
-                </div>
+            {/* Instructions input - always visible */}
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="user-instructions">
+                  Instructions (Optional)
+                </Label>
+                <Textarea
+                  id="user-instructions"
+                  placeholder="Provide specific feedback or focus areas for the AI to consider during analysis. For example: 'Focus on color temperature differences' or 'The preview should have warmer tones like the reference'"
+                  value={userInstructions}
+                  onChange={(e) => setUserInstructions(e.target.value)}
+                  className="min-h-[100px] resize-none"
+                  disabled={isAnalyzing}
+                  data-testid="textarea-refine-instructions"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Add any specific aspects you want the AI to focus on when comparing the images
+                </p>
+              </div>
+              {!refinementResult && (
                 <Button 
                   onClick={performIntelligentRefine}
                   className="w-full"
+                  disabled={isAnalyzing}
                   data-testid="button-start-analysis"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Start Analysis
+                  {isAnalyzing ? 'Analyzing...' : 'Start Analysis'}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
+
+            <Separator />
 
             {isAnalyzing && (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
@@ -303,6 +307,20 @@ export default function IntelligentRefineModal({
           >
             Cancel
           </Button>
+          {refinementResult && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRefinementResult(null);
+                setError(null);
+                performIntelligentRefine();
+              }}
+              disabled={isAnalyzing}
+              data-testid="button-run-again"
+            >
+              Run Again
+            </Button>
+          )}
           <Button
             onClick={handleAccept}
             disabled={!refinementResult || isAnalyzing}
