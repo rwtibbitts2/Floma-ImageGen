@@ -30,11 +30,11 @@ interface IntelligentRefineModalProps {
 interface RefinementResult {
   explanation: string;
   refinedStylePrompt: string;
-  refinedStyleFramework: Record<string, any>;
+  refinedStyleFramework: Record<string, any> | null;
   refinedCompositionPrompt: string;
-  refinedCompositionFramework: Record<string, any>;
+  refinedCompositionFramework: Record<string, any> | null;
   refinedConceptPrompt: string;
-  refinedConceptFramework: Record<string, any>;
+  refinedConceptFramework: Record<string, any> | null;
 }
 
 export default function IntelligentRefineModal({

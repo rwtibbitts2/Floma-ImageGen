@@ -452,13 +452,14 @@ export default function StyleWorkspace() {
     setCompositionHistory(prev => [...prev, { prompt: compositionPrompt, framework: compositionFramework }]);
     setConceptHistory(prev => [...prev, { prompt: conceptPrompt, framework: conceptFramework, testConcepts }]);
     
-    // Apply all refinements atomically
-    setStylePrompt(refinements.refinedStylePrompt || stylePrompt);
-    setStyleFramework(refinements.refinedStyleFramework || styleFramework);
-    setCompositionPrompt(refinements.refinedCompositionPrompt || compositionPrompt);
-    setCompositionFramework(refinements.refinedCompositionFramework || compositionFramework);
-    setConceptPrompt(refinements.refinedConceptPrompt || conceptPrompt);
-    setConceptFramework(refinements.refinedConceptFramework || conceptFramework);
+    // Apply all refinements atomically, distinguishing between missing fields and explicit nulls
+    // Missing field (undefined) → keep original, explicit null → clear framework
+    setStylePrompt('refinedStylePrompt' in refinements ? refinements.refinedStylePrompt : stylePrompt);
+    setStyleFramework('refinedStyleFramework' in refinements ? refinements.refinedStyleFramework : styleFramework);
+    setCompositionPrompt('refinedCompositionPrompt' in refinements ? refinements.refinedCompositionPrompt : compositionPrompt);
+    setCompositionFramework('refinedCompositionFramework' in refinements ? refinements.refinedCompositionFramework : compositionFramework);
+    setConceptPrompt('refinedConceptPrompt' in refinements ? refinements.refinedConceptPrompt : conceptPrompt);
+    setConceptFramework('refinedConceptFramework' in refinements ? refinements.refinedConceptFramework : conceptFramework);
     
     // Increment concept version to invalidate any in-flight regeneration
     conceptRefinementVersionRef.current += 1;

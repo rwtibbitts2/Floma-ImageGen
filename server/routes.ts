@@ -3553,15 +3553,27 @@ Please analyze the visual differences and provide refined versions of all prompt
       return res.status(500).json({ error: 'Invalid refinement response format' });
     }
 
-    // Ensure all prompts and frameworks are present, falling back to originals if missing
+    // Normalize response, distinguishing between missing fields (use original) and explicit null (allow clearing)
     const normalizedResult = {
       explanation: refinementResult.explanation,
-      refinedStylePrompt: refinementResult.refinedStylePrompt || stylePrompt,
-      refinedStyleFramework: refinementResult.refinedStyleFramework || styleFramework,
-      refinedCompositionPrompt: refinementResult.refinedCompositionPrompt || compositionPrompt,
-      refinedCompositionFramework: refinementResult.refinedCompositionFramework || compositionFramework,
-      refinedConceptPrompt: refinementResult.refinedConceptPrompt || conceptPrompt,
-      refinedConceptFramework: refinementResult.refinedConceptFramework || conceptFramework,
+      refinedStylePrompt: 'refinedStylePrompt' in refinementResult 
+        ? refinementResult.refinedStylePrompt 
+        : stylePrompt,
+      refinedStyleFramework: 'refinedStyleFramework' in refinementResult 
+        ? refinementResult.refinedStyleFramework 
+        : styleFramework,
+      refinedCompositionPrompt: 'refinedCompositionPrompt' in refinementResult 
+        ? refinementResult.refinedCompositionPrompt 
+        : compositionPrompt,
+      refinedCompositionFramework: 'refinedCompositionFramework' in refinementResult 
+        ? refinementResult.refinedCompositionFramework 
+        : compositionFramework,
+      refinedConceptPrompt: 'refinedConceptPrompt' in refinementResult 
+        ? refinementResult.refinedConceptPrompt 
+        : conceptPrompt,
+      refinedConceptFramework: 'refinedConceptFramework' in refinementResult 
+        ? refinementResult.refinedConceptFramework 
+        : conceptFramework,
     };
 
     console.log('Intelligent refine completed successfully');
