@@ -26,7 +26,8 @@ type PromptType =
   | 'composition_extraction_schema'
   | 'concept_extraction_instructions'
   | 'concept_extraction_schema'
-  | 'concept_output_schema';
+  | 'concept_output_schema'
+  | 'intelligent_refine';
 
 interface SystemPrompt {
   id: string;
@@ -51,6 +52,7 @@ const systemPromptSchema = z.object({
     'concept_extraction_instructions',
     'concept_extraction_schema',
     'concept_output_schema',
+    'intelligent_refine',
   ]),
 });
 
@@ -64,6 +66,7 @@ const promptTypeLabels: Record<PromptType, string> = {
   concept_extraction_instructions: 'Concept Extraction',
   concept_extraction_schema: 'Concept Schema',
   concept_output_schema: 'Concept Output Schema',
+  intelligent_refine: 'Intelligent Refine',
 };
 
 const promptTypeDescriptions: Record<PromptType, string> = {
@@ -74,6 +77,7 @@ const promptTypeDescriptions: Record<PromptType, string> = {
   concept_extraction_instructions: 'Instructions for extracting conceptual design language',
   concept_extraction_schema: 'JSON schema for concept extraction responses',
   concept_output_schema: 'JSON schema defining the structure of generated concept outputs (visual_concept + core_graphic)',
+  intelligent_refine: 'Instructions for AI-powered refinement comparing reference and preview images to generate improved prompts',
 };
 
 export default function SystemPromptsManagement() {
@@ -304,7 +308,7 @@ export default function SystemPromptsManagement() {
 
         {/* Tabs */}
         <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as PromptType)}>
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="composition_extraction_instructions" data-testid="tab-composition">
               Composition
             </TabsTrigger>
@@ -316,6 +320,9 @@ export default function SystemPromptsManagement() {
             </TabsTrigger>
             <TabsTrigger value="style_extraction_instructions" data-testid="tab-style">
               Style
+            </TabsTrigger>
+            <TabsTrigger value="intelligent_refine" data-testid="tab-intelligent-refine">
+              Intelligent Refine
             </TabsTrigger>
           </TabsList>
 
