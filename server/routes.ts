@@ -3586,6 +3586,10 @@ Provide refined versions of all prompts and frameworks to improve both visual an
       refinedConceptFramework: 'refinedConceptFramework' in refinementResult 
         ? refinementResult.refinedConceptFramework 
         : conceptFramework,
+      testConceptFeedback: Array.isArray(refinementResult.testConceptFeedback) 
+        ? refinementResult.testConceptFeedback 
+        : [],
+      overallConceptGuidance: refinementResult.overallConceptGuidance || null,
     };
 
     console.log('Intelligent refine completed successfully');

@@ -8,6 +8,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -28,6 +29,14 @@ interface IntelligentRefineModalProps {
   testConcepts: any[];
 }
 
+interface TestConceptFeedback {
+  index: number;
+  summary: string;
+  alignmentScore: number;
+  requiredFixes: string;
+  status: 'valid' | 'invalid';
+}
+
 interface RefinementResult {
   explanation: string;
   refinedStylePrompt: string;
@@ -36,6 +45,8 @@ interface RefinementResult {
   refinedCompositionFramework: Record<string, any> | null;
   refinedConceptPrompt: string;
   refinedConceptFramework: Record<string, any> | null;
+  testConceptFeedback: TestConceptFeedback[];
+  overallConceptGuidance: string | null;
 }
 
 export default function IntelligentRefineModal({
@@ -203,6 +214,54 @@ export default function IntelligentRefineModal({
                     </div>
                   </div>
                 </div>
+
+                {/* Test Concept Feedback */}
+                {refinementResult.testConceptFeedback && refinementResult.testConceptFeedback.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm">Test Concept Evaluation</h4>
+                      
+                      <div className="space-y-2">
+                        {refinementResult.testConceptFeedback.map((feedback) => (
+                          <div 
+                            key={feedback.index} 
+                            className="p-3 rounded-md border bg-card space-y-1"
+                            data-testid={`test-concept-feedback-${feedback.index}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium">Concept {feedback.index + 1}</span>
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant={feedback.status === 'valid' ? 'default' : 'destructive'}
+                                  className="text-xs"
+                                >
+                                  {feedback.status}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  Score: {feedback.alignmentScore}/10
+                                </Badge>
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{feedback.summary}</p>
+                            {feedback.requiredFixes && feedback.requiredFixes !== 'none' && (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-medium">Fixes needed:</span> {feedback.requiredFixes}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {refinementResult.overallConceptGuidance && (
+                        <div className="p-4 rounded-lg bg-muted/50 border">
+                          <p className="text-xs font-medium mb-2">Overall Guidance</p>
+                          <p className="text-sm">{refinementResult.overallConceptGuidance}</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
