@@ -25,6 +25,7 @@ interface IntelligentRefineModalProps {
   compositionFramework: Record<string, any> | null;
   conceptPrompt: string;
   conceptFramework: Record<string, any> | null;
+  testConcepts: any[];
 }
 
 interface RefinementResult {
@@ -49,6 +50,7 @@ export default function IntelligentRefineModal({
   compositionFramework,
   conceptPrompt,
   conceptFramework,
+  testConcepts,
 }: IntelligentRefineModalProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export default function IntelligentRefineModal({
           compositionFramework,
           conceptPrompt,
           conceptFramework,
+          testConcepts,
         }),
       });
 

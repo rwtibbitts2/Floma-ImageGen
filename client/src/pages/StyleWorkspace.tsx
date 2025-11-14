@@ -984,6 +984,7 @@ export default function StyleWorkspace() {
         compositionFramework={compositionFramework}
         conceptPrompt={conceptPrompt}
         conceptFramework={conceptFramework}
+        testConcepts={testConcepts}
       />
     </div>
   );
