@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -66,13 +68,7 @@ export default function IntelligentRefineModal({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refinementResult, setRefinementResult] = useState<RefinementResult | null>(null);
-
-  // Trigger analysis when modal opens
-  useEffect(() => {
-    if (isOpen && !refinementResult && !isAnalyzing) {
-      performIntelligentRefine();
-    }
-  }, [isOpen]);
+  const [userInstructions, setUserInstructions] = useState('');
 
   const performIntelligentRefine = async () => {
     setIsAnalyzing(true);
@@ -100,6 +96,7 @@ export default function IntelligentRefineModal({
           conceptPrompt,
           conceptFramework,
           testConcepts,
+          userInstructions: userInstructions.trim() || undefined,
         }),
       });
 
@@ -137,6 +134,7 @@ export default function IntelligentRefineModal({
   const handleClose = () => {
     setRefinementResult(null);
     setError(null);
+    setUserInstructions('');
     onClose();
   };
 
@@ -155,6 +153,36 @@ export default function IntelligentRefineModal({
 
         <ScrollArea className="max-h-[60vh]">
           <div className="space-y-4 pr-4">
+            {/* Instructions input - shown before analysis */}
+            {!isAnalyzing && !refinementResult && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="user-instructions">
+                    Instructions (Optional)
+                  </Label>
+                  <Textarea
+                    id="user-instructions"
+                    placeholder="Provide specific feedback or focus areas for the AI to consider during analysis. For example: 'Focus on color temperature differences' or 'The preview should have warmer tones like the reference'"
+                    value={userInstructions}
+                    onChange={(e) => setUserInstructions(e.target.value)}
+                    className="min-h-[100px] resize-none"
+                    data-testid="textarea-refine-instructions"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Add any specific aspects you want the AI to focus on when comparing the images
+                  </p>
+                </div>
+                <Button 
+                  onClick={performIntelligentRefine}
+                  className="w-full"
+                  data-testid="button-start-analysis"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Start Analysis
+                </Button>
+              </div>
+            )}
+
             {isAnalyzing && (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
