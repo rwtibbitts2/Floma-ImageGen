@@ -1624,13 +1624,13 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       conceptAnalysisPrompt += `\nAdditional context: ${userContext}\n\n`;
     }
 
-    // Make THREE parallel GPT-4 vision calls
+    // Make THREE parallel GPT-5.1 vision calls
     console.log('=== EXTRACTING THREE PROMPTS IN PARALLEL ===');
     
     const [styleResult, compositionResult, conceptResult] = await Promise.all([
       // 1. Extract STYLE PROMPT (JSON format)
       openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5.1",
         messages: [
           {
             role: "user",
@@ -1653,7 +1653,7 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       
       // 2. Extract COMPOSITION PROMPT (JSON format)
       openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5.1",
         messages: [
           {
             role: "user",
@@ -1676,7 +1676,7 @@ router.post('/extract-style', requireAuth, async (req, res) => {
       
       // 3. Extract CONCEPT PROMPT (JSON format)
       openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5.1",
         messages: [
           {
             role: "user",
@@ -1813,7 +1813,7 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
       : 'Generate 3 diverse visual concepts that showcase the style and composition approach.';
 
     const testConceptCompletion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages: [
         { role: "system", content: testConceptSystemPrompt },
         { role: "user", content: testConceptUserMessage }
@@ -1958,7 +1958,7 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
       : 'Generate 3 diverse visual concepts that showcase the style and composition approach.';
 
     const testConceptCompletion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages: [
         { role: "system", content: testConceptSystemPrompt },
         { role: "user", content: testConceptUserMessage }
@@ -2099,9 +2099,9 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 
 Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 
-    // Extract VISUAL STYLE using GPT-4 Vision
+    // Extract VISUAL STYLE using GPT-5.1 Vision
     const styleResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages: [
         {
           role: "system",
@@ -2126,9 +2126,9 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
       max_tokens: 2000,
     });
 
-    // Extract CONCEPT PATTERN using GPT-4 Vision
+    // Extract CONCEPT PATTERN using GPT-5.1 Vision
     const conceptPatternResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages: [
         {
           role: "system",
@@ -2262,7 +2262,7 @@ Respond ONLY with valid JSON. No markdown, no explanations, no code blocks.`;
 
     // Generate concept using text-only (no image to avoid safety filters)
     const conceptResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages: [
         {
           role: "user",
@@ -2354,7 +2354,7 @@ router.post('/generate-new-concept', requireAuth, async (req, res) => {
 
     // Generate new concept using text-only (no image to avoid safety filters)
     const conceptResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages: [
         {
           role: "user",
@@ -2539,7 +2539,7 @@ ${feedback}
 Please provide the refined prompt (200-350 words).`;
 
     const promptCompletion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.1",
       messages: [
         {
           role: "system",
@@ -2602,7 +2602,7 @@ ${feedback}
 Please provide the refined framework definition in the same JSON format.`;
 
       const frameworkCompletion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5.1",
         messages: [
           {
             role: "system",
@@ -3105,7 +3105,7 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
     }
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5.1',
       messages,
       temperature: temperature,
     });
@@ -3275,7 +3275,7 @@ Do NOT wrap in an object with "concepts" key. Do NOT use markdown code blocks.`;
     }
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5.1',
       messages,
       temperature: 0.8,
     });
@@ -3472,14 +3472,14 @@ Please analyze:
 ${userInstructions ? '4. Pay special attention to the user instructions provided above\n' : ''}
 Provide refined versions of all prompts and frameworks to improve both visual and conceptual alignment.`;
 
-    // Make GPT-5 vision API call with both images, with fallback to GPT-4o
+    // Make GPT-5.1 vision API call with both images, with fallback to GPT-4o
     let completion;
-    let modelUsed = "gpt-5";
+    let modelUsed = "gpt-5.1";
     
     try {
-      console.log('Calling GPT-5 for intelligent refinement...');
+      console.log('Calling GPT-5.1 for intelligent refinement...');
       completion = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-5.1",
         messages: [
           {
             role: "system",
@@ -3507,9 +3507,9 @@ Provide refined versions of all prompts and frameworks to improve both visual an
         max_tokens: 3000,
         response_format: { type: "json_object" }
       });
-      console.log('GPT-5 response received');
+      console.log('GPT-5.1 response received');
     } catch (gpt5Error) {
-      console.warn('GPT-5 call failed, falling back to GPT-4o:', gpt5Error);
+      console.warn('GPT-5.1 call failed, falling back to GPT-4o:', gpt5Error);
       modelUsed = "gpt-4o";
       
       try {
@@ -3544,8 +3544,8 @@ Provide refined versions of all prompts and frameworks to improve both visual an
         });
         console.log('GPT-4o fallback response received');
       } catch (gpt4oError) {
-        console.error('Both GPT-5 and GPT-4o calls failed:', gpt4oError);
-        return res.status(503).json({ error: 'AI refinement service unavailable. Both GPT-5 and GPT-4o failed.' });
+        console.error('Both GPT-5.1 and GPT-4o calls failed:', gpt4oError);
+        return res.status(503).json({ error: 'AI refinement service unavailable. Both GPT-5.1 and GPT-4o failed.' });
       }
     }
 
