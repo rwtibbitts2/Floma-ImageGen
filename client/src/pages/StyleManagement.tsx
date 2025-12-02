@@ -193,100 +193,113 @@ export default function StyleManagement() {
             </DropdownMenu>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {styles.map((style) => (
-              <Card key={style.id} className="hover-elevate group" data-testid={`card-style-${style.id}`}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{style.name}</CardTitle>
-                      {style.isAiExtracted && (
-                        <Badge variant="secondary" className="text-xs" data-testid="badge-ai-extracted">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          AI
-                        </Badge>
+              <Card key={style.id} className="hover-elevate group overflow-hidden" data-testid={`card-style-${style.id}`}>
+                <CardContent className="p-3 space-y-2">
+                  {/* Header: Name and AI badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-sm truncate" title={style.name}>
+                        {style.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {style.createdAt ? new Date(style.createdAt).toLocaleDateString() : 'Unknown date'}
+                      </p>
+                    </div>
+                    {style.isAiExtracted && (
+                      <Badge variant="secondary" className="text-xs shrink-0" data-testid="badge-ai-extracted">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        AI
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Thumbnail images side by side */}
+                  <div className="flex gap-1">
+                    <div className="flex-1 aspect-square rounded overflow-hidden bg-muted">
+                      {style.referenceImageUrl ? (
+                        <img
+                          src={style.referenceImageUrl}
+                          alt={`Reference for ${style.name}`}
+                          className="w-full h-full object-cover"
+                          data-testid={`img-reference-${style.id}`}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 aspect-square rounded overflow-hidden bg-muted">
+                      {style.previewImageUrl ? (
+                        <img
+                          src={style.previewImageUrl}
+                          alt={`Preview of ${style.name} style`}
+                          className="w-full h-full object-cover"
+                          data-testid={`img-preview-${style.id}`}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                        </div>
                       )}
                     </div>
                   </div>
-                  {style.description && (
-                    <CardDescription>{style.description}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Reference Image Preview */}
-                  {style.referenceImageUrl && (
-                    <div className="aspect-video rounded-md overflow-hidden bg-muted">
-                      <img
-                        src={style.referenceImageUrl}
-                        alt={`Reference for ${style.name}`}
-                        className="w-full h-full object-cover"
-                        data-testid={`img-reference-${style.id}`}
-                      />
-                    </div>
-                  )}
 
-                  {/* Preview Image */}
-                  {style.previewImageUrl && (
-                    <div className="aspect-square rounded-md overflow-hidden bg-muted">
-                      <img
-                        src={style.previewImageUrl}
-                        alt={`Preview of ${style.name} style`}
-                        className="w-full h-full object-cover"
-                        data-testid={`img-preview-${style.id}`}
-                      />
-                    </div>
-                  )}
-
-                  {/* Style Prompt Preview */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Style Prompt</p>
-                    <p className="text-sm line-clamp-3" data-testid={`text-style-prompt-${style.id}`}>
-                      {style.stylePrompt}
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
+                  {/* Compact Actions */}
+                  <div className="flex gap-1 pt-1">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleEditStyle(style)}
-                      className="flex-1 gap-1"
+                      className="flex-1 h-7 text-xs"
                       data-testid={`button-edit-${style.id}`}
                     >
-                      <Edit3 className="w-3 h-3" />
+                      <Edit3 className="w-3 h-3 mr-1" />
                       Edit
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDuplicateStyle(style.id)}
-                      className="gap-1"
-                      data-testid={`button-duplicate-${style.id}`}
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
                       asChild
-                      className="flex-1 gap-1"
+                      className="flex-1 h-7 text-xs"
                       data-testid={`button-use-${style.id}`}
                     >
                       <Link href={`/?styleId=${style.id}`}>
-                        <Eye className="w-3 h-3" />
+                        <Eye className="w-3 h-3 mr-1" />
                         Use
                       </Link>
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteStyle(style.id)}
-                      className="gap-1 text-destructive hover:text-destructive"
-                      data-testid={`button-delete-${style.id}`}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          data-testid={`button-more-${style.id}`}
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem 
+                          onClick={() => handleDuplicateStyle(style.id)}
+                          data-testid={`menuitem-duplicate-${style.id}`}
+                        >
+                          <Copy className="w-3 h-3 mr-2" />
+                          Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteStyle(style.id)}
+                          className="text-destructive focus:text-destructive"
+                          data-testid={`menuitem-delete-${style.id}`}
+                        >
+                          <Trash2 className="w-3 h-3 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>
