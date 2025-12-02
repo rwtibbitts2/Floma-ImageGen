@@ -122,8 +122,10 @@ export default function Home() {
     return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Filter out temporary sessions for the main display
-  const savedSessions = sessions.filter((s: ProjectSession) => !s.isTemporary);
+  // Filter sessions for the main display:
+  // - Exclude temporary sessions
+  // - Exclude working sessions (name is null) - these never had images generated
+  const savedSessions = sessions.filter((s: ProjectSession) => !s.isTemporary && s.name !== null);
   const temporarySession = sessions.find((s: ProjectSession) => s.isTemporary);
 
   return (
